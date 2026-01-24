@@ -7,6 +7,7 @@ services:
     runtime: python
     region: oregon  # or ohio, frankfurt, singapore
     plan: free  # or starter, standard, pro
+    pythonVersion: 3.11
 
     # Build settings
     buildCommand: pip install -r requirements.txt
