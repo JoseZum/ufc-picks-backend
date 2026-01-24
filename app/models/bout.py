@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class FighterSnapshot(BaseModel):
     """Snapshot histórico del estado del peleador en una pelea específica"""
-    
+
     fighter_name: str
     corner: str  # red | blue
 
@@ -21,6 +21,11 @@ class FighterSnapshot(BaseModel):
 
     height_cm: Optional[int] = None
     reach_cm: Optional[int] = None
+
+    # Tapology data for images
+    tapology_id: Optional[str] = None
+    tapology_url: Optional[str] = None
+    profile_image_url: Optional[str] = None  # /proxy/tapology/... path for nginx
 
     class Config:
         populate_by_name = True

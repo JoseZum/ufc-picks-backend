@@ -61,7 +61,11 @@ class BoutRepository:
         status: Optional[str] = None
     ) -> list[Bout]:
         """
-        Obtiene todas las peleas de un evento
+        Obtiene todas las peleas de un evento ordenadas correctamente:
+        1. Main event primero
+        2. Co-main event segundo  
+        3. Resto de main card por card_order
+        4. Prelims por card_order
         
         Ejemplo: bouts = await repo.get_by_event(event_id=123, status="scheduled")
         """
@@ -69,7 +73,14 @@ class BoutRepository:
         if status:
             query["status"] = status
 
-        cursor = self.collection.find(query).sort("id", 1)
+        # Orden correcto: main event -> co-main -> main card -> prelims
+        # Usamos múltiples criterios de ordenamiento
+        cursor = self.collection.find(query).sort([
+            ("is_main_event", -1),      # Main event primero (True = -1)
+            ("is_co_main_event", -1),   # Co-main segundo  
+            ("card_section", 1),        # "main" antes que "prelim" alfabéticamente
+            ("card_order", 1)           # Orden dentro de cada sección
+        ])
         docs = await cursor.to_list(length=None)
         return [Bout(**doc) for doc in docs]
 

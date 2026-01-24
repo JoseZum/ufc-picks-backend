@@ -54,11 +54,12 @@ class EventRepository:
     async def get_upcoming(self, limit: int = 5) -> list[Event]:
         """
         Obtiene próximos eventos programados
-        
+
         Ordenados por fecha ascendente
         """
-        today = date.today()
-        
+        # MongoDB necesita datetime, no date
+        today = datetime.combine(date.today(), datetime.min.time())
+
         cursor = self.collection.find({
             "status": "scheduled",
             "date": {"$gte": today}
@@ -77,15 +78,19 @@ class EventRepository:
         return [Event(**doc) for doc in docs]
 
     async def get_by_date_range(
-        self, 
-        start_date: date, 
+        self,
+        start_date: date,
         end_date: date
     ) -> list[Event]:
         """Obtiene eventos en un rango de fechas"""
+        # MongoDB necesita datetime, no date
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+
         cursor = self.collection.find({
             "date": {
-                "$gte": start_date,
-                "$lte": end_date
+                "$gte": start_dt,
+                "$lte": end_dt
             }
         }).sort("date", 1)
 
@@ -164,7 +169,7 @@ class EventRepository:
 
     async def count_upcoming(self) -> int:
         """Cuenta eventos programados próximos"""
-        today = date.today()
+        today = datetime.combine(date.today(), datetime.min.time())
         return await self.collection.count_documents({
             "status": "scheduled",
             "date": {"$gte": today}

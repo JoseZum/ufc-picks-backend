@@ -1,0 +1,41 @@
+# Render Blueprint Specification
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: ufc-picks-api
+    runtime: python
+    region: oregon  # or ohio, frankfurt, singapore
+    plan: free  # or starter, standard, pro
+
+    # Build settings
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    # Health check
+    healthCheckPath: /health
+
+    # Environment variables (set these in Render dashboard or use envVarGroups)
+    envVars:
+      - key: MONGODB_URI
+        sync: false  # Set manually in dashboard (contains secrets)
+      - key: MONGODB_DB_NAME
+        value: ufc_picks
+      - key: JWT_SECRET
+        generateValue: true  # Render generates a random value
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: 10080
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Set manually in dashboard
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false  # Set manually in dashboard
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: CORS_ORIGINS
+        sync: false  # Set to your Vercel frontend URL
+      - key: PYTHON_VERSION
+        value: 3.11.0
