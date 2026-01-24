@@ -37,9 +37,15 @@ app = FastAPI(
 # CORS para que el frontend en localhost:3000 pueda hacer requests
 origins = [origin.strip() for origin in settings.cors_origins.split(",")]
 
+# En producción, permitir también dominios de Vercel usando regex
+allow_origin_regex = None
+if settings.app_env == "production":
+    allow_origin_regex = r"https://.*\.vercel\.app"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],  # GET, POST, DELETE, etc
     allow_headers=["*"],   # Authorization, Content-Type, etc
