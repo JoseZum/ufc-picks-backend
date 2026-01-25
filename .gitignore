@@ -1,3 +1,5 @@
 .vscode/
 app/__pycache__/
 .env
+
+app/controllers/__pycache__

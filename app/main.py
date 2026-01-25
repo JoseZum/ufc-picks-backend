@@ -18,6 +18,7 @@ from app.controllers.bouts_controller import router as bouts_router
 from app.controllers.picks_controller import router as picks_router
 from app.controllers.leaderboard_controller import router as leaderboard_router
 from app.controllers.health_controller import router as health_router
+from app.controllers.proxy_controller import router as proxy_router
 
 settings = get_settings()
 
@@ -99,6 +100,7 @@ app.include_router(events_router)
 app.include_router(bouts_router)
 app.include_router(picks_router)
 app.include_router(leaderboard_router)
+app.include_router(proxy_router)
 
 
 @app.get("/")
