@@ -1,11 +1,13 @@
 """
-Entry point de la API 
+Entry point de la API
 """
 
+import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import get_settings
 from app.database import Database
@@ -19,6 +21,59 @@ from app.controllers.health_controller import router as health_router
 
 settings = get_settings()
 
+# Parse CORS origins
+CORS_ORIGINS = [origin.strip() for origin in settings.cors_origins.split(",")]
+CORS_ORIGIN_REGEX = re.compile(r"https://.*\.vercel\.app") if settings.app_env == "production" else None
+
+
+def is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed by explicit list or regex pattern."""
+    if not origin:
+        return False
+    if origin in CORS_ORIGINS:
+        return True
+    if CORS_ORIGIN_REGEX and CORS_ORIGIN_REGEX.match(origin):
+        return True
+    return False
+
+
+class CORSMiddleware(BaseHTTPMiddleware):
+    """
+    Custom CORS middleware that handles OPTIONS preflight BEFORE routing.
+
+    This fixes the issue where FastAPI's query parameter validation
+    causes OPTIONS requests to fail with 400.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+
+        # Handle preflight OPTIONS request IMMEDIATELY
+        if request.method == "OPTIONS":
+            if is_allowed_origin(origin):
+                return Response(
+                    status_code=200,
+                    headers={
+                        "Access-Control-Allow-Origin": origin,
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                        "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Origin, X-Requested-With",
+                        "Access-Control-Allow-Credentials": "true",
+                        "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+                    }
+                )
+            else:
+                # Origin not allowed
+                return Response(status_code=403, content="Origin not allowed")
+
+        # For non-OPTIONS requests, proceed normally and add CORS headers to response
+        response = await call_next(request)
+
+        if is_allowed_origin(origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +81,7 @@ async def lifespan(app: FastAPI):
     yield
     await Database.disconnect()
 
-# Creo la app 
+# Creo la app
 app = FastAPI(
     title="UFC Picks API",
     description="Backend de la app para predicciones de UFC",
@@ -34,22 +89,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS para que el frontend en localhost:3000 pueda hacer requests
-origins = [origin.strip() for origin in settings.cors_origins.split(",")]
-
-# En producción, permitir también dominios de Vercel usando regex
-allow_origin_regex = None
-if settings.app_env == "production":
-    allow_origin_regex = r"https://.*\.vercel\.app"
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=allow_origin_regex,
-    allow_credentials=True,
-    allow_methods=["*"],  # GET, POST, DELETE, etc
-    allow_headers=["*"],   # Authorization, Content-Type, etc
-)
+# Add custom CORS middleware (handles OPTIONS before routing)
+app.add_middleware(CORSMiddleware)
 
 # Agrego todos los routers de los controllers al app
 app.include_router(health_router)
