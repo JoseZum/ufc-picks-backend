@@ -103,7 +103,7 @@ async def get_bout_details(
     - Gimnasios, nacionalidades
     - Resultado (si está disponible)
     """
-    # Buscar la pelea en la base de datos
+    # Buscar la pelea básica
     bout_data = await db["bouts"].find_one({"id": bout_id, "event_id": event_id})
 
     if not bout_data:
@@ -112,9 +112,21 @@ async def get_bout_details(
             detail=f"Bout {bout_id} not found in event {event_id}"
         )
 
-    # Convertir ObjectId de MongoDB a string si existe
-    if "_id" in bout_data:
-        bout_data["_id"] = str(bout_data["_id"])
+    # Buscar los detalles de la pelea en la colección bout_details
+    bout_details = await db["bout_details"].find_one({"bout_id": bout_id})
+
+    # Merge fighters data - usar bout_details si existe, sino usar bout básico
+    fighters = bout_data.get("fighters", {})
+    if bout_details and "fighters" in bout_details:
+        # Usar los datos detallados que incluyen todos los campos extras
+        fighters = bout_details.get("fighters", {})
+
+    # Obtener resultado de bout_details si existe
+    result = None
+    if bout_details and "result" in bout_details:
+        result = bout_details.get("result")
+    elif "result" in bout_data:
+        result = bout_data.get("result")
 
     # Mapear los datos a la respuesta
     return BoutResponse(
@@ -125,6 +137,6 @@ async def get_bout_details(
         rounds_scheduled=bout_data.get("scheduled_rounds", 3),
         is_title_fight=bout_data.get("is_title_fight", False),
         status=bout_data.get("status", "scheduled"),
-        fighters=bout_data.get("fighters", {}),
-        result=bout_data.get("result")
+        fighters=fighters,
+        result=result
     )
