@@ -59,6 +59,7 @@ class BoutResponse(BaseModel):
     status: str
     fighters: dict
     result: Optional[dict] = None
+    picks_locked: bool = False
 
 
 @router.get("/events/{event_id}/bouts", response_model=list[BoutResponse])
@@ -91,7 +92,8 @@ async def get_event_bouts(
             is_title_fight=b.is_title_fight,
             status=b.status,
             fighters=_process_fighters(b.fighters),
-            result=b.result
+            result=b.result,
+            picks_locked=getattr(b, 'picks_locked', False)
         )
         for b in bouts
     ]
@@ -148,5 +150,6 @@ async def get_bout_details(
         is_title_fight=bout_data.get("is_title_fight", False),
         status=bout_data.get("status", "scheduled"),
         fighters=_process_fighters(fighters),
-        result=result
+        result=result,
+        picks_locked=bout_data.get("picks_locked", False)
     )

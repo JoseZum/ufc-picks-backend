@@ -32,6 +32,7 @@ class EventResponse(BaseModel):
     status: str
     total_bouts: int
     poster_image_url: Optional[str] = None
+    picks_locked: bool = False
 
 
 class EventDetailResponse(EventResponse):
@@ -63,7 +64,8 @@ async def get_events(
             location=e.location,
             status=e.status,
             total_bouts=e.total_bouts,
-            poster_image_url=getattr(e, 'poster_image_url', None)
+            poster_image_url=getattr(e, 'poster_image_url', None),
+            picks_locked=getattr(e, 'picks_locked', False)
         )
         for e in events
     ]
@@ -95,5 +97,6 @@ async def get_event(
         total_bouts=event.total_bouts,
         poster_image_url=getattr(event, 'poster_image_url', None),
         promotion=event.promotion,
-        url=event.url
+        url=event.url,
+        picks_locked=getattr(event, 'picks_locked', False)
     )
