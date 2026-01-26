@@ -1,9 +1,3 @@
-"""
-EventService - Business logic for events.
-
-The backend does NOT scrape. It only reads what the scraper already saved.
-"""
-
 from typing import Optional
 from datetime import date
 
@@ -16,12 +10,10 @@ from app.models.bout import Bout
 
 
 class EventServiceError(Exception):
-    """Base exception for event service errors."""
     pass
 
 
 class EventNotFoundError(EventServiceError):
-    """Raised when event is not found."""
     pass
 
 
@@ -31,7 +23,6 @@ class EventService:
         self.bout_repo = BoutRepository(db)
 
     async def get_event(self, event_id: int) -> Event:
-        """Get a single event by ID."""
         event = await self.event_repo.get_by_id(event_id)
         if not event:
             raise EventNotFoundError(f"Event {event_id} not found")

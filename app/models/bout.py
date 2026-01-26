@@ -7,14 +7,14 @@ class FighterSnapshot(BaseModel):
     """Snapshot histórico del estado del peleador en una pelea específica"""
 
     fighter_name: str
-    corner: str  # red | blue
+    corner: Optional[str] = None  # red | blue
 
     # Rankings
     ranking: Optional[dict] = None
     ufc_ranking: Optional[dict] = None  # {"position": 1, "division": "Featherweight"}
 
     # Records
-    record_at_fight: dict  # wins / losses / draws
+    record_at_fight: Optional[dict] = None  # wins / losses / draws
     last_fights: list[str] = []
     last_5_fights: Optional[list[str]] = None  # ["W", "L", "W", "W", "W"]
 
@@ -23,12 +23,12 @@ class FighterSnapshot(BaseModel):
     title_status: Optional[str] = None  # "Champion" | "Challenger"
 
     # Personal information
-    nationality: str
+    nationality: Optional[str] = None
     fighting_out_of: Optional[str] = None
     nickname: Optional[str] = None
 
     # Physical stats
-    age_at_fight_years: int
+    age_at_fight_years: Optional[int] = None
     age_at_fight: Optional[dict] = None  # {"years": 37, "months": 4, "days": 2}
     height_cm: Optional[int] = None
     height: Optional[dict] = None  # {"feet": 5, "inches": 6, "cm": 168}
