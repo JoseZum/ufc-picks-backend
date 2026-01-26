@@ -36,21 +36,43 @@ class LeaderboardService:
         event_filter: Optional[dict] = None,
         year: Optional[int] = None
     ) -> Optional[dict]:
-        """Calculate stats for a single user."""
-        
-        # Build picks query
+        """
+        Get stats for a single user.
+
+        NOTA: Ahora usa los campos pre-calculados del User model.
+        Solo calcula en tiempo real si hay filtros (event, year).
+        """
+
+        # Get user info
+        user = await self.users_collection.find_one({"_id": user_id})
+        if not user:
+            return None
+
+        # Si NO hay filtros, usar stats pre-calculadas del User (RÁPIDO)
+        if not event_filter and not year:
+            # Usar campos del User model que se actualizan automáticamente
+            return {
+                "user_id": user_id,
+                "username": user.get("name", "Unknown"),
+                "avatar_url": user.get("profile_picture"),
+                "total_points": user.get("total_points", 0),
+                "accuracy": user.get("accuracy", 0.0),
+                "picks_total": user.get("picks_total", 0),
+                "picks_correct": user.get("picks_correct", 0),
+                "perfect_picks": user.get("perfect_picks", 0),
+            }
+
+        # Si HAY filtros, calcular en tiempo real (event o year específico)
         picks_query = {"user_id": user_id}
-        
-        # Filter by event if needed
+
         if event_filter:
             picks_query.update(event_filter)
-        
-        # Get all picks for this user
+
         picks = await self.picks_collection.find(picks_query).to_list(length=None)
-        
+
         if not picks:
             return None
-        
+
         # Filter by year if needed
         if year:
             event_ids = [p["event_id"] for p in picks]
@@ -58,31 +80,23 @@ class LeaderboardService:
                 "id": {"$in": event_ids},
                 "date": {"$regex": f"^{year}"}
             }).to_list(length=None)
-            
+
             valid_event_ids = {e["id"] for e in events}
             picks = [p for p in picks if p["event_id"] in valid_event_ids]
-        
+
         if not picks:
             return None
-        
-        # Calculate stats
+
+        # Calculate stats en tiempo real para este subset de picks
         total_points = sum(p.get("points_awarded", 0) for p in picks)
         picks_total = len(picks)
-        
-        # Only count picks that have results (is_correct is not None)
+
         evaluated_picks = [p for p in picks if p.get("is_correct") is not None]
         picks_correct = sum(1 for p in evaluated_picks if p.get("is_correct"))
-        
-        # Count perfect picks (3 points = correct winner, method, and round)
         perfect_picks = sum(1 for p in evaluated_picks if p.get("points_awarded") == 3)
-        
+
         accuracy = picks_correct / len(evaluated_picks) if evaluated_picks else 0.0
-        
-        # Get user info
-        user = await self.users_collection.find_one({"id": user_id})
-        if not user:
-            return None
-        
+
         return {
             "user_id": user_id,
             "username": user.get("name", "Unknown"),
@@ -101,26 +115,53 @@ class LeaderboardService:
     ) -> list[LeaderboardEntry]:
         """
         Get global leaderboard (all events).
-        
-        Calculates stats from all users' picks.
+
+        Si NO hay filtro de año, usa los campos pre-calculados del User (RÁPIDO).
+        Si HAY filtro de año, calcula en tiempo real.
         """
-        # Get all unique user IDs who have made picks
+        # Si NO hay filtro de año, usar stats pre-calculadas (OPTIMIZADO)
+        if not year:
+            # Obtener todos los usuarios que tienen picks (picks_total > 0)
+            users = await self.users_collection.find({
+                "picks_total": {"$gt": 0}
+            }).to_list(length=None)
+
+            entries = []
+            for user in users:
+                entries.append(LeaderboardEntry(
+                    category="global",
+                    scope="all_time",
+                    user_id=user["_id"],
+                    username=user.get("name", "Unknown"),
+                    avatar_url=user.get("profile_picture"),
+                    total_points=user.get("total_points", 0),
+                    accuracy=user.get("accuracy", 0.0),
+                    picks_total=user.get("picks_total", 0),
+                    picks_correct=user.get("picks_correct", 0),
+                    perfect_picks=user.get("perfect_picks", 0),
+                ))
+
+            # Sort by total points (descending)
+            entries.sort(key=lambda x: x.total_points, reverse=True)
+
+            return entries[:limit]
+
+        # Si HAY filtro de año, calcular en tiempo real
         user_ids = await self.picks_collection.distinct("user_id")
-        
-        # Calculate stats for each user
+
         entries = []
         for user_id in user_ids:
             stats = await self._calculate_user_stats(user_id, year=year)
             if stats and stats["picks_total"] > 0:
                 entries.append(LeaderboardEntry(
                     category="global",
-                    scope=str(year) if year else "all_time",
+                    scope=str(year),
                     **stats
                 ))
-        
+
         # Sort by total points (descending)
         entries.sort(key=lambda x: x.total_points, reverse=True)
-        
+
         return entries[:limit]
 
     async def get_event_leaderboard(
