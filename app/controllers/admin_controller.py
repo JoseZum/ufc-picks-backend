@@ -263,3 +263,47 @@ async def delete_bout_result(
         "success": True,
         "message": f"Resultado del bout {bout_id} eliminado y puntos revertidos"
     }
+
+
+# ============================================
+# STATS RECALCULATION ENDPOINT
+# ============================================
+
+@router.post("/recalculate-all-stats")
+async def recalculate_all_user_stats(
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Recalcular las estadísticas de TODOS los usuarios.
+    Útil para migración inicial o cuando se detectan inconsistencias.
+
+    ADVERTENCIA: Este endpoint puede tardar en ejecutarse si hay muchos usuarios.
+    Solo administradores.
+    """
+    # Obtener todos los usuarios
+    users_cursor = db["users"].find({})
+    users = await users_cursor.to_list(length=None)
+
+    if not users:
+        return {
+            "success": True,
+            "message": "No hay usuarios para procesar",
+            "users_processed": 0
+        }
+
+    # Recalcular stats para cada usuario
+    points_service = PointsService(db)
+    users_processed = 0
+
+    for user in users:
+        user_id = user.get("_id")
+        if user_id:
+            await points_service._update_user_stats(user_id)
+            users_processed += 1
+
+    return {
+        "success": True,
+        "message": f"Estadísticas recalculadas para {users_processed} usuarios",
+        "users_processed": users_processed
+    }

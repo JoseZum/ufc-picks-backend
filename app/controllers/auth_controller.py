@@ -58,7 +58,12 @@ async def authenticate_google(
             name=user.name,
             profile_picture=user.profile_picture,
             created_at=user.created_at,
-            is_admin=user.is_admin
+            is_admin=user.is_admin,
+            total_points=user.total_points,
+            picks_total=user.picks_total,
+            picks_correct=user.picks_correct,
+            perfect_picks=user.perfect_picks,
+            accuracy=user.accuracy
         )
     )
 
@@ -76,7 +81,12 @@ async def get_current_user(user: CurrentUser):
         name=user.name,
         profile_picture=user.profile_picture,
         created_at=user.created_at,
-        is_admin=user.is_admin
+        is_admin=user.is_admin,
+        total_points=user.total_points,
+        picks_total=user.picks_total,
+        picks_correct=user.picks_correct,
+        perfect_picks=user.perfect_picks,
+        accuracy=user.accuracy
     )
 
 
@@ -111,5 +121,10 @@ async def update_profile(
         name=updated_user.name,
         profile_picture=updated_user.profile_picture,
         created_at=updated_user.created_at,
-        is_admin=updated_user.is_admin
+        is_admin=updated_user.is_admin,
+        total_points=updated_user.total_points,
+        picks_total=updated_user.picks_total,
+        picks_correct=updated_user.picks_correct,
+        perfect_picks=updated_user.perfect_picks,
+        accuracy=updated_user.accuracy
     )

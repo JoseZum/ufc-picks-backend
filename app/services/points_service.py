@@ -167,9 +167,50 @@ class PointsService:
 
     async def _update_user_stats(self, user_id: str):
         """
-        Método eliminado - Ya no usamos la colección leaderboard pre-computada.
-        
-        Las estadísticas ahora se calculan en tiempo real en LeaderboardService
-        cuando se consulta el leaderboard. No es necesario actualizar nada aquí.
+        Actualizar las estadísticas del usuario basado en todos sus picks.
+
+        Calcula:
+        - total_points: suma de points_awarded
+        - picks_total: cantidad de picks hechas
+        - picks_correct: cantidad donde is_correct = True
+        - perfect_picks: cantidad con 3 puntos
+        - accuracy: porcentaje de picks correctas
         """
-        pass
+        # Buscar todos los picks del usuario
+        picks_cursor = self.db["picks"].find({"user_id": user_id})
+        picks = await picks_cursor.to_list(length=None)
+
+        # Calcular stats
+        total_points = 0
+        picks_total = len(picks)
+        picks_correct = 0
+        perfect_picks = 0
+
+        for pick in picks:
+            # Sumar puntos
+            total_points += pick.get("points_awarded", 0)
+
+            # Contar correctas
+            if pick.get("is_correct") is True:
+                picks_correct += 1
+
+            # Contar perfect picks (3 puntos)
+            if pick.get("points_awarded", 0) == 3:
+                perfect_picks += 1
+
+        # Calcular accuracy (evitar división por cero)
+        accuracy = (picks_correct / picks_total * 100) if picks_total > 0 else 0.0
+
+        # Actualizar usuario en BD
+        await self.db["users"].update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "total_points": total_points,
+                    "picks_total": picks_total,
+                    "picks_correct": picks_correct,
+                    "perfect_picks": perfect_picks,
+                    "accuracy": round(accuracy, 2)
+                }
+            }
+        )
