@@ -57,7 +57,8 @@ async def authenticate_google(
             email=user.email,
             name=user.name,
             profile_picture=user.profile_picture,
-            created_at=user.created_at
+            created_at=user.created_at,
+            is_admin=user.is_admin
         )
     )
 
@@ -74,7 +75,8 @@ async def get_current_user(user: CurrentUser):
         email=user.email,
         name=user.name,
         profile_picture=user.profile_picture,
-        created_at=user.created_at
+        created_at=user.created_at,
+        is_admin=user.is_admin
     )
 
 
@@ -108,5 +110,6 @@ async def update_profile(
         email=updated_user.email,
         name=updated_user.name,
         profile_picture=updated_user.profile_picture,
-        created_at=updated_user.created_at
+        created_at=updated_user.created_at,
+        is_admin=updated_user.is_admin
     )
