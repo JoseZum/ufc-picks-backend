@@ -167,69 +167,9 @@ class PointsService:
 
     async def _update_user_stats(self, user_id: str):
         """
-        Recalcular y actualizar estadísticas de un usuario en leaderboard.
-
-        Calcula:
-        - total_points: Suma de todos los puntos
-        - picks_total: Total de picks hechos
-        - picks_correct: Picks correctos (acertó ganador)
-        - accuracy: Porcentaje de acierto
+        Método eliminado - Ya no usamos la colección leaderboard pre-computada.
+        
+        Las estadísticas ahora se calculan en tiempo real en LeaderboardService
+        cuando se consulta el leaderboard. No es necesario actualizar nada aquí.
         """
-        # Obtener todos los picks del usuario
-        picks_cursor = self.db["picks"].find({"user_id": user_id})
-        picks = await picks_cursor.to_list(length=None)
-
-        # Calcular estadísticas
-        total_points = sum(pick.get("points_awarded", 0) for pick in picks)
-        picks_total = len(picks)
-        picks_correct = sum(1 for pick in picks if pick.get("is_correct") is True)
-        accuracy = (picks_correct / picks_total * 100) if picks_total > 0 else 0
-
-        # Obtener info del usuario
-        user = await self.db["users"].find_one({"_id": user_id})
-        if not user:
-            return
-
-        # Actualizar en leaderboard global
-        await self.db["leaderboard"].update_one(
-            {"user_id": user_id},
-            {
-                "$set": {
-                    "username": user["name"],
-                    "avatar_url": user.get("profile_picture"),
-                    "total_points": total_points,
-                    "picks_total": picks_total,
-                    "picks_correct": picks_correct,
-                    "accuracy": round(accuracy, 2),
-                    "updated_at": user.get("last_login_at")
-                }
-            },
-            upsert=True
-        )
-
-        # Recalcular rankings (posiciones) en el leaderboard
-        await self._recalculate_rankings()
-
-    async def _recalculate_rankings(self):
-        """
-        Recalcular rankings (posiciones) de todos los usuarios.
-
-        Ordena por:
-        1. total_points (descendente)
-        2. accuracy (descendente) - como desempate
-        3. picks_total (ascendente) - menos picks es mejor si empatan en todo
-        """
-        # Obtener todos los entries ordenados
-        cursor = self.db["leaderboard"].find().sort([
-            ("total_points", -1),
-            ("accuracy", -1),
-            ("picks_total", 1)
-        ])
-        entries = await cursor.to_list(length=None)
-
-        # Asignar rankings
-        for rank, entry in enumerate(entries, start=1):
-            await self.db["leaderboard"].update_one(
-                {"_id": entry["_id"]},
-                {"$set": {"rank": rank}}
-            )
+        pass
