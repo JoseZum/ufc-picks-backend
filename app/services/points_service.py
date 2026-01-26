@@ -198,8 +198,8 @@ class PointsService:
             if pick.get("points_awarded", 0) == 3:
                 perfect_picks += 1
 
-        # Calcular accuracy (evitar división por cero)
-        accuracy = (picks_correct / picks_total * 100) if picks_total > 0 else 0.0
+        # Calcular accuracy como decimal (0-1), el frontend lo convierte a porcentaje
+        accuracy = (picks_correct / picks_total) if picks_total > 0 else 0.0
 
         # Actualizar usuario en BD
         await self.db["users"].update_one(
@@ -210,7 +210,7 @@ class PointsService:
                     "picks_total": picks_total,
                     "picks_correct": picks_correct,
                     "perfect_picks": perfect_picks,
-                    "accuracy": round(accuracy, 2)
+                    "accuracy": round(accuracy, 4)  # Guardar como decimal con 4 decimales
                 }
             }
         )
