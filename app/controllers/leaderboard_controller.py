@@ -27,6 +27,7 @@ class LeaderboardEntryResponse(BaseModel):
     accuracy: float
     picks_total: int
     picks_correct: int
+    perfect_picks: int = 0
 
 
 class LeaderboardResponse(BaseModel):
@@ -57,7 +58,8 @@ async def get_global_leaderboard(
                 total_points=e.total_points,
                 accuracy=e.accuracy,
                 picks_total=e.picks_total,
-                picks_correct=e.picks_correct
+                picks_correct=e.picks_correct,
+                perfect_picks=e.perfect_picks
             )
             for idx, e in enumerate(entries)
         ]
@@ -86,7 +88,8 @@ async def get_event_leaderboard(
                 total_points=e.total_points,
                 accuracy=e.accuracy,
                 picks_total=e.picks_total,
-                picks_correct=e.picks_correct
+                picks_correct=e.picks_correct,
+                perfect_picks=e.perfect_picks
             )
             for idx, e in enumerate(entries)
         ]
@@ -118,7 +121,8 @@ async def get_category_leaderboard(
                 total_points=e.total_points,
                 accuracy=e.accuracy,
                 picks_total=e.picks_total,
-                picks_correct=e.picks_correct
+                picks_correct=e.picks_correct,
+                perfect_picks=e.perfect_picks
             )
             for idx, e in enumerate(entries)
         ]
