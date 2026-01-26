@@ -70,6 +70,8 @@ class Bout(BaseModel):
 
     result: Optional[dict] = None
 
+    picks_locked: bool = False  # Admin puede lockear picks para esta pelea
+
     scraped_at: datetime
     last_updated: datetime
 

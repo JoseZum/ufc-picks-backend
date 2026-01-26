@@ -307,3 +307,127 @@ async def recalculate_all_user_stats(
         "message": f"Estadísticas recalculadas para {users_processed} usuarios",
         "users_processed": users_processed
     }
+
+
+# ============================================
+# PICKS LOCK ENDPOINTS
+# ============================================
+
+@router.post("/events/{event_id}/lock-picks")
+async def lock_event_picks(
+    event_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Lockear picks para un evento completo.
+    Solo administradores.
+    """
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado"
+        )
+
+    await db["events"].update_one(
+        {"id": event_id},
+        {"$set": {"picks_locked": True}}
+    )
+
+    return {
+        "success": True,
+        "message": f"Picks lockeados para evento {event_id}",
+        "event_id": event_id,
+        "picks_locked": True
+    }
+
+
+@router.post("/events/{event_id}/unlock-picks")
+async def unlock_event_picks(
+    event_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Unlockear picks para un evento completo.
+    Solo administradores.
+    """
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado"
+        )
+
+    await db["events"].update_one(
+        {"id": event_id},
+        {"$set": {"picks_locked": False}}
+    )
+
+    return {
+        "success": True,
+        "message": f"Picks desbloqueados para evento {event_id}",
+        "event_id": event_id,
+        "picks_locked": False
+    }
+
+
+@router.post("/bouts/{bout_id}/lock-picks")
+async def lock_bout_picks(
+    bout_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Lockear picks para una pelea individual.
+    Solo administradores.
+    """
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado"
+        )
+
+    await db["bouts"].update_one(
+        {"id": bout_id},
+        {"$set": {"picks_locked": True}}
+    )
+
+    return {
+        "success": True,
+        "message": f"Picks lockeados para bout {bout_id}",
+        "bout_id": bout_id,
+        "picks_locked": True
+    }
+
+
+@router.post("/bouts/{bout_id}/unlock-picks")
+async def unlock_bout_picks(
+    bout_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Unlockear picks para una pelea individual.
+    Solo administradores.
+    """
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado"
+        )
+
+    await db["bouts"].update_one(
+        {"id": bout_id},
+        {"$set": {"picks_locked": False}}
+    )
+
+    return {
+        "success": True,
+        "message": f"Picks desbloqueados para bout {bout_id}",
+        "bout_id": bout_id,
+        "picks_locked": False
+    }

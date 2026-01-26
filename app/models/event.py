@@ -26,6 +26,8 @@ class Event(BaseModel):
     main_event_bout_id: Optional[int] = None  # ID de la pelea principal
     poster_image_url: Optional[str] = None  # /proxy/tapology/poster_images/... path for nginx
 
+    picks_locked: bool = False  # Admin puede lockear picks para este evento
+
     scraped_at: datetime  # Cuándo lo metimos a la BD
     last_updated: datetime  # Última actualización
 

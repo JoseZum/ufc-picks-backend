@@ -79,6 +79,13 @@ class PickService:
         if event.status in ("completed", "cancelled"):
             raise PickLockedError("Cannot modify picks for completed or cancelled events")
 
+        # Check if event or bout are locked by admin
+        if getattr(event, "picks_locked", False):
+            raise PickLockedError("Picks are locked for this event by admin")
+
+        if getattr(bout, "picks_locked", False):
+            raise PickLockedError("Picks are locked for this bout by admin")
+
         # Check if this specific pick is already locked
         existing_pick = await self.pick_repo.get_user_pick_for_bout(user_id, pick_data.bout_id)
         if existing_pick and existing_pick.locked:
