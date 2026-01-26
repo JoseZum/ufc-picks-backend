@@ -14,35 +14,14 @@ from app.services.event_service import EventService, EventNotFoundError
 router = APIRouter(tags=["bouts"])
 
 
-def _build_fighter_profile_image_url(tapology_id: Optional[str], fighter_name: Optional[str] = None) -> Optional[str]:
-    """
-    Construye la URL del proxy para la imagen de perfil del peleador.
-
-    Tapology usa dos formatos:
-    - /headshot_images/{tapology_id}/default/{name}.jpg (preferido)
-    - /letterbox_images/{tapology_id}/default/{name}.jpg (fallback)
-
-    Como no sabemos cuál existe sin hacer scraping, usamos letterbox que es más común.
-    """
-    if not tapology_id or tapology_id == "null":
-        return None
-
-    # Usar letterbox_images con default size como formato más confiable
-    return f"/proxy/tapology/letterbox_images/{tapology_id}/default/{tapology_id}.jpg"
-
-
 def _process_fighters(fighters: dict) -> dict:
     """
-    Procesa el diccionario de peleadores agregando profile_image_url si no existe.
+    Procesa el diccionario de peleadores, dejando profile_image_url tal como viene de la BD.
+
+    Si profile_image_url es null, el frontend mostrará un placeholder.
+    Las URLs correctas deben ser scrapeadas por el scraper de imágenes.
     """
-    processed = {}
-    for corner, fighter_data in fighters.items():
-        fighter = dict(fighter_data)
-        # Si no tiene profile_image_url, construirlo desde tapology_id
-        if not fighter.get("profile_image_url") and fighter.get("tapology_id"):
-            fighter["profile_image_url"] = _build_fighter_profile_image_url(fighter["tapology_id"])
-        processed[corner] = fighter
-    return processed
+    return fighters
 
 
 class FighterResponse(BaseModel):
