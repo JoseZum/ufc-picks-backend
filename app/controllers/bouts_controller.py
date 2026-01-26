@@ -14,6 +14,37 @@ from app.services.event_service import EventService, EventNotFoundError
 router = APIRouter(tags=["bouts"])
 
 
+def _build_fighter_profile_image_url(tapology_id: Optional[str], fighter_name: Optional[str] = None) -> Optional[str]:
+    """
+    Construye la URL del proxy para la imagen de perfil del peleador.
+
+    Tapology usa dos formatos:
+    - /headshot_images/{tapology_id}/default/{name}.jpg (preferido)
+    - /letterbox_images/{tapology_id}/default/{name}.jpg (fallback)
+
+    Como no sabemos cuál existe sin hacer scraping, usamos letterbox que es más común.
+    """
+    if not tapology_id or tapology_id == "null":
+        return None
+
+    # Usar letterbox_images con default size como formato más confiable
+    return f"/proxy/tapology/letterbox_images/{tapology_id}/default/{tapology_id}.jpg"
+
+
+def _process_fighters(fighters: dict) -> dict:
+    """
+    Procesa el diccionario de peleadores agregando profile_image_url si no existe.
+    """
+    processed = {}
+    for corner, fighter_data in fighters.items():
+        fighter = dict(fighter_data)
+        # Si no tiene profile_image_url, construirlo desde tapology_id
+        if not fighter.get("profile_image_url") and fighter.get("tapology_id"):
+            fighter["profile_image_url"] = _build_fighter_profile_image_url(fighter["tapology_id"])
+        processed[corner] = fighter
+    return processed
+
+
 class FighterResponse(BaseModel):
     """Datos del peleador en el momento de la pelea."""
     fighter_name: str
@@ -80,7 +111,7 @@ async def get_event_bouts(
             rounds_scheduled=b.rounds_scheduled,
             is_title_fight=b.is_title_fight,
             status=b.status,
-            fighters=b.fighters,
+            fighters=_process_fighters(b.fighters),
             result=b.result
         )
         for b in bouts
@@ -137,6 +168,6 @@ async def get_bout_details(
         rounds_scheduled=bout_data.get("scheduled_rounds", 3),
         is_title_fight=bout_data.get("is_title_fight", False),
         status=bout_data.get("status", "scheduled"),
-        fighters=fighters,
+        fighters=_process_fighters(fighters),
         result=result
     )
