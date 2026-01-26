@@ -73,6 +73,9 @@ class LeaderboardService:
         evaluated_picks = [p for p in picks if p.get("is_correct") is not None]
         picks_correct = sum(1 for p in evaluated_picks if p.get("is_correct"))
         
+        # Count perfect picks (3 points = correct winner, method, and round)
+        perfect_picks = sum(1 for p in evaluated_picks if p.get("points_awarded") == 3)
+        
         accuracy = picks_correct / len(evaluated_picks) if evaluated_picks else 0.0
         
         # Get user info
@@ -88,6 +91,7 @@ class LeaderboardService:
             "accuracy": accuracy,
             "picks_total": picks_total,
             "picks_correct": picks_correct,
+            "perfect_picks": perfect_picks,
         }
 
     async def get_global_leaderboard(

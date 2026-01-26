@@ -14,8 +14,9 @@ class LeaderboardEntry(BaseModel):
 
     picks_total: int
     picks_correct: int
+    perfect_picks: int = 0  # Picks con 3 puntos (método + round correctos)
 
-    category: str  # global | main_events | prelims | early_prelims
+    category: str  # global | main_events | prelims
     scope: str     # all_time | year | event
 
     class Config:
