@@ -65,6 +65,23 @@ async def get_current_user(
     return user
 
 
+async def get_current_admin(
+    current_user: Annotated[User, Depends(get_current_user)]
+) -> User:
+    """
+    Dependency que verifica que el usuario actual sea administrador.
+
+    Se usa en endpoints que solo los admins pueden acceder.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos de administrador para realizar esta acción",
+        )
+    return current_user
+
+
 # Alias de tipos para que se vea mas limpio en los endpoints
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 Database = Annotated[AsyncIOMotorDatabase, Depends(get_database)]

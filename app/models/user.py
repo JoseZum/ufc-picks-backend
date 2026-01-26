@@ -44,3 +44,4 @@ class UserResponse(BaseModel):
     name: str
     profile_picture: Optional[str] = None
     created_at: datetime
+    is_admin: bool = False
