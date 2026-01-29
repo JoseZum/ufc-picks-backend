@@ -10,6 +10,7 @@ from datetime import date
 
 from app.core.dependencies import Database
 from app.services.event_service import EventService, EventNotFoundError
+from app.services.s3_service import get_s3_service
 
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -54,6 +55,7 @@ async def get_events(
     """
     event_service = EventService(db)
     events = await event_service.get_events_by_status(status, limit)
+    s3_service = get_s3_service()
 
     return [
         EventResponse(
@@ -64,7 +66,7 @@ async def get_events(
             location=e.location,
             status=e.status,
             total_bouts=e.total_bouts,
-            poster_image_url=getattr(e, 'poster_image_url', None),
+            poster_image_url=_get_poster_url(getattr(e, 'poster_image_url', None), s3_service),
             picks_locked=getattr(e, 'picks_locked', False)
         )
         for e in events
@@ -78,6 +80,7 @@ async def get_event(
 ):
     """Obtener un evento por su ID."""
     event_service = EventService(db)
+    s3_service = get_s3_service()
 
     try:
         event = await event_service.get_event(event_id)
@@ -95,8 +98,23 @@ async def get_event(
         location=event.location,
         status=event.status,
         total_bouts=event.total_bouts,
-        poster_image_url=getattr(event, 'poster_image_url', None),
+        poster_image_url=_get_poster_url(getattr(event, 'poster_image_url', None), s3_service),
         promotion=event.promotion,
         url=event.url,
         picks_locked=getattr(event, 'picks_locked', False)
     )
+
+
+def _get_poster_url(proxy_url: Optional[str], s3_service) -> Optional[str]:
+    """
+    Helper para obtener la URL del poster.
+    Si CloudFront está configurado, usa CloudFront. Si no, usa la URL de proxy.
+    """
+    if not proxy_url:
+        return None
+
+    # Intentar convertir a CloudFront
+    cloudfront_url = s3_service.convert_proxy_url_to_cloudfront(proxy_url)
+
+    # Si CloudFront está configurado, usar esa URL. Si no, usar proxy original
+    return cloudfront_url if cloudfront_url else proxy_url

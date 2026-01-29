@@ -298,6 +298,38 @@ class S3Service:
 
         return None
 
+    def convert_proxy_url_to_cloudfront(self, proxy_url: str) -> Optional[str]:
+        """
+        Convierte una URL de proxy a URL de CloudFront si está configurado
+
+        Transforma URLs del formato:
+        - De: /proxy/tapology/poster_images/135755/profile/xxx.jpg
+        - A: https://d6huioh3922nf.cloudfront.net/tapology-images/{hash}.jpg
+
+        Si CloudFront no está configurado, retorna None (usar la URL de proxy original)
+
+        Args:
+            proxy_url: URL de proxy en formato /proxy/tapology/...
+
+        Returns:
+            URL de CloudFront si está configurado, None si no
+        """
+        if not proxy_url or not self.settings.aws_cloudfront_domain:
+            return None
+
+        # Extraer el path después de /proxy/tapology/
+        # Ej: /proxy/tapology/poster_images/135755/profile/xxx.jpg -> poster_images/135755/profile/xxx.jpg
+        if not proxy_url.startswith("/proxy/tapology/"):
+            return None
+
+        tapology_path = proxy_url.replace("/proxy/tapology", "")
+
+        # Generar la key S3 usando el hash del path
+        s3_key = self.generate_tapology_cache_key(tapology_path)
+
+        # Generar URL de CloudFront
+        return self.get_cloudfront_url(s3_key)
+
 
 # Instancia singleton del servicio
 _s3_service_instance: Optional[S3Service] = None
