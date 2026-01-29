@@ -20,12 +20,12 @@ class TestAuthService:
         
         # Mock Google token verification
         with patch('app.services.auth_service.verify_google_token') as mock_verify:
-            mock_verify.return_value = AsyncMock(return_value={
+            mock_verify.return_value = {
                 "sub": sample_user_data["google_id"],
                 "email": sample_user_data["email"],
                 "name": sample_user_data["name"],
                 "picture": sample_user_data["profile_picture"]
-            })()
+            }
             
             # Mock JWT creation
             with patch('app.services.auth_service.create_access_token') as mock_jwt:
@@ -65,12 +65,12 @@ class TestAuthService:
         
         # Mock Google token verification
         with patch('app.services.auth_service.verify_google_token') as mock_verify:
-            mock_verify.return_value = AsyncMock(return_value={
+            mock_verify.return_value = {
                 "sub": sample_user_data["google_id"],
                 "email": sample_user_data["email"],
                 "name": sample_user_data["name"],
                 "picture": sample_user_data["profile_picture"]
-            })()
+            }
             
             # Mock JWT creation
             with patch('app.services.auth_service.create_access_token') as mock_jwt:
@@ -107,11 +107,11 @@ class TestAuthService:
         
         # Mock Google token with no name
         with patch('app.services.auth_service.verify_google_token') as mock_verify:
-            mock_verify.return_value = AsyncMock(return_value={
+            mock_verify.return_value = {
                 "sub": "google123",
                 "email": "test@example.com",
                 # No "name" field
-            })()
+            }
             
             with patch('app.services.auth_service.create_access_token') as mock_jwt:
                 mock_jwt.return_value = "fake_jwt_token"

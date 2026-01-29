@@ -87,11 +87,16 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_update_last_login(self, test_db, sample_user_data):
         """Test updating user's last login timestamp."""
+        from datetime import datetime, timezone
+        
         repo = UserRepository(test_db)
         user_create = UserCreate(**sample_user_data)
         user = await repo.create(user_create)
         
+        # Store original timestamp as aware datetime
         original_last_login = user.last_login_at
+        if original_last_login.tzinfo is None:
+            original_last_login = original_last_login.replace(tzinfo=timezone.utc)
         
         # Wait a tiny bit to ensure timestamp difference
         import asyncio
@@ -102,7 +107,11 @@ class TestUserRepository:
         
         # Assert
         assert updated_user is not None
-        assert updated_user.last_login_at > original_last_login
+        # Ensure both datetimes are timezone-aware for comparison
+        updated_login = updated_user.last_login_at
+        if updated_login.tzinfo is None:
+            updated_login = updated_login.replace(tzinfo=timezone.utc)
+        assert updated_login > original_last_login
     
     @pytest.mark.asyncio
     async def test_update_profile(self, test_db, sample_user_data):

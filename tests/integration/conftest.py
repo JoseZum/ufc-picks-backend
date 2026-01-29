@@ -22,14 +22,14 @@ async def client(test_db):
         return test_db
     
     # Store original db connection
-    original_db = Database._db
-    Database._db = test_db
+    original_db = Database.db
+    Database.db = test_db
     
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
     
     # Restore original db
-    Database._db = original_db
+    Database.db = original_db
 
 
 @pytest.fixture

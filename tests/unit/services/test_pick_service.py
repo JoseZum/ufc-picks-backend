@@ -44,6 +44,7 @@ class TestPickService:
     @pytest.mark.asyncio
     async def test_create_pick_event_not_found(self, test_db, sample_pick_data):
         """Test creating pick for non-existent event."""
+        # Note: No event created in database, so get_by_id will return None
         service = PickService(test_db)
         pick_create = PickCreate(**sample_pick_data)
         
