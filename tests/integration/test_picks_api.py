@@ -143,4 +143,5 @@ class TestPicksEndpoints:
         
         # Assert
         assert response.status_code == 403  # PickLockedError returns 403 Forbidden
-        assert "locked" in response.json()["detail"].lower()
+        detail = response.json()["detail"].lower()
+        assert "completed" in detail or "cancelled" in detail
