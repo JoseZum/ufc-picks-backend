@@ -68,7 +68,7 @@ class TestPicksEndpoints:
         
         # Act
         response = await client.get(
-            f"/picks/event/{sample_event_data['id']}",
+            f"/picks/me?event_id={sample_event_data['id']}",
             headers=auth_headers
         )
         
@@ -142,5 +142,5 @@ class TestPicksEndpoints:
         )
         
         # Assert
-        assert response.status_code == 400
+        assert response.status_code == 403  # PickLockedError returns 403 Forbidden
         assert "locked" in response.json()["detail"].lower()
