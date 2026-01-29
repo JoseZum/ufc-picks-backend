@@ -56,6 +56,7 @@ venv.bak/
 .env.*.local
 *.env
 
+# EXCEPCIÓN: .env.example SÍ se commitea (es template sin credenciales)
 .env.example
 
 # ==================== IDEs ====================
@@ -172,3 +173,6 @@ uploads/
 media/
 static/uploaded/
 app/tests/README.md
+
+nginx/
+docker/
