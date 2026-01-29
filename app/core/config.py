@@ -29,6 +29,32 @@ class Settings(BaseSettings):
     # CORS - de dónde pueden venir los requests
     cors_origins: str = "http://localhost:3000"  # URLs separadas por coma
 
+    # ==================== Configuración de Imágenes ====================
+    # Controla cómo se manejan las imágenes en el sistema
+    # - "memory": Cache temporal en memoria del servidor (desarrollo/testing)
+    # - "s3": Almacenamiento persistente en AWS S3 (producción)
+    # - "cache": Solo lectura desde CDN, nunca escribe (modo solo-cache)
+    image_cache_strategy: str = "MEMORY"
+
+    # Modo de origen de imágenes - controla si se permite escritura en S3
+    # - "s3": Modo completo - lee de S3, sube si no existe (escritura habilitada)
+    # - "cache": Modo solo lectura - solo sirve desde CDN, nunca sube a S3
+    # Esto es útil para ambientes de staging que no deben modificar producción
+    image_source_mode: str = "s3"
+
+    # ==================== AWS S3 y CloudFront ====================
+    # Configuración de almacenamiento en S3 y CDN CloudFront
+    # Solo necesario cuando image_cache_strategy="S3"
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "us-east-1"
+    aws_s3_bucket: str | None = None
+
+    # Dominio de CloudFront - SIEMPRE debe usarse en lugar de URLs directas de S3
+    # El backend solo maneja keys (ej: "events/ufc-324.jpg"), nunca URLs completas
+    # CloudFront construye: https://{cloudfront_domain}/{key}
+    aws_cloudfront_domain: str | None = None
+
     class Config:
         env_file = ".env"  # Lee desde el archivo .env
         env_file_encoding = "utf-8"

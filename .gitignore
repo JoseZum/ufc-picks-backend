@@ -1,5 +1,174 @@
-.vscode/
-app/__pycache__/
-.env
+# ==================== Python ====================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-app/controllers/__pycache__
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+*.log
+
+# ==================== Environment ====================
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables (NUNCA commitear credenciales)
+.env
+.env.local
+.env.*.local
+*.env
+
+.env.example
+
+# ==================== IDEs ====================
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ==================== Local Development ====================
+# Archivos de desarrollo local que NO van a producción
+Makefile
+ci_local.py
+CI_LOCAL_README.md
+
+# Configuraciones locales de nginx (no se usan en producción)
+nginx/
+
+# Configuraciones locales de docker (no se usan en deploy)
+docker/
+
+# ==================== OS Files ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==================== Logs ====================
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== Temp Files ====================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# ==================== Database ====================
+# Local database files (si existen)
+*.db
+*.sqlite
+*.sqlite3
+
+# ==================== CI/CD Artifacts ====================
+# Reportes que genera CI pero no se commitean
+bandit-report.json
+safety-report.json
+.mypy_cache/
+.ruff_cache/
+
+# ==================== Deployment ====================
+# Archivos de deployment específicos del ambiente
+render.yaml.local
+deployment.local.yml
+
+# Certificados SSL (NUNCA commitear)
+*.pem
+*.key
+*.crt
+*.cer
+
+# ==================== Backend Specific ====================
+# Archivos generados por el backend
+app/__pycache__/
+app/**/__pycache__/
+app/controllers/__pycache__/
+app/services/__pycache__/
+app/repositories/__pycache__/
+app/models/__pycache__/
+app/core/__pycache__/
+
+# Uploads locales (si existen)
+uploads/
+media/
+static/uploaded/
+app/tests/README.md
