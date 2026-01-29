@@ -52,10 +52,11 @@ class UserRepository:
         """Update user's last login timestamp."""
         now = datetime.now(timezone.utc)
 
+        from pymongo import ReturnDocument
         result = await self.collection.find_one_and_update(
             {"_id": user_id},
             {"$set": {"last_login_at": now}},
-            return_document=True
+            return_document=ReturnDocument.AFTER
         )
 
         return User(**result) if result else None

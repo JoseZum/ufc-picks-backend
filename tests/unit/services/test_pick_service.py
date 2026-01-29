@@ -111,7 +111,7 @@ class TestPickService:
         pick2 = await service.create_or_update_pick("user123", pick_create)
         
         # Assert
-        assert pick2._id == pick1._id  # Same pick ID
+        assert pick2.id == pick1.id  # Same pick ID
         assert pick2.picked_corner == "blue"
         assert pick2.picked_method == "SUB"
         assert pick2.picked_round == 3
@@ -130,7 +130,7 @@ class TestPickService:
         # Create and lock pick
         pick = await service.create_or_update_pick("user123", pick_create)
         await test_db["picks"].update_one(
-            {"_id": pick._id},
+            {"_id": pick.id},
             {"$set": {"locked": True}}
         )
         
@@ -256,6 +256,8 @@ class TestPickService:
         # Create another bout for same event
         bout_2 = sample_bout_data.copy()
         bout_2["id"] = 67891
+        # Remove _id so MongoDB generates a new one
+        bout_2.pop("_id", None)
         await test_db["bouts"].insert_one(bout_2)
         
         service = PickService(test_db)

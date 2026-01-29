@@ -41,7 +41,7 @@ class TestPicksEndpoints:
     async def test_create_pick_unauthenticated(self, client, sample_pick_data):
         """Test POST /picks without authentication"""
         response = await client.post("/picks", json=sample_pick_data)
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403 when no token
     
     @pytest.mark.asyncio
     async def test_get_user_picks_for_event(

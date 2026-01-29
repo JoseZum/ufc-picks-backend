@@ -40,17 +40,23 @@ async def auth_headers(client, sample_user_data, test_db):
     Creates a test user and returns valid JWT token headers.
     """
     from app.core.security import create_access_token
+    from datetime import datetime, timezone
     
-    # Create test user
-    await test_db["users"].insert_one({
-        "_id": sample_user_data["google_id"],
-        "google_id": sample_user_data["google_id"],
-        "email": sample_user_data["email"],
-        "name": sample_user_data["name"],
-        "profile_picture": sample_user_data["profile_picture"],
-        "is_active": True,
-        "is_admin": False
-    })
+    # Create or update test user (upsert to avoid DuplicateKeyError in parallel tests)
+    await test_db["users"].update_one(
+        {"_id": sample_user_data["google_id"]},
+        {"$set": {
+            "google_id": sample_user_data["google_id"],
+            "email": sample_user_data["email"],
+            "name": sample_user_data["name"],
+            "profile_picture": sample_user_data["profile_picture"],
+            "created_at": datetime.now(timezone.utc),
+            "last_login_at": datetime.now(timezone.utc),
+            "is_active": True,
+            "is_admin": False
+        }},
+        upsert=True
+    )
     
     # Create JWT token
     token = create_access_token(
