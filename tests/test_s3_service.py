@@ -150,16 +150,18 @@ class TestS3Service:
         assert key == "fighters/123456.jpg"
 
     @patch('app.services.s3_service.get_settings')
-    @patch('app.services.s3_service.boto3')
-    async def test_upload_raises_error_in_cache_mode(self, mock_boto3, mock_settings):
+    async def test_upload_raises_error_in_cache_mode(self, mock_settings):
         """Validar que subir a S3 en modo cache lance error"""
         mock_settings.return_value = Mock(
             image_source_mode="cache",
             aws_access_key_id="test",
             aws_secret_access_key="test",
-            aws_s3_bucket="test-bucket"
+            aws_s3_bucket="test-bucket",
+            aws_cloudfront_domain="test.cloudfront.net"
         )
 
+        # No necesitamos mockear boto3 porque el servicio debe fallar
+        # antes de intentar usarlo (en el check de is_read_only)
         service = S3Service()
 
         with pytest.raises(S3WriteNotAllowedError):
