@@ -66,7 +66,7 @@ async def get_events(
             location=e.location,
             status=e.status,
             total_bouts=e.total_bouts,
-            poster_image_url=_get_poster_url(getattr(e, 'poster_image_url', None), s3_service),
+            poster_image_url=_get_poster_url(e.id, getattr(e, 'poster_image_url', None), s3_service),
             picks_locked=getattr(e, 'picks_locked', False)
         )
         for e in events
@@ -98,23 +98,28 @@ async def get_event(
         location=event.location,
         status=event.status,
         total_bouts=event.total_bouts,
-        poster_image_url=_get_poster_url(getattr(event, 'poster_image_url', None), s3_service),
+        poster_image_url=_get_poster_url(event.id, getattr(event, 'poster_image_url', None), s3_service),
         promotion=event.promotion,
         url=event.url,
         picks_locked=getattr(event, 'picks_locked', False)
     )
 
 
-def _get_poster_url(proxy_url: Optional[str], s3_service) -> Optional[str]:
+def _get_poster_url(event_id: int, proxy_url: Optional[str], s3_service) -> Optional[str]:
     """
     Helper para obtener la URL del poster.
-    Si CloudFront está configurado, usa CloudFront. Si no, usa la URL de proxy.
+
+    Estrategia:
+    1. Si hay poster específico en S3 (ufc-posters/ufc{id}.jpeg) y CloudFront configurado → usar CloudFront
+    2. Si no → usar proxy del backend (cachea automáticamente)
     """
     if not proxy_url:
         return None
 
-    # Intentar convertir a CloudFront
-    cloudfront_url = s3_service.convert_proxy_url_to_cloudfront(proxy_url)
+    # Intentar usar CloudFront solo para eventos UFC numerados
+    # Formato en S3: ufc-posters/ufc{numero}.jpeg
+    cloudfront_url = s3_service.get_event_poster_cloudfront_url(event_id)
 
-    # Si CloudFront está configurado, usar esa URL. Si no, usar proxy original
+    # Si tenemos CloudFront configurado y el poster existe en S3, usarlo
+    # Si no, usar el proxy del backend (que cachea automáticamente)
     return cloudfront_url if cloudfront_url else proxy_url

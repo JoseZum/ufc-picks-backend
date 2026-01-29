@@ -298,34 +298,45 @@ class S3Service:
 
         return None
 
-    def convert_proxy_url_to_cloudfront(self, proxy_url: str) -> Optional[str]:
+    def is_cloudfront_configured(self) -> bool:
         """
-        Convierte una URL de proxy a URL de CloudFront si está configurado
+        Verifica si CloudFront está configurado correctamente
 
-        Transforma URLs del formato:
-        - De: /proxy/tapology/poster_images/135755/profile/xxx.jpg
-        - A: https://d6huioh3922nf.cloudfront.net/tapology-images/{hash}.jpg
+        Retorna False si:
+        - No hay dominio configurado
+        - El dominio es el de ejemplo
+        """
+        if not self.settings.aws_cloudfront_domain:
+            return False
 
-        Si CloudFront no está configurado, retorna None (usar la URL de proxy original)
+        # Dominios de ejemplo que no deben usarse
+        example_domains = [
+            "d111111abcdef8.cloudfront.net",
+            "dXXXXXXXXXXXXX.cloudfront.net",
+            "example.cloudfront.net",
+        ]
+
+        domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
+        return domain not in example_domains
+
+    def get_event_poster_cloudfront_url(self, event_id: int) -> Optional[str]:
+        """
+        Obtiene la URL de CloudFront para un poster de evento específico
+
+        SOLO para eventos que sabemos que tienen poster en S3 bajo ufc-posters/ufc{id}.jpeg
+        Si no está en S3 o CloudFront no está configurado, retorna None.
 
         Args:
-            proxy_url: URL de proxy en formato /proxy/tapology/...
+            event_id: ID numérico del evento
 
         Returns:
-            URL de CloudFront si está configurado, None si no
+            URL de CloudFront si existe el poster en S3, None si no
         """
-        if not proxy_url or not self.settings.aws_cloudfront_domain:
+        if not self.is_cloudfront_configured():
             return None
 
-        # Extraer el path después de /proxy/tapology/
-        # Ej: /proxy/tapology/poster_images/135755/profile/xxx.jpg -> poster_images/135755/profile/xxx.jpg
-        if not proxy_url.startswith("/proxy/tapology/"):
-            return None
-
-        tapology_path = proxy_url.replace("/proxy/tapology", "")
-
-        # Generar la key S3 usando el hash del path
-        s3_key = self.generate_tapology_cache_key(tapology_path)
+        # El formato en S3 es: ufc-posters/ufc{numero}.jpeg
+        s3_key = f"ufc-posters/ufc{event_id}.jpeg"
 
         # Generar URL de CloudFront
         return self.get_cloudfront_url(s3_key)
