@@ -14,6 +14,17 @@ TEST_DB_NAME = "ufc_picks_test"
 
 
 @pytest.fixture(scope="session")
+def worker_id(request):
+    """
+    Return the worker ID when using pytest-xdist, otherwise 'master'.
+    This allows each worker to use its own test database.
+    """
+    if hasattr(request.config, 'workerinput'):
+        return request.config.workerinput['workerid']
+    return 'master'
+
+
+@pytest.fixture(scope="session")
 def event_loop() -> Generator:
     """Create event loop for async tests."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -22,14 +33,17 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="function")
-async def test_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
+async def test_db(worker_id) -> AsyncGenerator[AsyncIOMotorDatabase, None]:
     """
     Provide a clean test database for each test.
     
+    Uses a separate database per worker when running with pytest-xdist.
     Automatically cleans up after each test.
     """
     client = AsyncIOMotorClient(TEST_DB_URI)
-    db = client[TEST_DB_NAME]
+    # Use different database per worker to avoid conflicts in parallel execution
+    db_name = f"{TEST_DB_NAME}_{worker_id}" if worker_id != "master" else TEST_DB_NAME
+    db = client[db_name]
     
     yield db
     
