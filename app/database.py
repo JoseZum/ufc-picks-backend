@@ -22,17 +22,23 @@ class Database:
         """Conecta a MongoDB Atlas y establece el pool de conexiones"""
         if cls.client is None:
             # maxPoolSize y minPoolSize para evitar abrir demasiadas conexiones
+            # serverSelectionTimeoutMS para evitar que el startup se cuelgue
             cls.client = AsyncIOMotorClient(
                 settings.mongodb_uri,
                 maxPoolSize=10,
                 minPoolSize=2,
+                serverSelectionTimeoutMS=5000,  # 5 seconds timeout
+                connectTimeoutMS=5000,
             )
 
             cls.db = cls.client[settings.mongodb_db_name]
 
             # Test de conexión para verificar que todo está bien
-            await cls.client.admin.command("ping")
-            print(f"[OK] Conectado a MongoDB: {settings.mongodb_db_name}")
+            try:
+                await cls.client.admin.command("ping")
+                print(f"[OK] Conectado a MongoDB: {settings.mongodb_db_name}")
+            except Exception as e:
+                print(f"[WARN] MongoDB ping failed: {e}, but continuing...")
 
     @classmethod
     async def disconnect(cls):
@@ -42,6 +48,12 @@ class Database:
             cls.client = None
             cls.db = None
             print("[OK] Desconectado de MongoDB")
+
+    @classmethod
+    async def ensure_connected(cls):
+        """Asegura que estamos conectados, intenta reconectar si no"""
+        if cls.client is None or cls.db is None:
+            await cls.connect()
 
     @classmethod
     def get_db(cls) -> AsyncIOMotorDatabase:

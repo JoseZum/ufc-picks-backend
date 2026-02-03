@@ -107,9 +107,9 @@ async def get_event_bouts(
             BoutResponse(
                 id=b.id,
                 event_id=b.event_id,
-                weight_class=b.weight_class,
-                gender=b.gender,
-                rounds_scheduled=b.rounds_scheduled,
+                weight_class=b.weight_class or "Unknown",
+                gender=b.gender or "male",
+                rounds_scheduled=b.rounds_scheduled or 3,
                 is_title_fight=b.is_title_fight,
                 status=b.status,
                 fighters=_process_fighters(fighters),

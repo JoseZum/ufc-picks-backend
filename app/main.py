@@ -80,7 +80,11 @@ class CORSMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await Database.connect()
+    try:
+        await Database.connect()
+    except Exception as e:
+        print(f"[ERROR] Failed to connect to MongoDB on startup: {e}")
+        print("[WARN] App will start anyway, DB connection will be retried on first request")
     yield
     await Database.disconnect()
 
