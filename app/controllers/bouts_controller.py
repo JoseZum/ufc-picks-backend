@@ -71,6 +71,7 @@ async def get_event_bouts(
     Obtener todas las peleas de un evento.
 
     Devuelve las peleas con la información de los peleadores y el resultado (si está disponible).
+    Incluye datos detallados de bout_details si existen.
     """
     event_service = EventService(db)
 
@@ -82,21 +83,42 @@ async def get_event_bouts(
             detail=f"Event {event_id} not found"
         )
 
-    return [
-        BoutResponse(
-            id=b.id,
-            event_id=b.event_id,
-            weight_class=b.weight_class,
-            gender=b.gender,
-            rounds_scheduled=b.rounds_scheduled,
-            is_title_fight=b.is_title_fight,
-            status=b.status,
-            fighters=_process_fighters(b.fighters),
-            result=b.result,
-            picks_locked=getattr(b, 'picks_locked', False)
+    # Obtener todos los bout_details para este evento de una vez (más eficiente)
+    bout_ids = [b.id for b in bouts]
+    bout_details_cursor = db["bout_details"].find({"bout_id": {"$in": bout_ids}})
+    bout_details_list = await bout_details_cursor.to_list(length=None)
+    bout_details_map = {bd["bout_id"]: bd for bd in bout_details_list}
+
+    result = []
+    for b in bouts:
+        # Merge con bout_details si existe
+        fighters = b.fighters
+        bout_result = b.result
+        bout_detail = bout_details_map.get(b.id)
+
+        if bout_detail:
+            # Usar los datos detallados que incluyen height, reach, record, etc.
+            if "fighters" in bout_detail:
+                fighters = bout_detail["fighters"]
+            if "result" in bout_detail and bout_detail["result"]:
+                bout_result = bout_detail["result"]
+
+        result.append(
+            BoutResponse(
+                id=b.id,
+                event_id=b.event_id,
+                weight_class=b.weight_class,
+                gender=b.gender,
+                rounds_scheduled=b.rounds_scheduled,
+                is_title_fight=b.is_title_fight,
+                status=b.status,
+                fighters=_process_fighters(fighters),
+                result=bout_result,
+                picks_locked=getattr(b, 'picks_locked', False)
+            )
         )
-        for b in bouts
-    ]
+
+    return result
 
 
 @router.get("/events/{event_id}/fights/{bout_id}", response_model=BoutResponse)
