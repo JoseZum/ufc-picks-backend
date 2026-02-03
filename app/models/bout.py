@@ -50,30 +50,31 @@ class FighterSnapshot(BaseModel):
 
 class Bout(BaseModel):
     """Pelea individual"""
-    
+
     id: int
     event_id: int
 
-    source: str
-    url: str
-    slug: str
+    # These fields are Optional to handle legacy documents that may not have them
+    source: Optional[str] = None
+    url: Optional[str] = None
+    slug: Optional[str] = None
 
-    weight_class: str
-    gender: str
+    weight_class: Optional[str] = None
+    gender: Optional[str] = "male"
 
-    rounds_scheduled: int
-    is_title_fight: bool
+    rounds_scheduled: Optional[int] = 3
+    is_title_fight: bool = False
 
-    status: str  # scheduled | completed
+    status: str = "scheduled"  # scheduled | completed
 
-    fighters: dict[str, FighterSnapshot]  # {"red": ..., "blue": ...}
+    fighters: dict[str, FighterSnapshot] = {}  # {"red": ..., "blue": ...}
 
     result: Optional[dict] = None
 
     picks_locked: bool = False  # Admin puede lockear picks para esta pelea
 
-    scraped_at: datetime
-    last_updated: datetime
+    scraped_at: Optional[datetime] = None
+    last_updated: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
