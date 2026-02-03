@@ -56,7 +56,7 @@ async def get_user_profile(
     """
     Obtener el perfil público de un usuario.
     """
-    user = await db["users"].find_one({"id": user_id})
+    user = await db["users"].find_one({"_id": user_id})
 
     if not user:
         raise HTTPException(
@@ -65,7 +65,7 @@ async def get_user_profile(
         )
 
     return UserProfileResponse(
-        id=user.get("id"),
+        id=user.get("_id"),
         name=user.get("name", "Unknown"),
         avatar_url=user.get("profile_picture"),
         created_at=user.get("created_at", datetime.utcnow()),
@@ -98,7 +98,7 @@ async def get_user_picks(
     Solo muestra picks de eventos que ya comenzaron (locked).
     """
     # Verificar que el usuario existe
-    user = await db["users"].find_one({"id": user_id})
+    user = await db["users"].find_one({"_id": user_id})
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -193,7 +193,7 @@ async def get_user_picks_stats(
     - Picks por evento
     """
     # Verificar que el usuario existe
-    user = await db["users"].find_one({"id": user_id})
+    user = await db["users"].find_one({"_id": user_id})
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
