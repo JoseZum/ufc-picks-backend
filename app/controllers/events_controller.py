@@ -5,6 +5,7 @@ Controlador de eventos - Endpoints relacionados con eventos
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 from datetime import date
 
@@ -33,6 +34,7 @@ class EventResponse(BaseModel):
     status: str
     total_bouts: int
     poster_image_url: Optional[str] = None
+    event_art_url: Optional[str] = None  # URL to /events/{id}/event-art if uploaded
     picks_locked: bool = False
 
 
@@ -56,11 +58,25 @@ async def get_events(
     event_service = EventService(db)
     events = await event_service.get_events_by_status(status, limit)
     s3_service = get_s3_service()
+    
+    # Get event IDs to check for event_art
+    event_ids = [e.id for e in events]
+    
+    # Check which events have event_art in MongoDB
+    events_with_art = set()
+    if event_ids:
+        cursor = db["events"].find(
+            {"id": {"$in": event_ids}, "event_art": {"$exists": True, "$ne": None}},
+            {"id": 1}
+        )
+        async for doc in cursor:
+            events_with_art.add(doc["id"])
 
     # Procesar cada evento y obtener su poster URL
     result = []
     for e in events:
         poster_url = await _get_poster_url(e.id, getattr(e, 'poster_image_url', None), s3_service)
+        event_art_url = f"/events/{e.id}/event-art" if e.id in events_with_art else None
         result.append(
             EventResponse(
                 id=e.id,
@@ -71,6 +87,7 @@ async def get_events(
                 status=e.status,
                 total_bouts=e.total_bouts,
                 poster_image_url=poster_url,
+                event_art_url=event_art_url,
                 picks_locked=getattr(e, 'picks_locked', False)
             )
         )
@@ -96,6 +113,13 @@ async def get_event(
         )
 
     poster_url = await _get_poster_url(event.id, getattr(event, 'poster_image_url', None), s3_service)
+    
+    # Check if event has event_art
+    event_doc = await db["events"].find_one(
+        {"id": event_id, "event_art": {"$exists": True, "$ne": None}},
+        {"_id": 1}
+    )
+    event_art_url = f"/events/{event_id}/event-art" if event_doc else None
 
     return EventDetailResponse(
         id=event.id,
@@ -106,9 +130,51 @@ async def get_event(
         status=event.status,
         total_bouts=event.total_bouts,
         poster_image_url=poster_url,
+        event_art_url=event_art_url,
         promotion=event.promotion,
         url=event.url,
         picks_locked=getattr(event, 'picks_locked', False)
+    )
+
+
+@router.get("/{event_id}/event-art")
+async def get_event_art(
+    event_id: int,
+    db: Database
+):
+    """
+    Obtener el event art (imagen) de un evento.
+    
+    Devuelve los bytes de la imagen directamente desde MongoDB.
+    El frontend puede usar esta URL como src de imagen.
+    """
+    # Buscar evento con el campo event_art
+    event = await db["events"].find_one(
+        {"id": event_id},
+        {"event_art": 1, "event_art_content_type": 1}
+    )
+    
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {event_id} not found"
+        )
+    
+    if "event_art" not in event or event["event_art"] is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {event_id} has no event art"
+        )
+    
+    content_type = event.get("event_art_content_type", "image/avif")
+    
+    return Response(
+        content=event["event_art"],
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=86400",  # Cache 24 hours
+            "Content-Disposition": f"inline; filename=event-{event_id}.{content_type.split('/')[-1]}"
+        }
     )
 
 

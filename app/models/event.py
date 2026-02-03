@@ -25,6 +25,7 @@ class Event(BaseModel):
     total_bouts: int  # Cuántas peleas tiene
     main_event_bout_id: Optional[int] = None  # ID de la pelea principal
     poster_image_url: Optional[str] = None  # /proxy/tapology/poster_images/... path for nginx
+    # event_art stored as binary in MongoDB, served via /events/{id}/event-art endpoint
 
     picks_locked: bool = False  # Admin puede lockear picks para este evento
 

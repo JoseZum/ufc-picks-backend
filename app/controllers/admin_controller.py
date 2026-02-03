@@ -5,7 +5,7 @@ Controlador de Admin - Endpoints exclusivos para administradores
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, UploadFile, File
 from pydantic import BaseModel
 
 from app.core.dependencies import CurrentAdmin, Database
@@ -37,6 +37,112 @@ class UpdateBoutResultRequest(BaseModel):
     method: str  # "KO/TKO" | "SUB" | "DEC" | "DQ" | "OTHER"
     round: Optional[int] = None  # Round en que termino
     time: Optional[str] = None  # Tiempo en el round (ej: "4:32")
+
+
+# ============================================
+# EVENT ART UPLOAD ENDPOINT
+# ============================================
+
+@router.post("/events/{event_id}/event-art")
+async def upload_event_art(
+    event_id: int,
+    admin: CurrentAdmin,
+    db: Database,
+    file: UploadFile = File(...)
+):
+    """
+    Subir event art personalizado para un evento.
+    Solo administradores.
+    
+    El event art se almacena directamente en MongoDB como bytes.
+    Se sirve mediante el endpoint GET /events/{event_id}/event-art
+    
+    Solo acepta archivos de imagen (avif, png, jpg, webp)
+    """
+    # Verificar que el evento existe
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado"
+        )
+    
+    # Validar extensión
+    valid_extensions = ['.avif', '.png', '.jpg', '.jpeg', '.webp']
+    if not file.filename or not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se aceptan archivos: {', '.join(valid_extensions)}"
+        )
+    
+    # Determinar content type
+    content_type = file.content_type or 'application/octet-stream'
+    if file.filename:
+        ext = file.filename.lower().split('.')[-1]
+        content_type_map = {
+            'avif': 'image/avif',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'webp': 'image/webp'
+        }
+        content_type = content_type_map.get(ext, content_type)
+    
+    try:
+        # Leer contenido del archivo
+        image_data = await file.read()
+        
+        # Guardar bytes directamente en MongoDB
+        await db["events"].update_one(
+            {"id": event_id},
+            {"$set": {
+                "event_art": image_data,
+                "event_art_content_type": content_type
+            }}
+        )
+        
+        return {
+            "success": True,
+            "message": f"Event art subido correctamente para evento {event_id}",
+            "size_bytes": len(image_data),
+            "content_type": content_type
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al subir event art: {str(e)}"
+        )
+
+
+@router.delete("/events/{event_id}/event-art")
+async def delete_event_art(
+    event_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Eliminar event art de un evento.
+    Solo administradores.
+    """
+    # Verificar que el evento existe
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado"
+        )
+    
+    # Eliminar bytes de MongoDB
+    await db["events"].update_one(
+        {"id": event_id},
+        {"$unset": {"event_art": "", "event_art_content_type": ""}}
+    )
+    
+    return {
+        "success": True,
+        "message": f"Event art eliminado para evento {event_id}"
+    }
 
 
 # ============================================
