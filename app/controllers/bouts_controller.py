@@ -20,9 +20,12 @@ def _process_fighters(fighters: dict) -> dict:
     Procesa el diccionario de peleadores, generando profile_image_url.
 
     Estrategia de imagen:
-    1. Si image_key existe (ya subido a S3) -> usar CloudFront o proxy
-    2. Si tapology_id existe -> usar proxy /proxy/fighter-image/{tapology_id}
-    3. Si nada -> el frontend mostrará placeholder
+    1. Si image_key existe (ya subido a S3 por el spider) -> usar CloudFront
+    2. Si no hay image_key -> el frontend mostrará placeholder
+
+    Nota: El proxy on-demand no funciona porque Tapology bloquea requests directos
+    (bot protection). Las imágenes se obtienen via el spider fighter_images que
+    corre periódicamente y sube a S3.
     """
     if not fighters:
         return fighters
@@ -43,7 +46,7 @@ def _process_fighters(fighters: dict) -> dict:
             processed[corner] = processed_fighter
             continue
 
-        # Strategy 1: Use image_key if exists (already uploaded to S3)
+        # Use image_key if exists (already uploaded to S3 by the spider)
         image_key = fighter.get("image_key")
         if image_key:
             try:
@@ -52,13 +55,11 @@ def _process_fighters(fighters: dict) -> dict:
                 if cloudfront_url:
                     processed_fighter["profile_image_url"] = cloudfront_url
                 else:
+                    # Fallback to proxy for S3 images
                     processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
             except S3NotConfiguredError:
                 processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-        # Strategy 2: Use tapology_id to construct proxy URL (fetches from Tapology on demand)
-        elif fighter.get("tapology_id"):
-            tapology_id = fighter.get("tapology_id")
-            processed_fighter["profile_image_url"] = f"/proxy/fighter-image/{tapology_id}"
+        # No image_key = no image URL, frontend shows placeholder
 
         processed[corner] = processed_fighter
 
@@ -133,14 +134,21 @@ async def get_event_bouts(
     result = []
     for b in bouts:
         # Merge con bout_details si existe
-        fighters = b.fighters
+        fighters = b.fighters or {}
         bout_result = b.result
         bout_detail = bout_details_map.get(b.id)
 
         if bout_detail:
             # Usar los datos detallados que incluyen height, reach, record, etc.
             if "fighters" in bout_detail:
-                fighters = bout_detail["fighters"]
+                detail_fighters = bout_detail["fighters"]
+                # Merge image_key from bouts into bout_details (spider updates bouts, not bout_details)
+                for corner in ["red", "blue"]:
+                    if corner in detail_fighters and corner in fighters:
+                        bout_fighter = fighters.get(corner, {}) or {}
+                        if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
+                            detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
+                fighters = detail_fighters
             if "result" in bout_detail and bout_detail["result"]:
                 bout_result = bout_detail["result"]
 
