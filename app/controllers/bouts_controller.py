@@ -17,13 +17,12 @@ router = APIRouter(tags=["bouts"])
 
 def _process_fighters(fighters: dict) -> dict:
     """
-    Procesa el diccionario de peleadores, transformando image_key a profile_image_url.
+    Procesa el diccionario de peleadores, generando profile_image_url.
 
-    Si image_key existe, lo convierte a:
-    - URL de CloudFront si está configurado
-    - URL de proxy (/proxy/tapology/...) como fallback
-
-    Si no hay image_key ni profile_image_url, el frontend mostrará un placeholder.
+    Estrategia de imagen:
+    1. Si image_key existe (ya subido a S3) -> usar CloudFront o proxy
+    2. Si tapology_id existe -> usar proxy /proxy/fighter-image/{tapology_id}
+    3. Si nada -> el frontend mostrará placeholder
     """
     if not fighters:
         return fighters
@@ -39,20 +38,27 @@ def _process_fighters(fighters: dict) -> dict:
         # Copy fighter data
         processed_fighter = dict(fighter)
 
-        # Transform image_key to profile_image_url if image_key exists
+        # Skip if profile_image_url already set
+        if fighter.get("profile_image_url"):
+            processed[corner] = processed_fighter
+            continue
+
+        # Strategy 1: Use image_key if exists (already uploaded to S3)
         image_key = fighter.get("image_key")
-        if image_key and not fighter.get("profile_image_url"):
+        if image_key:
             try:
                 s3_service = get_s3_service()
                 cloudfront_url = s3_service.get_cloudfront_url(image_key)
                 if cloudfront_url:
                     processed_fighter["profile_image_url"] = cloudfront_url
                 else:
-                    # Fallback to proxy URL
                     processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
             except S3NotConfiguredError:
-                # S3 not configured, use proxy URL
                 processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
+        # Strategy 2: Use tapology_id to construct proxy URL (fetches from Tapology on demand)
+        elif fighter.get("tapology_id"):
+            tapology_id = fighter.get("tapology_id")
+            processed_fighter["profile_image_url"] = f"/proxy/fighter-image/{tapology_id}"
 
         processed[corner] = processed_fighter
 
