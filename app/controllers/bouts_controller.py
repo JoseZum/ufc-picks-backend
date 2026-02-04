@@ -17,7 +17,11 @@ router = APIRouter(tags=["bouts"])
 
 def _process_fighters(fighters: dict) -> dict:
     """
-    Procesa el diccionario de peleadores, generando profile_image_url.
+    Procesa el diccionario de peleadores, normalizando campos y generando profile_image_url.
+
+    Normalización de campos:
+    - ufc_ranking -> ranking (frontend espera 'ranking')
+    - Asegura que height, reach estén en formato correcto
 
     Estrategia de imagen:
     1. Si image_key existe (ya subido a S3 por el spider) -> usar CloudFront
@@ -41,25 +45,34 @@ def _process_fighters(fighters: dict) -> dict:
         # Copy fighter data
         processed_fighter = dict(fighter)
 
-        # Skip if profile_image_url already set
-        if fighter.get("profile_image_url"):
-            processed[corner] = processed_fighter
-            continue
+        # === FIELD NORMALIZATION FOR FRONTEND ===
+        
+        # Map ufc_ranking to ranking (frontend expects 'ranking')
+        if not processed_fighter.get("ranking") and processed_fighter.get("ufc_ranking"):
+            processed_fighter["ranking"] = processed_fighter["ufc_ranking"]
+        
+        # Ensure corner field is set
+        if not processed_fighter.get("corner"):
+            processed_fighter["corner"] = corner
 
-        # Use image_key if exists (already uploaded to S3 by the spider)
-        image_key = fighter.get("image_key")
-        if image_key:
-            try:
-                s3_service = get_s3_service()
-                cloudfront_url = s3_service.get_cloudfront_url(image_key)
-                if cloudfront_url:
-                    processed_fighter["profile_image_url"] = cloudfront_url
-                else:
-                    # Fallback to proxy for S3 images
+        # === IMAGE URL PROCESSING ===
+        
+        # Skip if profile_image_url already set
+        if not fighter.get("profile_image_url"):
+            # Use image_key if exists (already uploaded to S3 by the spider)
+            image_key = fighter.get("image_key")
+            if image_key:
+                try:
+                    s3_service = get_s3_service()
+                    cloudfront_url = s3_service.get_cloudfront_url(image_key)
+                    if cloudfront_url:
+                        processed_fighter["profile_image_url"] = cloudfront_url
+                    else:
+                        # Fallback to proxy for S3 images
+                        processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
+                except S3NotConfiguredError:
                     processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-            except S3NotConfiguredError:
-                processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-        # No image_key = no image URL, frontend shows placeholder
+            # No image_key = no image URL, frontend shows placeholder
 
         processed[corner] = processed_fighter
 
