@@ -49,7 +49,12 @@ class EventRepository:
     async def get_by_id(self, event_id: int) -> Optional[Event]:
         """Obtiene un evento por ID"""
         doc = await self.collection.find_one({"id": event_id})
-        return Event(**doc) if doc else None
+        if doc:
+            # Clean up: remove main_event_bout_id if it's an ObjectId
+            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
+                doc.pop("main_event_bout_id", None)
+            return Event(**doc)
+        return None
 
     async def get_upcoming(self, limit: int = 5) -> list[Event]:
         """
@@ -66,6 +71,12 @@ class EventRepository:
         }).sort("date", 1).limit(limit)
 
         docs = await cursor.to_list(length=limit)
+        
+        # Clean up docs: remove main_event_bout_id if it's an ObjectId
+        for doc in docs:
+            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
+                doc.pop("main_event_bout_id", None)
+        
         return [Event(**doc) for doc in docs]
 
     async def get_recent_completed(self, limit: int = 5) -> list[Event]:
@@ -75,6 +86,12 @@ class EventRepository:
         }).sort("date", -1).limit(limit)
 
         docs = await cursor.to_list(length=limit)
+        
+        # Clean up docs: remove main_event_bout_id if it's an ObjectId
+        for doc in docs:
+            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
+                doc.pop("main_event_bout_id", None)
+        
         return [Event(**doc) for doc in docs]
 
     async def get_by_date_range(
@@ -95,6 +112,12 @@ class EventRepository:
         }).sort("date", 1)
 
         docs = await cursor.to_list(length=None)
+        
+        # Clean up docs: remove main_event_bout_id if it's an ObjectId
+        for doc in docs:
+            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
+                doc.pop("main_event_bout_id", None)
+        
         return [Event(**doc) for doc in docs]
 
     async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:
