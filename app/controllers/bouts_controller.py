@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.dependencies import Database
 from app.services.event_service import EventService, EventNotFoundError
+from app.services.s3_service import get_s3_service, S3NotConfiguredError
 
 
 router = APIRouter(tags=["bouts"])
@@ -16,12 +17,46 @@ router = APIRouter(tags=["bouts"])
 
 def _process_fighters(fighters: dict) -> dict:
     """
-    Procesa el diccionario de peleadores, dejando profile_image_url tal como viene de la BD.
+    Procesa el diccionario de peleadores, transformando image_key a profile_image_url.
 
-    Si profile_image_url es null, el frontend mostrará un placeholder.
-    Las URLs correctas deben ser scrapeadas por el scraper de imágenes.
+    Si image_key existe, lo convierte a:
+    - URL de CloudFront si está configurado
+    - URL de proxy (/proxy/tapology/...) como fallback
+
+    Si no hay image_key ni profile_image_url, el frontend mostrará un placeholder.
     """
-    return fighters
+    if not fighters:
+        return fighters
+
+    processed = {}
+
+    for corner in ["red", "blue"]:
+        fighter = fighters.get(corner, {})
+        if not fighter:
+            processed[corner] = fighter
+            continue
+
+        # Copy fighter data
+        processed_fighter = dict(fighter)
+
+        # Transform image_key to profile_image_url if image_key exists
+        image_key = fighter.get("image_key")
+        if image_key and not fighter.get("profile_image_url"):
+            try:
+                s3_service = get_s3_service()
+                cloudfront_url = s3_service.get_cloudfront_url(image_key)
+                if cloudfront_url:
+                    processed_fighter["profile_image_url"] = cloudfront_url
+                else:
+                    # Fallback to proxy URL
+                    processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
+            except S3NotConfiguredError:
+                # S3 not configured, use proxy URL
+                processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
+
+        processed[corner] = processed_fighter
+
+    return processed
 
 
 class FighterResponse(BaseModel):
