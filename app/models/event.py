@@ -1,6 +1,6 @@
 from datetime import datetime, date
-from typing import Optional
-from pydantic import BaseModel
+from typing import Optional, Any
+from pydantic import BaseModel, field_validator
 
 
 class Event(BaseModel):
@@ -31,6 +31,17 @@ class Event(BaseModel):
 
     scraped_at: datetime  # Cuándo lo metimos a la BD
     last_updated: datetime  # Última actualización
+
+    @field_validator('main_event_bout_id', mode='before')
+    @classmethod
+    def validate_main_event_bout_id(cls, v: Any) -> Optional[int]:
+        """Handle MongoDB ObjectId stored incorrectly - convert to None if not int"""
+        if v is None:
+            return None
+        if isinstance(v, int):
+            return v
+        # If it's an ObjectId or string, return None (bad data in MongoDB)
+        return None
 
     class Config:
         populate_by_name = True
