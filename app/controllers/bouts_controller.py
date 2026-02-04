@@ -133,8 +133,18 @@ async def get_event_bouts(
 
     result = []
     for b in bouts:
-        # Merge con bout_details si existe
-        fighters = b.fighters or {}
+        # Convert Pydantic FighterSnapshot models to dicts for easier manipulation
+        # b.fighters is dict[str, FighterSnapshot], need to convert to dict[str, dict]
+        bout_fighters_dict = {}
+        for corner, fighter in (b.fighters or {}).items():
+            if hasattr(fighter, 'model_dump'):
+                bout_fighters_dict[corner] = fighter.model_dump()
+            elif hasattr(fighter, 'dict'):
+                bout_fighters_dict[corner] = fighter.dict()
+            else:
+                bout_fighters_dict[corner] = dict(fighter) if fighter else {}
+
+        fighters = bout_fighters_dict
         bout_result = b.result
         bout_detail = bout_details_map.get(b.id)
 
@@ -144,8 +154,8 @@ async def get_event_bouts(
                 detail_fighters = bout_detail["fighters"]
                 # Merge image_key from bouts into bout_details (spider updates bouts, not bout_details)
                 for corner in ["red", "blue"]:
-                    if corner in detail_fighters and corner in fighters:
-                        bout_fighter = fighters.get(corner, {}) or {}
+                    if corner in detail_fighters and corner in bout_fighters_dict:
+                        bout_fighter = bout_fighters_dict.get(corner, {}) or {}
                         if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
                             detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
                 fighters = detail_fighters
@@ -199,10 +209,18 @@ async def get_bout_details(
     bout_details = await db["bout_details"].find_one({"bout_id": bout_id})
 
     # Merge fighters data - usar bout_details si existe, sino usar bout básico
-    fighters = bout_data.get("fighters", {})
+    bout_fighters = bout_data.get("fighters", {})
+    fighters = bout_fighters
     if bout_details and "fighters" in bout_details:
         # Usar los datos detallados que incluyen todos los campos extras
-        fighters = bout_details.get("fighters", {})
+        detail_fighters = bout_details.get("fighters", {})
+        # Merge image_key from bouts into bout_details (spider updates bouts, not bout_details)
+        for corner in ["red", "blue"]:
+            if corner in detail_fighters and corner in bout_fighters:
+                bout_fighter = bout_fighters.get(corner, {}) or {}
+                if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
+                    detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
+        fighters = detail_fighters
 
     # Obtener resultado de bout_details si existe
     result = None

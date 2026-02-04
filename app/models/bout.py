@@ -43,6 +43,7 @@ class FighterSnapshot(BaseModel):
     tapology_id: Optional[str] = None
     tapology_url: Optional[str] = None
     profile_image_url: Optional[str] = None  # /proxy/tapology/... path for nginx
+    image_key: Optional[str] = None  # S3 key for fighter image (e.g., "fighters/12345.jpg")
 
     class Config:
         populate_by_name = True
