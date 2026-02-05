@@ -164,12 +164,16 @@ async def get_event_bouts(
             # Usar los datos detallados que incluyen height, reach, record, etc.
             if "fighters" in bout_detail:
                 detail_fighters = bout_detail["fighters"]
-                # Merge image_key from bouts into bout_details (spider updates bouts, not bout_details)
+                # Merge image data from bouts into bout_details (spider updates bouts, not bout_details)
                 for corner in ["red", "blue"]:
                     if corner in detail_fighters and corner in bout_fighters_dict:
                         bout_fighter = bout_fighters_dict.get(corner, {}) or {}
+                        # Merge image_key if exists in bouts but not in bout_details
                         if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
                             detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
+                        # Also merge profile_image_url as fallback (for fighters without image_key)
+                        if bout_fighter.get("profile_image_url") and not detail_fighters[corner].get("profile_image_url"):
+                            detail_fighters[corner]["profile_image_url"] = bout_fighter["profile_image_url"]
                 fighters = detail_fighters
             if "result" in bout_detail and bout_detail["result"]:
                 bout_result = bout_detail["result"]
@@ -226,12 +230,16 @@ async def get_bout_details(
     if bout_details and "fighters" in bout_details:
         # Usar los datos detallados que incluyen todos los campos extras
         detail_fighters = bout_details.get("fighters", {})
-        # Merge image_key from bouts into bout_details (spider updates bouts, not bout_details)
+        # Merge image data from bouts into bout_details (spider updates bouts, not bout_details)
         for corner in ["red", "blue"]:
             if corner in detail_fighters and corner in bout_fighters:
                 bout_fighter = bout_fighters.get(corner, {}) or {}
+                # Merge image_key if exists in bouts but not in bout_details
                 if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
                     detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
+                # Also merge profile_image_url as fallback (for fighters without image_key)
+                if bout_fighter.get("profile_image_url") and not detail_fighters[corner].get("profile_image_url"):
+                    detail_fighters[corner]["profile_image_url"] = bout_fighter["profile_image_url"]
         fighters = detail_fighters
 
     # Obtener resultado de bout_details si existe
