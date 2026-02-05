@@ -112,8 +112,10 @@ app.include_router(users_router)
 
 
 @app.get("/")
+@app.head("/")
 async def root():
     # Endpoint raíz, sirve para verificar que la API está levantada
+    # Acepta tanto GET como HEAD para compatibilidad con monitores
     return {
         "name": "UFC Picks API",
         "version": "1.0.0",

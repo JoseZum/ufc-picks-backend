@@ -18,11 +18,13 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health", response_model=HealthResponse)
+@router.head("/health")
 async def health_check():
     """
     Endpoint de verificación de estado.
 
     Comprueba que la API esté en funcionamiento y que la base de datos esté conectada.
+    Acepta tanto GET como HEAD para compatibilidad con monitores como UptimeRobot.
     """
     db_status = "connected" if Database.db is not None else "disconnected"
 

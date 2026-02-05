@@ -125,3 +125,60 @@ async def get_all_my_picks(
         )
         for p in picks
     ]
+
+@router.get("/me/detailed", response_model=list[dict])
+async def get_all_my_picks_detailed(
+    user: CurrentUser,
+    db: Database,
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of picks to return")
+):
+    """
+    Obtener todos los picks del usuario actual con información completa de bouts y eventos.
+    """
+    pick_service = PickService(db)
+    picks = await pick_service.get_all_user_picks(user.id, limit)
+
+    if not picks:
+        return []
+
+    # Get event and bout IDs
+    event_ids = list(set(p.event_id for p in picks))
+    bout_ids = list(set(p.bout_id for p in picks))
+
+    # Fetch events
+    events_cursor = db["events"].find({"id": {"$in": event_ids}})
+    events = await events_cursor.to_list(length=None)
+    events_map = {e["id"]: e for e in events}
+
+    # Fetch bouts
+    bouts_cursor = db["bouts"].find({"id": {"$in": bout_ids}})
+    bouts = await bouts_cursor.to_list(length=None)
+    bouts_map = {b["id"]: b for b in bouts}
+
+    # Build detailed response
+    result = []
+    for p in picks:
+        event = events_map.get(p.event_id, {})
+        bout = bouts_map.get(p.bout_id, {})
+        fighters = bout.get("fighters", {})
+
+        result.append({
+            "id": p.id,
+            "bout_id": p.bout_id,
+            "event_id": p.event_id,
+            "event_name": event.get("name"),
+            "event_date": event.get("event_date"),
+            "picked_corner": p.picked_corner,
+            "picked_method": p.picked_method,
+            "picked_round": p.picked_round,
+            "is_correct": p.is_correct,
+            "points_awarded": p.points_awarded,
+            "locked": p.locked,
+            "created_at": p.created_at,
+            "fighter_red": fighters.get("red", {}).get("fighter_name"),
+            "fighter_blue": fighters.get("blue", {}).get("fighter_name"),
+            "weight_class": bout.get("weight_class"),
+            "result": bout.get("result")
+        })
+
+    return result
