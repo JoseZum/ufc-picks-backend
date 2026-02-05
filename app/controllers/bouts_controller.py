@@ -56,23 +56,22 @@ def _process_fighters(fighters: dict) -> dict:
             processed_fighter["corner"] = corner
 
         # === IMAGE URL PROCESSING ===
-        
-        # Skip if profile_image_url already set
-        if not fighter.get("profile_image_url"):
-            # Use image_key if exists (already uploaded to S3 by the spider)
-            image_key = fighter.get("image_key")
-            if image_key:
-                try:
-                    s3_service = get_s3_service()
-                    cloudfront_url = s3_service.get_cloudfront_url(image_key)
-                    if cloudfront_url:
-                        processed_fighter["profile_image_url"] = cloudfront_url
-                    else:
-                        # Fallback to proxy for S3 images
-                        processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-                except S3NotConfiguredError:
+
+        # Always prioritize image_key (CloudFront) over old profile_image_url (proxy URLs)
+        image_key = fighter.get("image_key")
+        if image_key:
+            try:
+                s3_service = get_s3_service()
+                cloudfront_url = s3_service.get_cloudfront_url(image_key)
+                if cloudfront_url:
+                    processed_fighter["profile_image_url"] = cloudfront_url
+                else:
+                    # Fallback to proxy for S3 images if CloudFront not configured
                     processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-            # No image_key = no image URL, frontend shows placeholder
+            except S3NotConfiguredError:
+                processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
+        # If no image_key but has old profile_image_url, keep it (backward compatibility)
+        # If neither exists, frontend will show placeholder
 
         processed[corner] = processed_fighter
 
