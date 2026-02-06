@@ -436,16 +436,24 @@ async def lock_event_picks(
             detail=f"Evento {event_id} no encontrado"
         )
 
+    # Update event picks_locked flag
     await db["events"].update_one(
         {"id": event_id},
         {"$set": {"picks_locked": True}}
+    )
+
+    # Update all picks for this event to locked: True
+    picks_result = await db["picks"].update_many(
+        {"event_id": event_id, "locked": False},
+        {"$set": {"locked": True}}
     )
 
     return {
         "success": True,
         "message": f"Picks lockeados para evento {event_id}",
         "event_id": event_id,
-        "picks_locked": True
+        "picks_locked": True,
+        "picks_updated": picks_result.modified_count
     }
 
 
@@ -466,16 +474,24 @@ async def unlock_event_picks(
             detail=f"Evento {event_id} no encontrado"
         )
 
+    # Update event picks_locked flag
     await db["events"].update_one(
         {"id": event_id},
         {"$set": {"picks_locked": False}}
+    )
+
+    # Update all picks for this event to locked: False
+    picks_result = await db["picks"].update_many(
+        {"event_id": event_id, "locked": True},
+        {"$set": {"locked": False}}
     )
 
     return {
         "success": True,
         "message": f"Picks desbloqueados para evento {event_id}",
         "event_id": event_id,
-        "picks_locked": False
+        "picks_locked": False,
+        "picks_updated": picks_result.modified_count
     }
 
 
@@ -496,16 +512,24 @@ async def lock_bout_picks(
             detail=f"Bout {bout_id} no encontrado"
         )
 
+    # Update bout picks_locked flag
     await db["bouts"].update_one(
         {"id": bout_id},
         {"$set": {"picks_locked": True}}
+    )
+
+    # Update all picks for this bout to locked: True
+    picks_result = await db["picks"].update_many(
+        {"bout_id": bout_id, "locked": False},
+        {"$set": {"locked": True}}
     )
 
     return {
         "success": True,
         "message": f"Picks lockeados para bout {bout_id}",
         "bout_id": bout_id,
-        "picks_locked": True
+        "picks_locked": True,
+        "picks_updated": picks_result.modified_count
     }
 
 
@@ -526,14 +550,22 @@ async def unlock_bout_picks(
             detail=f"Bout {bout_id} no encontrado"
         )
 
+    # Update bout picks_locked flag
     await db["bouts"].update_one(
         {"id": bout_id},
         {"$set": {"picks_locked": False}}
+    )
+
+    # Update all picks for this bout to locked: False
+    picks_result = await db["picks"].update_many(
+        {"bout_id": bout_id, "locked": True},
+        {"$set": {"locked": False}}
     )
 
     return {
         "success": True,
         "message": f"Picks desbloqueados para bout {bout_id}",
         "bout_id": bout_id,
-        "picks_locked": False
+        "picks_locked": False,
+        "picks_updated": picks_result.modified_count
     }
