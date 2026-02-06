@@ -86,7 +86,7 @@ class PickRepository:
     async def update_pick(
         self,
         pick_id: str,
-        picked_corner: str,
+        picked_fighter_name: str,
         picked_method: str,
         picked_round: Optional[int],
         updated_at: datetime
@@ -96,7 +96,7 @@ class PickRepository:
             {"_id": pick_id, "locked": False},
             {
                 "$set": {
-                    "picked_corner": picked_corner,
+                    "picked_fighter_name": picked_fighter_name,
                     "picked_method": picked_method,
                     "picked_round": picked_round,
                     "updated_at": updated_at
@@ -136,7 +136,7 @@ class PickRepository:
     async def update_picks_for_bout(
         self,
         bout_id: int,
-        winner_corner: str,
+        winner_name: str,
         result_method: str,
         result_round: Optional[int]
     ) -> int:
@@ -148,14 +148,18 @@ class PickRepository:
         - Correct fighter only: 1 point
         - Correct fighter + method: 2 points
         - Correct fighter + method + round (non-DEC): 3 points
+
+        IMPORTANTE: La comparación se hace por NOMBRE del peleador normalizado.
         """
         updated = 0
+        winner_normalized = self._normalize_name(winner_name)
 
         cursor = self.collection.find({"bout_id": bout_id})
         async for doc in cursor:
             pick = Pick(**doc)
 
-            is_correct = pick.picked_corner == winner_corner
+            picked_normalized = self._normalize_name(pick.picked_fighter_name)
+            is_correct = picked_normalized == winner_normalized
 
             if not is_correct:
                 points = 0
@@ -179,6 +183,12 @@ class PickRepository:
             updated += 1
 
         return updated
+
+    def _normalize_name(self, name: str) -> str:
+        """Normalize name for comparison."""
+        if not name:
+            return ""
+        return " ".join(name.lower().strip().split())
 
     def _methods_match(self, picked: str, actual: str) -> bool:
         """Check if picked method matches actual result method."""
@@ -251,12 +261,12 @@ class PickRepository:
         return results[0]
 
     async def get_bout_distribution(self, bout_id: int) -> dict:
-        """Get pick distribution for a bout."""
+        """Get pick distribution for a bout by fighter name."""
         pipeline = [
             {"$match": {"bout_id": bout_id}},
             {
                 "$group": {
-                    "_id": "$picked_corner",
+                    "_id": "$picked_fighter_name",
                     "count": {"$sum": 1}
                 }
             }
@@ -265,12 +275,13 @@ class PickRepository:
         cursor = self.collection.aggregate(pipeline)
         results = await cursor.to_list(length=None)
 
-        distribution = {"red": 0, "blue": 0, "total": 0}
+        distribution = {"total": 0, "fighters": {}}
 
         for item in results:
-            corner = item["_id"]
+            fighter_name = item["_id"]
             count = item["count"]
-            distribution[corner] = count
+            if fighter_name:
+                distribution["fighters"][fighter_name] = count
             distribution["total"] += count
 
         return distribution

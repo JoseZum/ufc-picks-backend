@@ -1,8 +1,12 @@
 """
 Servicio de Puntos - Calcula y asigna puntos por picks correctos
+
+IMPORTANTE: La comparación se hace por NOMBRE del peleador, no por corner.
+Esto evita problemas cuando los datos de los bouts se actualizan y los
+corners (red/blue) cambian.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
@@ -23,6 +27,8 @@ class PointsService:
 
     def normalize_method(self, method: str) -> str:
         """Normalizar método a formato estándar"""
+        if not method:
+            return ""
         method_upper = method.upper()
         if method_upper in ["KO", "TKO", "KO/TKO"]:
             return "KO/TKO"
@@ -33,41 +39,55 @@ class PointsService:
         else:
             return method_upper
 
+    def normalize_name(self, name: str) -> str:
+        """Normalizar nombre para comparación"""
+        if not name:
+            return ""
+        # Quitar espacios extra y convertir a minúsculas para comparación
+        return " ".join(name.lower().strip().split())
+
     async def calculate_points(
         self,
         pick: Dict[str, Any],
-        result: Dict[str, Any]
+        winner_name: str,
+        result_method: str,
+        result_round: int = None
     ) -> int:
         """
         Calcular puntos para un pick basado en el resultado.
 
         Args:
-            pick: Dict con picked_corner, picked_method, picked_round
-            result: Dict con winner, method, round
+            pick: Dict con picked_fighter_name, picked_method, picked_round
+            winner_name: Nombre del peleador ganador
+            result_method: Método de victoria (KO/TKO, SUB, DEC)
+            result_round: Round en que terminó (None para DEC)
 
         Returns:
             Puntos ganados (0-3)
         """
         points = 0
 
-        # Si el resultado es draw o NC, nadie gana puntos
-        if result.get("winner") is None:
+        # Si no hay ganador, nadie gana puntos
+        if not winner_name:
             return 0
 
-        # 1 punto por acertar ganador
-        if pick["picked_corner"] == result["winner"]:
+        picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
+        winner_normalized = self.normalize_name(winner_name)
+
+        # 1 punto por acertar ganador (comparación por nombre)
+        if picked_name == winner_normalized:
             points += 1
 
             # +1 punto por acertar método (solo si acertó ganador)
-            pick_method = self.normalize_method(pick["picked_method"])
-            result_method = self.normalize_method(result["method"])
+            pick_method = self.normalize_method(pick.get("picked_method", ""))
+            normalized_result_method = self.normalize_method(result_method)
 
-            if pick_method == result_method:
+            if pick_method == normalized_result_method:
                 points += 1
 
                 # +1 punto por acertar round (solo si acertó ganador y método)
-                if pick.get("picked_round") and result.get("round"):
-                    if pick["picked_round"] == result["round"]:
+                if pick.get("picked_round") and result_round:
+                    if pick["picked_round"] == result_round:
                         points += 1
 
         return points
@@ -80,14 +100,13 @@ class PointsService:
         """
         Calcular y asignar puntos a todos los picks de un bout.
 
-        1. Busca todos los picks para el bout
-        2. Calcula puntos para cada pick
-        3. Actualiza los picks con puntos y is_correct
-        4. Actualiza estadísticas de usuarios
-        5. Actualiza leaderboards
+        El resultado debe contener:
+        - winner_name: Nombre del peleador ganador
+        - method: Método de victoria
+        - round: Round (opcional)
 
-        Returns:
-            Dict con estadísticas de puntos asignados
+        NOTA: También soporta el formato legacy con 'winner' (corner) para
+        compatibilidad, pero buscará el nombre del fighter en ese caso.
         """
         # Buscar todos los picks para este bout
         picks_cursor = self.db["picks"].find({"bout_id": bout_id})
@@ -99,19 +118,51 @@ class PointsService:
                 "points_distributed": 0
             }
 
+        # Obtener el bout para tener acceso a los fighters
+        bout = await self.db["bouts"].find_one({"id": bout_id})
+        if not bout:
+            return {
+                "picks_processed": 0,
+                "points_distributed": 0,
+                "error": "Bout not found"
+            }
+
+        # Determinar el nombre del ganador
+        winner_name = result.get("winner_name")
+
+        # Compatibilidad con formato legacy (winner = corner)
+        if not winner_name and result.get("winner"):
+            winner_corner = result["winner"]
+            fighters = bout.get("fighters", {})
+            if winner_corner in ["red", "blue"]:
+                winner_data = fighters.get(winner_corner, {})
+                winner_name = winner_data.get("fighter_name")
+
+        if not winner_name:
+            return {
+                "picks_processed": 0,
+                "points_distributed": 0,
+                "error": "Could not determine winner name"
+            }
+
+        result_method = result.get("method", "")
+        result_round = result.get("round")
+
         picks_updated = 0
         total_points = 0
         users_affected = set()
 
         # Procesar cada pick
         for pick in picks:
-            # Calcular puntos
-            points = await self.calculate_points(pick, result)
+            # Calcular puntos usando nombre del peleador
+            points = await self.calculate_points(
+                pick, winner_name, result_method, result_round
+            )
 
-            # Determinar si es correcto (acertó ganador)
-            is_correct = False
-            if result.get("winner"):
-                is_correct = pick["picked_corner"] == result["winner"]
+            # Determinar si es correcto (comparación por nombre)
+            picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
+            winner_normalized = self.normalize_name(winner_name)
+            is_correct = picked_name == winner_normalized
 
             # Actualizar pick
             await self.db["picks"].update_one(
@@ -128,22 +179,20 @@ class PointsService:
             total_points += points
             users_affected.add(pick["user_id"])
 
-        # Actualizar estadísticas de usuarios y leaderboards
+        # Actualizar estadísticas de usuarios
         for user_id in users_affected:
             await self._update_user_stats(user_id)
 
         return {
             "picks_processed": picks_updated,
             "points_distributed": total_points,
-            "users_affected": len(users_affected)
+            "users_affected": len(users_affected),
+            "winner_name": winner_name
         }
 
     async def revert_points(self, bout_id: int):
         """
         Revertir puntos asignados para un bout (si se elimina resultado).
-
-        1. Resetea points_awarded y is_correct en todos los picks
-        2. Recalcula estadísticas de usuarios
         """
         # Obtener usuarios afectados antes de resetear
         picks_cursor = self.db["picks"].find({"bout_id": bout_id})
@@ -168,40 +217,26 @@ class PointsService:
     async def _update_user_stats(self, user_id: str):
         """
         Actualizar las estadísticas del usuario basado en todos sus picks.
-
-        Calcula:
-        - total_points: suma de points_awarded
-        - picks_total: cantidad de picks hechas
-        - picks_correct: cantidad donde is_correct = True
-        - perfect_picks: cantidad con 3 puntos
-        - accuracy: porcentaje de picks correctas
         """
-        # Buscar todos los picks del usuario
         picks_cursor = self.db["picks"].find({"user_id": user_id})
         picks = await picks_cursor.to_list(length=None)
 
-        # Calcular stats
         total_points = 0
         picks_total = len(picks)
         picks_correct = 0
         perfect_picks = 0
 
         for pick in picks:
-            # Sumar puntos
             total_points += pick.get("points_awarded", 0)
 
-            # Contar correctas
             if pick.get("is_correct") is True:
                 picks_correct += 1
 
-            # Contar perfect picks (3 puntos)
             if pick.get("points_awarded", 0) == 3:
                 perfect_picks += 1
 
-        # Calcular accuracy como decimal (0-1), el frontend lo convierte a porcentaje
         accuracy = (picks_correct / picks_total) if picks_total > 0 else 0.0
 
-        # Actualizar usuario en BD
         await self.db["users"].update_one(
             {"_id": user_id},
             {
@@ -210,7 +245,7 @@ class PointsService:
                     "picks_total": picks_total,
                     "picks_correct": picks_correct,
                     "perfect_picks": perfect_picks,
-                    "accuracy": round(accuracy, 4)  # Guardar como decimal con 4 decimales
+                    "accuracy": round(accuracy, 4)
                 }
             }
         )

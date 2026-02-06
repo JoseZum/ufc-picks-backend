@@ -1,5 +1,9 @@
 """
 Pick model - user predictions for bouts.
+
+IMPORTANTE: Usamos picked_fighter_name en lugar de picked_corner
+para evitar problemas cuando los datos de los bouts se actualizan
+y los corners (red/blue) cambian.
 """
 
 from datetime import datetime
@@ -9,7 +13,6 @@ from pydantic import BaseModel, Field
 
 
 VictoryMethod = Literal["DEC", "KO/TKO", "SUB"]
-Corner = Literal["red", "blue"]
 
 
 class Pick(BaseModel):
@@ -21,7 +24,9 @@ class Pick(BaseModel):
     event_id: int
     bout_id: int
 
-    picked_corner: Corner
+    # NUEVO: Nombre del peleador elegido (inmutable, no depende de corners)
+    picked_fighter_name: str
+
     picked_method: VictoryMethod
     picked_round: Optional[int] = None  # 1-5, only if method != DEC
 
@@ -42,7 +47,7 @@ class PickCreate(BaseModel):
 
     event_id: int
     bout_id: int
-    picked_corner: Corner
+    picked_fighter_name: str  # Nombre del peleador, NO corner
     picked_method: VictoryMethod
     picked_round: Optional[int] = Field(None, ge=1, le=5)
 
@@ -53,7 +58,7 @@ class PickResponse(BaseModel):
     id: str
     bout_id: int
     event_id: int
-    picked_corner: Corner
+    picked_fighter_name: str  # Nombre del peleador
     picked_method: VictoryMethod
     picked_round: Optional[int] = None
     is_correct: Optional[bool] = None

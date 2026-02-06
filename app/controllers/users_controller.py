@@ -34,7 +34,7 @@ class UserPickResponse(BaseModel):
     event_id: int
     event_name: Optional[str] = None
     event_date: Optional[str] = None
-    picked_corner: str
+    picked_fighter_name: str
     picked_method: str
     picked_round: Optional[int] = None
     is_correct: Optional[bool] = None
@@ -160,7 +160,7 @@ async def get_user_picks(
             event_id=p.get("event_id"),
             event_name=event.get("name"),
             event_date=event.get("event_date"),
-            picked_corner=p.get("picked_corner"),
+            picked_fighter_name=p.get("picked_fighter_name", ""),
             picked_method=p.get("picked_method"),
             picked_round=p.get("picked_round"),
             is_correct=p.get("is_correct"),
