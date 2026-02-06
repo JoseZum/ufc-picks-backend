@@ -82,16 +82,16 @@ class EventRepository:
     async def get_recent_completed(self, limit: int = 5) -> list[Event]:
         """Obtiene eventos recientes completados"""
         cursor = self.collection.find({
-            "status": "completed"
+            "status": {"$in": ["completed", "cancelled"]}
         }).sort("date", -1).limit(limit)
 
         docs = await cursor.to_list(length=limit)
-        
+
         # Clean up docs: remove main_event_bout_id if it's an ObjectId
         for doc in docs:
             if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
                 doc.pop("main_event_bout_id", None)
-        
+
         return [Event(**doc) for doc in docs]
 
     async def get_by_date_range(
