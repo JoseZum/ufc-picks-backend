@@ -155,7 +155,7 @@ async def get_user_picks(
         fighters = bout.get("fighters", {})
 
         result.append(UserPickResponse(
-            id=p.get("id"),
+            id=p.get("_id", p.get("id", "")),
             bout_id=p.get("bout_id"),
             event_id=p.get("event_id"),
             event_name=event.get("name"),
