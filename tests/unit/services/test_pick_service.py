@@ -36,7 +36,7 @@ class TestPickService:
         # Assert
         assert pick.user_id == "user123"
         assert pick.bout_id == sample_pick_data["bout_id"]
-        assert pick.picked_corner == "red"
+        assert pick.picked_fighter_name == "Test Fighter 1"
         assert pick.picked_method == "KO/TKO"
         assert pick.picked_round == 2
         assert pick.locked is False
@@ -104,15 +104,15 @@ class TestPickService:
         pick1 = await service.create_or_update_pick("user123", pick_create)
         
         # Update pick
-        pick_create.picked_corner = "blue"
+        pick_create.picked_fighter_name = "Test Fighter 2"
         pick_create.picked_method = "SUB"
         pick_create.picked_round = 3
-        
+
         pick2 = await service.create_or_update_pick("user123", pick_create)
-        
+
         # Assert
         assert pick2.id == pick1.id  # Same pick ID
-        assert pick2.picked_corner == "blue"
+        assert pick2.picked_fighter_name == "Test Fighter 2"
         assert pick2.picked_method == "SUB"
         assert pick2.picked_round == 3
         assert pick2.updated_at is not None
@@ -135,8 +135,8 @@ class TestPickService:
         )
         
         # Try to update
-        pick_create.picked_corner = "blue"
-        
+        pick_create.picked_fighter_name = "Test Fighter 2"
+
         with pytest.raises(PickLockedError):
             await service.create_or_update_pick("user123", pick_create)
     
@@ -152,100 +152,24 @@ class TestPickService:
         pick_create = PickCreate(
             event_id=sample_pick_data["event_id"],
             bout_id=sample_pick_data["bout_id"],
-            picked_corner="red",
+            picked_fighter_name="Test Fighter 1",
             picked_method="DEC",
             picked_round=5  # Invalid for DEC
         )
-        
+
         with pytest.raises(InvalidPickError):
             await service.create_or_update_pick("user123", pick_create)
     
     @pytest.mark.asyncio
-    async def test_calculate_score_correct_fighter_only(self, test_db):
-        """Test scoring: correct fighter only = 1 point."""
+    async def test_normalize_name(self, test_db):
+        """Test fighter name normalization."""
         service = PickService(test_db)
-        
-        is_correct, points = await service.calculate_score(
-            picked_corner="red",
-            picked_method="KO/TKO",
-            picked_round=2,
-            result={"winner": "red", "method": "SUB", "round": 3}
-        )
-        
-        assert is_correct is True
-        assert points == 1
-    
-    @pytest.mark.asyncio
-    async def test_calculate_score_correct_fighter_and_method(self, test_db):
-        """Test scoring: correct fighter + method = 2 points."""
-        service = PickService(test_db)
-        
-        is_correct, points = await service.calculate_score(
-            picked_corner="red",
-            picked_method="KO/TKO",
-            picked_round=2,
-            result={"winner": "red", "method": "KO/TKO", "round": 3}
-        )
-        
-        assert is_correct is True
-        assert points == 2
-    
-    @pytest.mark.asyncio
-    async def test_calculate_score_perfect_pick(self, test_db):
-        """Test scoring: correct fighter + method + round = 3 points."""
-        service = PickService(test_db)
-        
-        is_correct, points = await service.calculate_score(
-            picked_corner="red",
-            picked_method="KO/TKO",
-            picked_round=2,
-            result={"winner": "red", "method": "KO/TKO", "round": 2}
-        )
-        
-        assert is_correct is True
-        assert points == 3
-    
-    @pytest.mark.asyncio
-    async def test_calculate_score_wrong_fighter(self, test_db):
-        """Test scoring: wrong fighter = 0 points."""
-        service = PickService(test_db)
-        
-        is_correct, points = await service.calculate_score(
-            picked_corner="red",
-            picked_method="KO/TKO",
-            picked_round=2,
-            result={"winner": "blue", "method": "KO/TKO", "round": 2}
-        )
-        
-        assert is_correct is False
-        assert points == 0
-    
-    @pytest.mark.asyncio
-    async def test_calculate_score_dec_correct(self, test_db):
-        """Test scoring: DEC picks max 2 points."""
-        service = PickService(test_db)
-        
-        is_correct, points = await service.calculate_score(
-            picked_corner="red",
-            picked_method="DEC",
-            picked_round=None,
-            result={"winner": "red", "method": "DEC", "round": 5}
-        )
-        
-        assert is_correct is True
-        assert points == 2
-    
-    @pytest.mark.asyncio
-    async def test_normalize_method(self, test_db):
-        """Test method normalization."""
-        service = PickService(test_db)
-        
-        assert service._normalize_method("KO") == "KO/TKO"
-        assert service._normalize_method("TKO") == "KO/TKO"
-        assert service._normalize_method("Submission") == "SUB"
-        assert service._normalize_method("Decision") == "DEC"
-        assert service._normalize_method("") == "DEC"
-    
+
+        assert service._normalize_name("Jon Jones") == "jon jones"
+        assert service._normalize_name("  Khabib  Nurmagomedov  ") == "khabib nurmagomedov"
+        assert service._normalize_name("CONOR MCGREGOR") == "conor mcgregor"
+        assert service._normalize_name("") == ""
+
     @pytest.mark.asyncio
     async def test_get_user_picks_for_event(self, test_db, sample_event_data, sample_bout_data, sample_pick_data):
         """Test retrieving all user picks for an event."""
@@ -269,7 +193,7 @@ class TestPickService:
         pick2 = PickCreate(
             event_id=12345,
             bout_id=67891,
-            picked_corner="blue",
+            picked_fighter_name="Test Fighter 2",
             picked_method="SUB",
             picked_round=1
         )

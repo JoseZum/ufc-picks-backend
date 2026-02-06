@@ -34,7 +34,7 @@ class TestPicksEndpoints:
         assert response.status_code == 201
         data = response.json()
         assert data["bout_id"] == sample_pick_data["bout_id"]
-        assert data["picked_corner"] == sample_pick_data["picked_corner"]
+        assert data["picked_fighter_name"] == sample_pick_data["picked_fighter_name"]
         assert data["picked_method"] == sample_pick_data["picked_method"]
     
     @pytest.mark.asyncio
@@ -103,19 +103,19 @@ class TestPicksEndpoints:
         
         # Update pick
         updated_pick = sample_pick_data.copy()
-        updated_pick["picked_corner"] = "blue"
+        updated_pick["picked_fighter_name"] = "Test Fighter 2"
         updated_pick["picked_method"] = "SUB"
-        
+
         response2 = await client.post(
             "/picks",
             json=updated_pick,
             headers=auth_headers
         )
-        
+
         # Assert
         assert response2.status_code == 201
         data = response2.json()
-        assert data["picked_corner"] == "blue"
+        assert data["picked_fighter_name"] == "Test Fighter 2"
         assert data["picked_method"] == "SUB"
     
     @pytest.mark.asyncio

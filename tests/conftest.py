@@ -145,7 +145,7 @@ def sample_pick_data():
     return {
         "event_id": 12345,
         "bout_id": 67890,
-        "picked_corner": "red",
+        "picked_fighter_name": "Test Fighter 1",
         "picked_method": "KO/TKO",
         "picked_round": 2
     }
@@ -155,7 +155,7 @@ def sample_pick_data():
 def sample_result_data():
     """Sample bout result data for testing."""
     return {
-        "winner": "red",
+        "winner_name": "Test Fighter 1",
         "method": "KO/TKO",
         "round": 2,
         "time": "3:45",

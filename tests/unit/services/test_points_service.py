@@ -28,120 +28,84 @@ class TestPointsService:
     async def test_calculate_points_perfect_pick(self, test_db):
         """Test perfect pick: fighter + method + round = 3 points."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "KO/TKO",
             "picked_round": 2
         }
-        
-        result = {
-            "winner": "red",
-            "method": "KO",
-            "round": 2
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "Test Fighter 1", "KO", 2)
         assert points == 3
     
     @pytest.mark.asyncio
     async def test_calculate_points_fighter_and_method(self, test_db):
         """Test correct fighter and method = 2 points."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "KO/TKO",
             "picked_round": 2
         }
-        
-        result = {
-            "winner": "red",
-            "method": "KO",
-            "round": 3  # Different round
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "Test Fighter 1", "KO", 3)  # Different round
         assert points == 2
     
     @pytest.mark.asyncio
     async def test_calculate_points_fighter_only(self, test_db):
         """Test correct fighter only = 1 point."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "KO/TKO",
             "picked_round": 2
         }
-        
-        result = {
-            "winner": "red",
-            "method": "SUB",  # Different method
-            "round": 3
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "Test Fighter 1", "SUB", 3)  # Different method
         assert points == 1
     
     @pytest.mark.asyncio
     async def test_calculate_points_wrong_fighter(self, test_db):
         """Test wrong fighter = 0 points."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "KO/TKO",
             "picked_round": 2
         }
-        
-        result = {
-            "winner": "blue",  # Wrong fighter
-            "method": "KO",
-            "round": 2
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "Test Fighter 2", "KO", 2)  # Wrong fighter
         assert points == 0
     
     @pytest.mark.asyncio
     async def test_calculate_points_draw(self, test_db):
         """Test draw result = 0 points."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "DEC",
             "picked_round": None
         }
-        
-        result = {
-            "winner": None,  # Draw
-            "method": "DEC",
-            "round": 5
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "", "DEC", 5)  # No winner (draw)
         assert points == 0
     
     @pytest.mark.asyncio
     async def test_calculate_points_no_round_specified(self, test_db):
         """Test pick without round can still get points."""
         service = PointsService(test_db)
-        
+
         pick = {
-            "picked_corner": "red",
+            "picked_fighter_name": "Test Fighter 1",
             "picked_method": "KO/TKO",
             "picked_round": None  # No round specified
         }
-        
-        result = {
-            "winner": "red",
-            "method": "KO",
-            "round": 2
-        }
-        
-        points = await service.calculate_points(pick, result)
+
+        points = await service.calculate_points(pick, "Test Fighter 1", "KO", 2)
         assert points == 2  # Fighter + method, no round bonus
     
     @pytest.mark.asyncio
@@ -155,7 +119,7 @@ class TestPointsService:
                 "_id": "user1:67890",
                 "user_id": "user1",
                 "bout_id": 67890,
-                "picked_corner": "red",
+                "picked_fighter_name": "Test Fighter 1",
                 "picked_method": "KO/TKO",
                 "picked_round": 2
             },
@@ -163,7 +127,7 @@ class TestPointsService:
                 "_id": "user2:67890",
                 "user_id": "user2",
                 "bout_id": 67890,
-                "picked_corner": "red",
+                "picked_fighter_name": "Test Fighter 1",
                 "picked_method": "SUB",
                 "picked_round": 1
             },
@@ -171,7 +135,7 @@ class TestPointsService:
                 "_id": "user3:67890",
                 "user_id": "user3",
                 "bout_id": 67890,
-                "picked_corner": "blue",
+                "picked_fighter_name": "Test Fighter 2",
                 "picked_method": "KO/TKO",
                 "picked_round": 2
             }
@@ -223,7 +187,7 @@ class TestPointsService:
                 "_id": "user1:67890",
                 "user_id": "user1",
                 "bout_id": 67890,
-                "picked_corner": "red",
+                "picked_fighter_name": "Test Fighter 1",
                 "picked_method": "KO/TKO",
                 "picked_round": 2,
                 "points_awarded": 3,
@@ -233,7 +197,7 @@ class TestPointsService:
                 "_id": "user2:67890",
                 "user_id": "user2",
                 "bout_id": 67890,
-                "picked_corner": "blue",
+                "picked_fighter_name": "Test Fighter 2",
                 "picked_method": "SUB",
                 "picked_round": 1,
                 "points_awarded": 0,
