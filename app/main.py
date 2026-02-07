@@ -21,6 +21,7 @@ from app.controllers.health_controller import router as health_router
 from app.controllers.proxy_controller import router as proxy_router
 from app.controllers.admin_controller import router as admin_router
 from app.controllers.users_controller import router as users_router
+from app.controllers.fight_card_controller import router as fight_card_router
 
 settings = get_settings()
 
@@ -109,6 +110,7 @@ app.include_router(leaderboard_router)
 app.include_router(proxy_router)
 app.include_router(admin_router)
 app.include_router(users_router)
+app.include_router(fight_card_router)
 
 
 @app.get("/")
