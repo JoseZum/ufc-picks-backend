@@ -30,6 +30,8 @@ class EventResponse(BaseModel):
     name: str
     subtitle: Optional[str] = None
     date: date
+    start_time_et: Optional[str] = None  # Hora en ET (ej: "17:00")
+    timezone: Optional[str] = None  # Zona horaria (ej: "ET")
     location: Optional[dict] = None
     status: str
     total_bouts: int
@@ -83,6 +85,8 @@ async def get_events(
                 name=e.name,
                 subtitle=e.subtitle,
                 date=e.date,
+                start_time_et=getattr(e, 'start_time_et', None),
+                timezone=getattr(e, 'timezone', None),
                 location=e.location,
                 status=e.status,
                 total_bouts=e.total_bouts,
@@ -126,6 +130,8 @@ async def get_event(
         name=event.name,
         subtitle=event.subtitle,
         date=event.date,
+        start_time_et=getattr(event, 'start_time_et', None),
+        timezone=getattr(event, 'timezone', None),
         location=event.location,
         status=event.status,
         total_bouts=event.total_bouts,
