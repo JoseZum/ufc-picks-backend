@@ -19,27 +19,27 @@ from app.models.pick import Pick, PickCreate
 
 
 class PickServiceError(Exception):
-    """Base exception for pick service errors."""
+    """Error base del servicio de picks."""
     pass
 
 
 class PickLockedError(PickServiceError):
-    """Raised when trying to modify a locked pick."""
+    """Cuando intenta modificar un pick bloqueado."""
     pass
 
 
 class EventNotFoundError(PickServiceError):
-    """Raised when event is not found."""
+    """Evento no encontrado."""
     pass
 
 
 class BoutNotFoundError(PickServiceError):
-    """Raised when bout is not found."""
+    """Pelea no encontrada."""
     pass
 
 
 class InvalidPickError(PickServiceError):
-    """Raised when pick data is invalid."""
+    """Datos del pick inválidos."""
     pass
 
 
@@ -55,30 +55,21 @@ class PickService:
         user_id: str,
         pick_data: PickCreate
     ) -> Pick:
-        """
-        Create or update a pick.
-
-        Validates:
-        - Event exists
-        - Bout exists and belongs to event
-        - Fighter name is valid (belongs to the bout)
-        - Event has not started (picks not locked)
-        - Round is only set for non-DEC methods
-        """
-        # Validate event exists
+        """Crea o actualiza un pick con validaciones completas."""
+        # Verificar que el evento exista
         event = await self.event_repo.get_by_id(pick_data.event_id)
         if not event:
-            raise EventNotFoundError(f"Event {pick_data.event_id} not found")
+            raise EventNotFoundError(f"Evento {pick_data.event_id} no encontrado")
 
-        # Validate bout exists and belongs to event
+        # Verificar que la pelea existe y pertenece al evento
         bout = await self.bout_repo.get_by_id(pick_data.bout_id)
         if not bout:
-            raise BoutNotFoundError(f"Bout {pick_data.bout_id} not found")
+            raise BoutNotFoundError(f"Pelea {pick_data.bout_id} no encontrada")
 
         if bout.event_id != pick_data.event_id:
-            raise InvalidPickError("Bout does not belong to the specified event")
+            raise InvalidPickError("La pelea no pertenece a este evento")
 
-        # Validate fighter name belongs to the bout
+        # Verificar que el nombre del peleador sea válido
         fighters = bout.fighters or {}
         red_fighter = fighters.get("red", {})
         blue_fighter = fighters.get("blue", {})
@@ -94,35 +85,35 @@ class PickService:
         picked_normalized = self._normalize_name(pick_data.picked_fighter_name)
         if picked_normalized not in valid_fighters:
             raise InvalidPickError(
-                f"Fighter '{pick_data.picked_fighter_name}' is not in this bout. "
-                f"Valid fighters: {red_name}, {blue_name}"
+                f"Peleador '{pick_data.picked_fighter_name}' no está en esta pelea. "
+                f"Válidos: {red_name}, {blue_name}"
             )
 
-        # Check if picks are locked (event has started or completed)
+        # Si el evento ya empezó o fue cancelado, no se puede editar
         if event.status in ("completed", "cancelled"):
-            raise PickLockedError("Cannot modify picks for completed or cancelled events")
+            raise PickLockedError("No se pueden editar picks en eventos terminados o cancelados")
 
-        # Check if event or bout are locked by admin
+        # Revisar bloqueos del admin a nivel evento
         if getattr(event, "picks_locked", False):
-            raise PickLockedError("Picks are locked for this event by admin")
+            raise PickLockedError("Los picks están bloqueados en este evento")
 
         if getattr(bout, "picks_locked", False):
-            raise PickLockedError("Picks are locked for this bout by admin")
+            raise PickLockedError("Los picks están bloqueados en esta pelea")
 
-        # Check if this specific pick is already locked
+        # Revisar si este pick en específico ya fue bloqueado
         existing_pick = await self.pick_repo.get_user_pick_for_bout(user_id, pick_data.bout_id)
         if existing_pick and existing_pick.locked:
-            raise PickLockedError("This pick has been locked")
+            raise PickLockedError("Este pick ya fue bloqueado")
 
-        # Validate round only for non-DEC methods
+        # Para DEC no se puede especificar round
         if pick_data.picked_method == "DEC" and pick_data.picked_round is not None:
-            raise InvalidPickError("Round cannot be specified for DEC method")
+            raise InvalidPickError("No se puede especificar round para decisión")
 
         now = datetime.now(timezone.utc)
         pick_id = f"{user_id}:{pick_data.bout_id}"
 
         if existing_pick:
-            # Update existing pick
+            # Actualizar pick existente
             return await self.pick_repo.update_pick(
                 pick_id=pick_id,
                 picked_fighter_name=pick_data.picked_fighter_name,
@@ -131,7 +122,7 @@ class PickService:
                 updated_at=now
             )
         else:
-            # Create new pick
+            # Crear nuevo pick
             pick = Pick(
                 _id=pick_id,
                 user_id=user_id,
@@ -149,7 +140,7 @@ class PickService:
             return await self.pick_repo.create(pick)
 
     def _normalize_name(self, name: str) -> str:
-        """Normalize name for comparison."""
+        """Normaliza nombres para comparación (lowercase, sin espacios extras)."""
         if not name:
             return ""
         return " ".join(name.lower().strip().split())
@@ -159,7 +150,7 @@ class PickService:
         user_id: str,
         event_id: int
     ) -> list[Pick]:
-        """Get all picks for a user in an event."""
+        """Obtiene todos los picks del usuario en un evento específico."""
         return await self.pick_repo.get_user_picks_for_event(user_id, event_id)
 
     async def get_all_user_picks(
@@ -167,7 +158,7 @@ class PickService:
         user_id: str,
         limit: int = 100
     ) -> list[Pick]:
-        """Get all picks for a user across all events."""
+        """Obtiene todos los picks del usuario en todos los eventos."""
         return await self.pick_repo.get_user_all_picks(user_id, limit)
 
     async def get_user_pick_for_bout(
@@ -175,9 +166,9 @@ class PickService:
         user_id: str,
         bout_id: int
     ) -> Optional[Pick]:
-        """Get a specific pick."""
+        """Obtiene un pick específico de una pelea."""
         return await self.pick_repo.get_user_pick_for_bout(user_id, bout_id)
 
     async def lock_picks_for_event(self, event_id: int) -> int:
-        """Lock all picks for an event."""
+        """Bloquea todos los picks de un evento."""
         return await self.pick_repo.lock_picks_for_event(event_id)

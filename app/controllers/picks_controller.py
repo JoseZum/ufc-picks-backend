@@ -24,12 +24,7 @@ async def create_pick(
     user: CurrentUser,
     db: Database
 ):
-    """
-    Crear o actualizar un pick.
-
-    El usuario puede modificar sus picks hasta que comience el evento;
-    tras el inicio, los picks quedan bloqueados.
-    """
+    """Crea o actualiza un pick con validaciones completas."""
     pick_service = PickService(db)
 
     try:
@@ -73,11 +68,9 @@ async def create_pick(
 async def get_my_picks(
     user: CurrentUser,
     db: Database,
-    event_id: int = Query(..., description="Event ID to get picks for")
+    event_id: int = Query(..., description="ID del evento")
 ):
-    """
-    Obtener los picks del usuario actual para un evento.
-    """
+    """Obtiene los picks del usuario en un evento específico."""
     pick_service = PickService(db)
     picks = await pick_service.get_user_picks_for_event(user.id, event_id)
 
@@ -102,11 +95,9 @@ async def get_my_picks(
 async def get_all_my_picks(
     user: CurrentUser,
     db: Database,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of picks to return")
+    limit: int = Query(100, ge=1, le=500, description="Máximo número de picks")
 ):
-    """
-    Obtener todos los picks del usuario actual en todos los eventos.
-    """
+    """Obtiene todos los picks del usuario en todos los eventos."""
     pick_service = PickService(db)
     picks = await pick_service.get_all_user_picks(user.id, limit)
 
@@ -130,11 +121,9 @@ async def get_all_my_picks(
 async def get_all_my_picks_detailed(
     user: CurrentUser,
     db: Database,
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of picks to return")
+    limit: int = Query(100, ge=1, le=500, description="Máximo número de picks")
 ):
-    """
-    Obtener todos los picks del usuario actual con información completa de bouts y eventos.
-    """
+    """Obtiene picks con detalles completos de peleas y eventos."""
     pick_service = PickService(db)
     picks = await pick_service.get_all_user_picks(user.id, limit)
 

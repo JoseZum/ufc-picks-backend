@@ -20,23 +20,23 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ============================================
 
 class UpdateEventTimingRequest(BaseModel):
-    """Request para actualizar timing de evento"""
-    event_date: Optional[datetime] = None  # Fecha/hora del evento
-    picks_lock_date: Optional[datetime] = None  # Cuando se cierran las picks
+    """Datos para actualizar fecha/hora de un evento."""
+    event_date: Optional[datetime] = None
+    picks_lock_date: Optional[datetime] = None
 
 
 class UpdateBoutTimingRequest(BaseModel):
-    """Request para actualizar timing de bout individual"""
-    bout_start_time: Optional[datetime] = None  # Hora de inicio de la pelea
-    picks_lock_time: Optional[datetime] = None  # Cuando se cierran picks para esta pelea
+    """Datos para actualizar timing de una pelea individual."""
+    bout_start_time: Optional[datetime] = None
+    picks_lock_time: Optional[datetime] = None
 
 
 class UpdateBoutResultRequest(BaseModel):
-    """Request para registrar resultado de pelea"""
-    winner: str  # "red" | "blue" | "draw" | "nc" (no contest)
+    """Datos para registrar el resultado de una pelea."""
+    winner: str  # "red" | "blue" | "draw" | "nc"
     method: str  # "KO/TKO" | "SUB" | "DEC" | "DQ" | "OTHER"
-    round: Optional[int] = None  # Round en que termino
-    time: Optional[str] = None  # Tiempo en el round (ej: "4:32")
+    round: Optional[int] = None
+    time: Optional[str] = None
 
 
 # ============================================
@@ -50,15 +50,7 @@ async def upload_event_art(
     db: Database,
     file: UploadFile = File(...)
 ):
-    """
-    Subir event art personalizado para un evento.
-    Solo administradores.
-    
-    El event art se almacena directamente en MongoDB como bytes.
-    Se sirve mediante el endpoint GET /events/{event_id}/event-art
-    
-    Solo acepta archivos de imagen (avif, png, jpg, webp)
-    """
+    """Sube una imagen personalizada para un evento."""
     # Verificar que el evento existe
     event = await db["events"].find_one({"id": event_id})
     if not event:
@@ -66,16 +58,16 @@ async def upload_event_art(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evento {event_id} no encontrado"
         )
-    
-    # Validar extensión
+
+    # Validar que sea una imagen soportada
     valid_extensions = ['.avif', '.png', '.jpg', '.jpeg', '.webp']
     if not file.filename or not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Solo se aceptan archivos: {', '.join(valid_extensions)}"
+            detail=f"Tipos válidos: {', '.join(valid_extensions)}"
         )
-    
-    # Determinar content type
+
+    # Mapear extensión a content type
     content_type = file.content_type or 'application/octet-stream'
     if file.filename:
         ext = file.filename.lower().split('.')[-1]
@@ -87,12 +79,11 @@ async def upload_event_art(
             'webp': 'image/webp'
         }
         content_type = content_type_map.get(ext, content_type)
-    
+
     try:
-        # Leer contenido del archivo
+        # Leer y guardar la imagen
         image_data = await file.read()
-        
-        # Guardar bytes directamente en MongoDB
+
         await db["events"].update_one(
             {"id": event_id},
             {"$set": {
@@ -100,18 +91,18 @@ async def upload_event_art(
                 "event_art_content_type": content_type
             }}
         )
-        
+
         return {
             "success": True,
-            "message": f"Event art subido correctamente para evento {event_id}",
+            "message": f"Imagen subida para evento {event_id}",
             "size_bytes": len(image_data),
             "content_type": content_type
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al subir event art: {str(e)}"
+            detail=f"Error al subir: {str(e)}"
         )
 
 
@@ -121,10 +112,7 @@ async def delete_event_art(
     admin: CurrentAdmin,
     db: Database
 ):
-    """
-    Eliminar event art de un evento.
-    Solo administradores.
-    """
+    """Elimina la imagen personalizada de un evento."""
     # Verificar que el evento existe
     event = await db["events"].find_one({"id": event_id})
     if not event:
@@ -132,16 +120,16 @@ async def delete_event_art(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evento {event_id} no encontrado"
         )
-    
-    # Eliminar bytes de MongoDB
+
+    # Eliminar imagen de MongoDB
     await db["events"].update_one(
         {"id": event_id},
         {"$unset": {"event_art": "", "event_art_content_type": ""}}
     )
-    
+
     return {
         "success": True,
-        "message": f"Event art eliminado para evento {event_id}"
+        "message": f"Imagen eliminada para evento {event_id}"
     }
 
 
@@ -568,4 +556,67 @@ async def unlock_bout_picks(
         "bout_id": bout_id,
         "picks_locked": False,
         "picks_updated": picks_result.modified_count
+    }
+
+
+# ============================================
+# BOUT CANCELLATION ENDPOINT
+# ============================================
+
+@router.post("/bouts/{bout_id}/cancel")
+async def cancel_bout(
+    bout_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Cancel a bout and delete all associated picks.
+
+    This:
+    1. Marks the bout as cancelled
+    2. Reverts any points already assigned
+    3. Deletes all picks for this bout
+    4. Recalculates stats for affected users
+
+    Solo administradores.
+    """
+    # Verify bout exists
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado"
+        )
+
+    # Get affected users before deleting picks
+    picks_cursor = db["picks"].find({"bout_id": bout_id})
+    picks = await picks_cursor.to_list(length=None)
+    users_affected = set(pick["user_id"] for pick in picks)
+    picks_count = len(picks)
+
+    # If bout had a result, revert points first
+    if bout.get("result"):
+        points_service = PointsService(db)
+        await points_service.revert_points(bout_id)
+
+    # Delete all picks for this bout
+    delete_result = await db["picks"].delete_many({"bout_id": bout_id})
+
+    # Mark bout as cancelled
+    await db["bouts"].update_one(
+        {"id": bout_id},
+        {"$set": {"status": "cancelled"}}
+    )
+
+    # Recalculate stats for all affected users
+    points_service = PointsService(db)
+    for user_id in users_affected:
+        await points_service._update_user_stats(user_id)
+
+    return {
+        "success": True,
+        "message": f"Bout {bout_id} cancelled and {picks_count} picks deleted",
+        "bout_id": bout_id,
+        "picks_deleted": delete_result.deleted_count,
+        "users_affected": len(users_affected)
     }

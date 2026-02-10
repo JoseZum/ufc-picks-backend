@@ -18,30 +18,30 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 class LocationResponse(BaseModel):
-    """Ubicación del evento."""
+    """Ubicación de una pelea."""
     venue: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
 
 
 class EventResponse(BaseModel):
-    """Datos del evento devueltos por la API."""
+    """Datos básicos del evento."""
     id: int
     name: str
     subtitle: Optional[str] = None
     date: date
-    start_time_et: Optional[str] = None  # Hora en ET (ej: "17:00")
-    timezone: Optional[str] = None  # Zona horaria (ej: "ET")
+    start_time_et: Optional[str] = None
+    timezone: Optional[str] = None
     location: Optional[dict] = None
     status: str
     total_bouts: int
     poster_image_url: Optional[str] = None
-    event_art_url: Optional[str] = None  # URL to /events/{id}/event-art if uploaded
+    event_art_url: Optional[str] = None
     picks_locked: bool = False
 
 
 class EventDetailResponse(EventResponse):
-    """Respuesta detallada del evento, incluyendo peleas."""
+    """Detalles completos del evento."""
     promotion: str
     url: str
 
@@ -49,14 +49,10 @@ class EventDetailResponse(EventResponse):
 @router.get("", response_model=list[EventResponse])
 async def get_events(
     db: Database,
-    status: Optional[str] = Query(None, description="Filter by status: scheduled, completed"),
+    status: Optional[str] = Query(None, description="Filtrar por: scheduled, completed"),
     limit: int = Query(20, ge=1, le=50)
 ):
-    """
-    Obtener lista de eventos.
-
-    Devuelve eventos próximos y recientes; opcionalmente filtrados por estado.
-    """
+    """Obtiene lista de eventos próximos y recientes."""
     event_service = EventService(db)
     events = await event_service.get_events_by_status(status, limit)
     s3_service = get_s3_service()
