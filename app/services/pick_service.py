@@ -169,6 +169,33 @@ class PickService:
         """Obtiene un pick específico de una pelea."""
         return await self.pick_repo.get_user_pick_for_bout(user_id, bout_id)
 
+    async def cleanup_pending_picks(self, user_id: str) -> int:
+        """
+        Elimina picks sin resultado en eventos ya completados.
+        Si el evento terminó y el pick sigue pending, la pelea se canceló o no se puntuó.
+        """
+        # Buscar eventos completados
+        completed_events = self.db["events"].find({"status": "completed"}, {"id": 1})
+        completed_ids = [e["id"] async for e in completed_events]
+
+        if not completed_ids:
+            return 0
+
+        # Borrar picks del usuario que estén pending en eventos completados
+        result = await self.db["picks"].delete_many({
+            "user_id": user_id,
+            "event_id": {"$in": completed_ids},
+            "is_correct": None
+        })
+
+        # Recalcular stats si se borró algo
+        if result.deleted_count > 0:
+            from app.services.points_service import PointsService
+            points_service = PointsService(self.db)
+            await points_service._update_user_stats(user_id)
+
+        return result.deleted_count
+
     async def lock_picks_for_event(self, event_id: int) -> int:
         """Bloquea todos los picks de un evento."""
         return await self.pick_repo.lock_picks_for_event(event_id)

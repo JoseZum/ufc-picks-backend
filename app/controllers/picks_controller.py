@@ -117,6 +117,17 @@ async def get_all_my_picks(
         for p in picks
     ]
 
+@router.post("/me/cleanup")
+async def cleanup_pending_picks(
+    user: CurrentUser,
+    db: Database
+):
+    """Elimina picks pending en eventos ya completados (peleas canceladas o sin resultado)."""
+    pick_service = PickService(db)
+    deleted = await pick_service.cleanup_pending_picks(user.id)
+    return {"deleted": deleted}
+
+
 @router.get("/me/detailed", response_model=list[dict])
 async def get_all_my_picks_detailed(
     user: CurrentUser,
