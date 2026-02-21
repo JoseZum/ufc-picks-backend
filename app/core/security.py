@@ -14,6 +14,7 @@ settings = get_settings()
 
 # URL del endpoint de Google para verificar tokens
 GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 
 class GoogleAuthError(Exception):
@@ -71,6 +72,46 @@ async def verify_google_token(id_token: str) -> dict:
         logger.info(f"✅ Token válido para user: {data.get('email')}")
         return {
             "sub": data.get("sub"),  # ID único del usuario en Google
+            "email": data.get("email"),
+            "name": data.get("name"),
+            "picture": data.get("picture"),
+        }
+
+
+async def verify_google_access_token(access_token: str) -> dict:
+    """
+    Verifica un access_token de Google llamando al endpoint de userinfo.
+    
+    Retorna: {sub, email, name, picture}
+    
+    Lanza GoogleAuthError si algo está mal
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info("🔍 Verificando Google access_token...")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if response.status_code != 200:
+            error_msg = f"Google access_token inválido. Status: {response.status_code}, Response: {response.text}"
+            logger.error(f"❌ {error_msg}")
+            raise GoogleAuthError(error_msg)
+
+        data = response.json()
+        logger.info(f"✅ Access token verificado. email={data.get('email')}")
+
+        if not data.get("email_verified", False):
+            error_msg = "Email not verified by Google"
+            logger.error(f"❌ {error_msg}")
+            raise GoogleAuthError(error_msg)
+
+        return {
+            "sub": data.get("sub"),
             "email": data.get("email"),
             "name": data.get("name"),
             "picture": data.get("picture"),

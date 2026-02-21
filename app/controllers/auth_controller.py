@@ -16,7 +16,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Cuerpo de la request OAuth
 class GoogleAuthRequest(BaseModel):
-    id_token: str
+    id_token: Optional[str] = None
+    access_token: Optional[str] = None
 
 # Request para actualizar perfil
 class UpdateProfileRequest(BaseModel):
@@ -45,8 +46,17 @@ async def authenticate_google(
     """
     auth_service = AuthService(db)
 
+    if not body.id_token and not body.access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either id_token or access_token is required"
+        )
+
     try:
-        user, token = await auth_service.authenticate_with_google(body.id_token)
+        if body.access_token:
+            user, token = await auth_service.authenticate_with_google_access_token(body.access_token)
+        else:
+            user, token = await auth_service.authenticate_with_google(body.id_token)
     except AuthServiceError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
