@@ -9,7 +9,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.database import Database
 
 from app.controllers.auth_controller import router as auth_router
@@ -96,6 +100,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add custom CORS middleware (handles OPTIONS before routing)
 app.add_middleware(CORSMiddleware)

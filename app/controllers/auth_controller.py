@@ -3,10 +3,11 @@ Controlador de autenticación - Rutas relacionadas con login y usuario
 """
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.core.dependencies import Database, CurrentUser
+from app.core.rate_limit import limiter
 from app.services.auth_service import AuthService, AuthServiceError
 from app.repositories.user_repository import UserRepository
 from app.models.user import UserResponse
@@ -30,8 +31,10 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/google", response_model=AuthResponse)
+@limiter.limit("10/minute")
 async def authenticate_google(
-    request: GoogleAuthRequest,
+    request: Request,
+    body: GoogleAuthRequest,
     db: Database
 ):
     """
@@ -43,7 +46,7 @@ async def authenticate_google(
     auth_service = AuthService(db)
 
     try:
-        user, token = await auth_service.authenticate_with_google(request.id_token)
+        user, token = await auth_service.authenticate_with_google(body.id_token)
     except AuthServiceError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,7 +72,8 @@ async def authenticate_google(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(user: CurrentUser):
+@limiter.limit("30/minute")
+async def get_current_user(request: Request, user: CurrentUser):
     """
     Devuelve el usuario actualmente autenticado.
 
@@ -91,8 +95,10 @@ async def get_current_user(user: CurrentUser):
 
 
 @router.put("/me", response_model=UserResponse)
+@limiter.limit("30/minute")
 async def update_profile(
-    request: UpdateProfileRequest,
+    request: Request,
+    body: UpdateProfileRequest,
     user: CurrentUser,
     db: Database
 ):
@@ -105,8 +111,8 @@ async def update_profile(
 
     updated_user = await user_repo.update_profile(
         user_id=user.id,
-        name=request.name,
-        profile_picture=request.profile_picture
+        name=body.name,
+        profile_picture=body.profile_picture
     )
 
     if not updated_user:

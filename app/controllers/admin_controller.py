@@ -5,10 +5,11 @@ Controlador de Admin - Endpoints exclusivos para administradores
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, status, UploadFile, File
 from pydantic import BaseModel
 
 from app.core.dependencies import CurrentAdmin, Database
+from app.core.rate_limit import limiter
 from app.services.points_service import PointsService
 
 
@@ -44,7 +45,9 @@ class UpdateBoutResultRequest(BaseModel):
 # ============================================
 
 @router.post("/events/{event_id}/event-art")
+@limiter.limit("30/minute")
 async def upload_event_art(
+    request: Request,
     event_id: int,
     admin: CurrentAdmin,
     db: Database,
@@ -107,7 +110,9 @@ async def upload_event_art(
 
 
 @router.delete("/events/{event_id}/event-art")
+@limiter.limit("30/minute")
 async def delete_event_art(
+    request: Request,
     event_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -138,9 +143,11 @@ async def delete_event_art(
 # ============================================
 
 @router.put("/events/{event_id}/timing")
+@limiter.limit("30/minute")
 async def update_event_timing(
+    request: Request,
     event_id: int,
-    request: UpdateEventTimingRequest,
+    body: UpdateEventTimingRequest,
     admin: CurrentAdmin,
     db: Database
 ):
@@ -158,10 +165,10 @@ async def update_event_timing(
 
     # Construir update
     update_data = {}
-    if request.event_date:
-        update_data["date"] = request.event_date
-    if request.picks_lock_date:
-        update_data["picks_lock_date"] = request.picks_lock_date
+    if body.event_date:
+        update_data["date"] = body.event_date
+    if body.picks_lock_date:
+        update_data["picks_lock_date"] = body.picks_lock_date
 
     if not update_data:
         raise HTTPException(
@@ -189,9 +196,11 @@ async def update_event_timing(
 
 
 @router.put("/bouts/{bout_id}/timing")
+@limiter.limit("30/minute")
 async def update_bout_timing(
+    request: Request,
     bout_id: int,
-    request: UpdateBoutTimingRequest,
+    body: UpdateBoutTimingRequest,
     admin: CurrentAdmin,
     db: Database
 ):
@@ -209,10 +218,10 @@ async def update_bout_timing(
 
     # Construir update
     update_data = {}
-    if request.bout_start_time:
-        update_data["bout_start_time"] = request.bout_start_time
-    if request.picks_lock_time:
-        update_data["picks_lock_time"] = request.picks_lock_time
+    if body.bout_start_time:
+        update_data["bout_start_time"] = body.bout_start_time
+    if body.picks_lock_time:
+        update_data["picks_lock_time"] = body.picks_lock_time
 
     if not update_data:
         raise HTTPException(
@@ -244,9 +253,11 @@ async def update_bout_timing(
 # ============================================
 
 @router.put("/bouts/{bout_id}/result")
+@limiter.limit("30/minute")
 async def update_bout_result(
+    request: Request,
     bout_id: int,
-    request: UpdateBoutResultRequest,
+    body: UpdateBoutResultRequest,
     admin: CurrentAdmin,
     db: Database
 ):
@@ -269,7 +280,7 @@ async def update_bout_result(
         )
 
     # Validar winner
-    if request.winner not in ["red", "blue", "draw", "nc"]:
+    if body.winner not in ["red", "blue", "draw", "nc"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Winner debe ser 'red', 'blue', 'draw' o 'nc'"
@@ -277,10 +288,10 @@ async def update_bout_result(
 
     # Construir resultado
     result_data = {
-        "winner": request.winner if request.winner not in ["draw", "nc"] else None,
-        "method": request.method,
-        "round": request.round,
-        "time": request.time
+        "winner": body.winner if body.winner not in ["draw", "nc"] else None,
+        "method": body.method,
+        "round": body.round,
+        "time": body.time
     }
 
     # Actualizar bout
@@ -313,7 +324,9 @@ async def update_bout_result(
 
 
 @router.delete("/bouts/{bout_id}/result")
+@limiter.limit("30/minute")
 async def delete_bout_result(
+    request: Request,
     bout_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -364,7 +377,9 @@ async def delete_bout_result(
 # ============================================
 
 @router.post("/recalculate-all-stats")
+@limiter.limit("30/minute")
 async def recalculate_all_user_stats(
+    request: Request,
     admin: CurrentAdmin,
     db: Database
 ):
@@ -408,7 +423,9 @@ async def recalculate_all_user_stats(
 # ============================================
 
 @router.post("/events/{event_id}/lock-picks")
+@limiter.limit("30/minute")
 async def lock_event_picks(
+    request: Request,
     event_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -446,7 +463,9 @@ async def lock_event_picks(
 
 
 @router.post("/events/{event_id}/unlock-picks")
+@limiter.limit("30/minute")
 async def unlock_event_picks(
+    request: Request,
     event_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -484,7 +503,9 @@ async def unlock_event_picks(
 
 
 @router.post("/bouts/{bout_id}/lock-picks")
+@limiter.limit("30/minute")
 async def lock_bout_picks(
+    request: Request,
     bout_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -522,7 +543,9 @@ async def lock_bout_picks(
 
 
 @router.post("/bouts/{bout_id}/unlock-picks")
+@limiter.limit("30/minute")
 async def unlock_bout_picks(
+    request: Request,
     bout_id: int,
     admin: CurrentAdmin,
     db: Database
@@ -564,7 +587,9 @@ async def unlock_bout_picks(
 # ============================================
 
 @router.post("/bouts/{bout_id}/cancel")
+@limiter.limit("30/minute")
 async def cancel_bout(
+    request: Request,
     bout_id: int,
     admin: CurrentAdmin,
     db: Database

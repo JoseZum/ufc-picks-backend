@@ -5,6 +5,7 @@ Controlador de salud - Endpoint de comprobación del servicio
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.core.rate_limit import limiter
 from app.database import Database
 
 
@@ -19,6 +20,7 @@ class HealthResponse(BaseModel):
 
 @router.get("/health", response_model=HealthResponse)
 @router.head("/health")
+@limiter.exempt
 async def health_check():
     """
     Endpoint de verificación de estado.
