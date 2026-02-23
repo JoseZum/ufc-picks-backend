@@ -8,9 +8,12 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, status, UploadFile, File
 from pydantic import BaseModel
 
+import os
+
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 from app.services.points_service import PointsService
+from app.services.s3_service import get_s3_service, S3WriteNotAllowedError, S3ServiceError
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -38,6 +41,20 @@ class UpdateBoutResultRequest(BaseModel):
     method: str  # "KO/TKO" | "SUB" | "DEC" | "DQ" | "OTHER"
     round: Optional[int] = None
     time: Optional[str] = None
+
+
+class UpdateBoutDetailsRequest(BaseModel):
+    """Datos editables de una pelea y su posición en la cartelera."""
+    # Campos del bout
+    rounds_scheduled: Optional[int] = None  # 3 o 5
+    weight_class: Optional[str] = None
+    is_title_fight: Optional[bool] = None
+    # Campos del event_card_slot
+    card_section: Optional[str] = None  # "main" | "prelim" | "early_prelim"
+    order_overall: Optional[int] = None
+    order_section: Optional[int] = None
+    is_main_event: Optional[bool] = None
+    is_co_main: Optional[bool] = None
 
 
 # ============================================
@@ -644,4 +661,252 @@ async def cancel_bout(
         "bout_id": bout_id,
         "picks_deleted": delete_result.deleted_count,
         "users_affected": len(users_affected)
+    }
+
+
+# ============================================
+# FIGHTER PHOTO UPLOAD ENDPOINT
+# ============================================
+
+@router.post("/fighters/photo")
+@limiter.limit("30/minute")
+async def upload_fighter_photo(
+    request: Request,
+    admin: CurrentAdmin,
+    file: UploadFile = File(...)
+):
+    """Sube una foto de peleador a S3."""
+    # Validar que sea PNG o JPG
+    valid_extensions = ['.png', '.jpg', '.jpeg']
+    if not file.filename or not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se aceptan archivos PNG y JPG"
+        )
+
+    # Sanitizar filename para evitar path traversal
+    filename = os.path.basename(file.filename)
+    if not filename or filename.startswith('.'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nombre de archivo inválido"
+        )
+
+    # Determinar content type según extensión
+    ext = filename.lower().split('.')[-1]
+    content_type_map = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg'
+    }
+    content_type = content_type_map[ext]
+
+    # Construir key S3: fighters/{filename}
+    s3_key = f"fighters/{filename}"
+
+    try:
+        image_data = await file.read()
+        s3_service = get_s3_service()
+        await s3_service.upload_image(s3_key, image_data, content_type=content_type)
+
+        # Generar URL de CloudFront
+        cloudfront_url = s3_service.get_cloudfront_url(s3_key)
+
+        return {
+            "success": True,
+            "message": f"Foto subida: {filename}",
+            "s3_key": s3_key,
+            "cloudfront_url": cloudfront_url,
+            "size_bytes": len(image_data),
+            "content_type": content_type
+        }
+
+    except S3WriteNotAllowedError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Escritura en S3 no permitida (modo cache activo)"
+        )
+    except S3ServiceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error de S3: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al subir foto: {str(e)}"
+        )
+
+
+# ============================================
+# BOUT DELETION ENDPOINT
+# ============================================
+
+@router.delete("/bouts/{bout_id}")
+@limiter.limit("30/minute")
+async def delete_bout(
+    request: Request,
+    bout_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Eliminar una pelea por completo de la base de datos.
+
+    A diferencia de cancel, esto:
+    1. Revierte puntos si la pelea tenía resultado
+    2. Elimina todos los picks asociados
+    3. Elimina el event_card_slot correspondiente
+    4. Elimina el bout de la colección
+    5. Actualiza el total_bouts del evento
+    6. Recalcula stats de usuarios afectados
+
+    Solo administradores.
+    """
+    # Verificar que el bout existe
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado"
+        )
+
+    event_id = bout.get("event_id")
+
+    # Recopilar usuarios afectados antes de eliminar picks
+    picks_cursor = db["picks"].find({"bout_id": bout_id})
+    picks = await picks_cursor.to_list(length=None)
+    users_affected = set(pick["user_id"] for pick in picks)
+    picks_count = len(picks)
+
+    # Si tenía resultado, revertir puntos primero
+    if bout.get("result"):
+        points_service = PointsService(db)
+        await points_service.revert_points(bout_id)
+
+    # Eliminar todos los picks de esta pelea
+    await db["picks"].delete_many({"bout_id": bout_id})
+
+    # Eliminar el event_card_slot
+    await db["event_card_slots"].delete_one({"bout_id": bout_id})
+
+    # Eliminar el bout
+    await db["bouts"].delete_one({"id": bout_id})
+
+    # Actualizar total_bouts del evento
+    if event_id:
+        remaining_bouts = await db["bouts"].count_documents({"event_id": event_id})
+        await db["events"].update_one(
+            {"id": event_id},
+            {"$set": {"total_bouts": remaining_bouts}}
+        )
+
+    # Recalcular stats de usuarios afectados
+    points_service = PointsService(db)
+    for user_id in users_affected:
+        await points_service._update_user_stats(user_id)
+
+    return {
+        "success": True,
+        "message": f"Bout {bout_id} eliminado completamente",
+        "bout_id": bout_id,
+        "event_id": event_id,
+        "picks_deleted": picks_count,
+        "users_affected": len(users_affected)
+    }
+
+
+# ============================================
+# BOUT DETAILS EDIT ENDPOINT
+# ============================================
+
+@router.put("/bouts/{bout_id}/details")
+@limiter.limit("30/minute")
+async def update_bout_details(
+    request: Request,
+    bout_id: int,
+    body: UpdateBoutDetailsRequest,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Editar campos de una pelea y su posición en la cartelera.
+    Solo administradores.
+    """
+    # Verificar que el bout existe
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado"
+        )
+
+    # Separar campos del bout y del card_slot
+    bout_update = {}
+    slot_update = {}
+
+    if body.rounds_scheduled is not None:
+        if body.rounds_scheduled not in [3, 5]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="rounds_scheduled debe ser 3 o 5"
+            )
+        bout_update["rounds_scheduled"] = body.rounds_scheduled
+
+    if body.weight_class is not None:
+        bout_update["weight_class"] = body.weight_class
+
+    if body.is_title_fight is not None:
+        bout_update["is_title_fight"] = body.is_title_fight
+
+    if body.card_section is not None:
+        if body.card_section not in ["main", "prelim", "early_prelim"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="card_section debe ser 'main', 'prelim' o 'early_prelim'"
+            )
+        slot_update["card_section"] = body.card_section
+
+    if body.order_overall is not None:
+        slot_update["order_overall"] = body.order_overall
+
+    if body.order_section is not None:
+        slot_update["order_section"] = body.order_section
+
+    if body.is_main_event is not None:
+        slot_update["is_main_event"] = body.is_main_event
+
+    if body.is_co_main is not None:
+        slot_update["is_co_main"] = body.is_co_main
+
+    if not bout_update and not slot_update:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes proporcionar al menos un campo para actualizar"
+        )
+
+    updated_fields = []
+
+    # Actualizar campos del bout
+    if bout_update:
+        result = await db["bouts"].update_one(
+            {"id": bout_id},
+            {"$set": bout_update}
+        )
+        if result.modified_count > 0:
+            updated_fields.extend(list(bout_update.keys()))
+
+    # Actualizar campos del card_slot
+    if slot_update:
+        result = await db["event_card_slots"].update_one(
+            {"bout_id": bout_id},
+            {"$set": slot_update}
+        )
+        if result.modified_count > 0:
+            updated_fields.extend(list(slot_update.keys()))
+
+    return {
+        "success": True,
+        "message": f"Bout {bout_id} actualizado correctamente",
+        "updated_fields": updated_fields
     }

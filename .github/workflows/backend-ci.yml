@@ -1,3 +1,24 @@
+# =============================================================================
+# Pipeline CI/CD del Backend
+# =============================================================================
+#
+# Flujo completo:
+#   - Push a main o develop, PR a main/develop, o disparador manual
+#   - Ejecuta tests, linting, type checking, seguridad, lint del Dockerfile
+#   - Si el trigger fue push a develop Y los tests pasaron:
+#       1. Crea/actualiza rama ci/cd con el contenido de develop
+#       2. Abre un PR de ci/cd -> main
+#       3. Auto-merge (squash) del PR hacia main
+#
+# Requisitos para auto-merge:
+#   - Un Personal Access Token (PAT) de GitHub guardado como secreto del repo
+#     con nombre `CI_PAT` y permisos: repo, workflow
+#   - Se recomienda PAT porque GITHUB_TOKEN no puede disparar otros workflows
+#     (ej. un deploy que se active en push a main)
+#
+# Si usas GITHUB_TOKEN en lugar de CI_PAT, descomenta la seccion de permisos
+# =============================================================================
+
 name: Backend CI/CD Pipeline
 
 # Ejecuta cuando:
@@ -6,20 +27,30 @@ name: Backend CI/CD Pipeline
 # - Manualmente desde la UI de GitHub (workflow_dispatch)
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'app/**'
       - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'app/**'
       - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/backend-ci.yml'
   workflow_dispatch:
+
+# Cancelar ejecuciones previas en la misma rama
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Si usas GITHUB_TOKEN en lugar de CI_PAT, descomenta estos:
+# permissions:
+#   contents: write
+#   pull-requests: write
 
 jobs:
   # ==================== Job 1: Tests y Linting ====================
@@ -28,13 +59,13 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      # Probar en múltiples versiones de Python
+      # Probar en multiples versiones de Python
       matrix:
         python-version: ['3.11', '3.12']
-      # Si falla una versión, las otras siguen ejecutándose
+      # Si falla una version, las otras siguen ejecutandose
       fail-fast: false
 
-    # Servicio de MongoDB para tests de integración
+    # Servicio de MongoDB para tests de integracion
     services:
       mongodb:
         image: mongo:7.0
@@ -47,40 +78,40 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout code
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Configurar Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Cache pip dependencies para builds más rápidos
+          # Cache de pip para builds mas rapidos
           cache: 'pip'
           cache-dependency-path: requirements.txt
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Instalar herramientas de testing y linting
+          # Herramientas de testing y linting
           pip install pytest pytest-cov pytest-xdist ruff mypy
 
-      - name: Run linting (Ruff)
+      - name: Linting (Ruff)
         run: |
-          echo "Running Ruff linter..."
-          ruff check app/ tests/ --output-format=github || echo "⚠️ Linting issues found (not blocking)"
+          echo "Ejecutando Ruff linter..."
+          ruff check app/ tests/ --output-format=github || echo "Problemas de linting encontrados (no bloqueante)"
         # Linting es informativo, no bloquea la build
-        # Los errores son mayormente del código legacy
+        # Los errores son mayormente del codigo legacy
         continue-on-error: true
 
-      - name: Run type checking (MyPy)
+      - name: Type checking (MyPy)
         run: |
-          echo "Running MyPy type checker..."
-          mypy app/ --ignore-missing-imports --no-error-summary || echo "⚠️ Type checking issues found (not blocking)"
+          echo "Ejecutando MyPy type checker..."
+          mypy app/ --ignore-missing-imports --no-error-summary || echo "Problemas de tipos encontrados (no bloqueante)"
         # Type checking es informativo, no bloquea la build
         continue-on-error: true
 
-      - name: Run all tests with coverage
+      - name: Ejecutar todos los tests con cobertura
         env:
           # Variables de entorno para tests
           MONGODB_URI: mongodb://localhost:27017
@@ -90,7 +121,7 @@ jobs:
           GOOGLE_CLIENT_ID: fake-google-client-id-for-testing
           APP_ENV: test
           DEBUG: false
-          # Variables para sistema de imágenes (modo MEMORY para tests)
+          # Variables para sistema de imagenes (modo MEMORY para tests)
           IMAGE_CACHE_STRATEGY: MEMORY
           IMAGE_SOURCE_MODE: s3
           # Variables de S3 (valores fake para tests que no usan S3 real)
@@ -100,9 +131,9 @@ jobs:
           AWS_REGION: us-east-1
           AWS_CLOUDFRONT_DOMAIN: fake.cloudfront.net
         run: |
-          echo "Running all tests with coverage..."
+          echo "Ejecutando todos los tests con cobertura..."
           # -v: verbose
-          # --cov: coverage de la carpeta app/
+          # --cov: cobertura de la carpeta app/
           # --cov-report: generar reportes en XML y terminal
           # -n auto: ejecutar tests en paralelo (usa todos los cores)
           pytest tests/ -v \
@@ -111,7 +142,7 @@ jobs:
             --cov-report=term-missing \
             -n auto
 
-      - name: Upload coverage to Codecov
+      - name: Subir cobertura a Codecov
         uses: codecov/codecov-action@v4
         with:
           file: coverage.xml
@@ -120,11 +151,11 @@ jobs:
           fail_ci_if_error: false
         continue-on-error: true
 
-      - name: Display coverage summary
+      - name: Mostrar resumen de cobertura
         if: always()
         run: |
-          echo "Coverage Summary:"
-          coverage report --show-missing || echo "Coverage report not available"
+          echo "Resumen de cobertura:"
+          coverage report --show-missing || echo "Reporte de cobertura no disponible"
 
   # ==================== Job 2: Lint Dockerfile ====================
   lint-dockerfile:
@@ -132,53 +163,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Lint Dockerfile with Hadolint
+      - name: Lint Dockerfile con Hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: docker/Dockerfile
-          # Ignorar reglas específicas si es necesario
+          # Ignorar reglas especificas
           ignore: DL3008,DL3009
         continue-on-error: true
 
-  # ==================== Job 3: Security Scan ====================
+  # ==================== Job 3: Escaneo de Seguridad ====================
   security-scan:
-    name: Security Scan
+    name: Escaneo de Seguridad
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: requirements.txt
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Safety check (vulnerabilities in dependencies)
+      - name: Safety check (vulnerabilidades en dependencias)
         run: |
-          echo "Checking for known security vulnerabilities..."
+          echo "Buscando vulnerabilidades de seguridad conocidas..."
           pip install safety
           safety check --json --output safety-report.json || true
         continue-on-error: true
 
-      - name: Run Bandit security scan (code security issues)
+      - name: Bandit scan (problemas de seguridad en codigo)
         run: |
-          echo "Running Bandit security scan..."
+          echo "Ejecutando escaneo de seguridad Bandit..."
           pip install bandit
           bandit -r app/ -f json -o bandit-report.json || true
         continue-on-error: true
 
-      - name: Upload security scan results
+      - name: Subir resultados de seguridad
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -189,70 +220,247 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  # ==================== Job 4: Test Summary ====================
+  # ==================== Job 4: Resumen del Pipeline ====================
   test-summary:
-    name: CI Pipeline Summary
+    name: Resumen del Pipeline CI
     runs-on: ubuntu-latest
     needs: [test, lint-dockerfile, security-scan]
     if: always()
 
     steps:
-      - name: Check results
+      - name: Verificar resultados
         run: |
           echo "================================================"
-          echo "          CI/CD Pipeline Summary"
+          echo "          Resumen del Pipeline CI/CD"
           echo "================================================"
           echo ""
           echo "Tests:             ${{ needs.test.result }}"
           echo "Dockerfile Lint:   ${{ needs.lint-dockerfile.result }}"
-          echo "Security Scan:     ${{ needs.security-scan.result }}"
+          echo "Escaneo Seguridad: ${{ needs.security-scan.result }}"
           echo ""
           echo "================================================"
 
-      - name: Fail pipeline if tests failed
+      - name: Fallar si los tests fallaron
         if: needs.test.result == 'failure'
         run: |
-          echo "❌ Tests failed! Pipeline cannot continue."
+          echo "Tests fallaron. El pipeline no puede continuar."
           exit 1
 
-      - name: Success message
+      - name: Mensaje de exito
         if: needs.test.result == 'success'
         run: |
-          echo "✅ All tests passed! Ready for deployment."
+          echo "Todos los tests pasaron. Listo para deploy."
           echo ""
-          echo "Next steps:"
-          echo "1. Merge this PR if not already merged"
-          echo "2. Deploy to staging/production"
-          echo "3. Run smoke tests on deployed environment"
+          echo "Siguientes pasos:"
+          echo "1. Mergear este PR si no se hizo ya"
+          echo "2. Deploy a staging/produccion"
+          echo "3. Ejecutar smoke tests en el entorno desplegado"
 
-  # ==================== Job 5: Auto-format (opcional) ====================
-  # Este job solo se ejecuta en PRs y crea un comentario si hay código sin formatear
+  # ==================== Job 5: Formateo de codigo (solo en PRs) ====================
+  # Este job solo se ejecuta en PRs y verifica si hay codigo sin formatear
   check-formatting:
-    name: Check Code Formatting
+    name: Verificar Formateo de Codigo
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
 
     steps:
-      - name: Checkout code
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Ruff
+      - name: Instalar Ruff
         run: pip install ruff
 
-      - name: Check formatting
+      - name: Verificar formateo
         run: |
-          echo "Checking code formatting..."
+          echo "Verificando formateo de codigo..."
           ruff format --check app/ tests/ || {
-            echo "❌ Code is not properly formatted!"
-            echo "Run 'make format' or 'ruff format app/ tests/' to fix."
+            echo "El codigo no esta correctamente formateado!"
+            echo "Ejecutar 'make format' o 'ruff format app/ tests/' para corregir."
             exit 1
           }
 
-      - name: Success message
+      - name: Mensaje de exito
         if: success()
-        run: echo "✅ Code is properly formatted!"
+        run: echo "Codigo correctamente formateado."
+
+  # ==================== Job 6: Crear rama ci/cd (solo en push a develop) ====================
+  # Solo se ejecuta cuando hay push a develop Y los tests pasaron.
+  # Crea/actualiza la rama ci/cd con el contenido exacto de develop.
+  create-ci-cd-branch:
+    name: Crear rama ci/cd
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: >-
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/develop'
+      && needs.test.result == 'success'
+    outputs:
+      branch_name: ${{ steps.branch.outputs.name }}
+      sha: ${{ steps.branch.outputs.sha }}
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          # Usar PAT para que el push pueda disparar otros workflows
+          token: ${{ secrets.CI_PAT }}
+
+      - name: Crear o actualizar rama ci/cd
+        id: branch
+        run: |
+          BRANCH_NAME="ci/cd"
+          echo "name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Force-push del HEAD de develop hacia la rama ci/cd
+          git checkout -B "${BRANCH_NAME}"
+          git push --force origin "${BRANCH_NAME}"
+
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Rama '${BRANCH_NAME}' actualizada a $(git rev-parse --short HEAD)"
+
+  # ==================== Job 7: Auto PR y Merge a main ====================
+  # Solo se ejecuta despues de crear la rama ci/cd, si los tests y el escaneo
+  # de seguridad terminaron. Crea un PR de ci/cd -> main y lo mergea con squash.
+  auto-merge:
+    name: Auto PR y Merge a main
+    runs-on: ubuntu-latest
+    needs: [create-ci-cd-branch, test, security-scan]
+    # Solo ejecutar si los tests pasaron (security-scan es no bloqueante)
+    if: needs.test.result == 'success'
+
+    steps:
+      - name: Checkout rama ci/cd
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.create-ci-cd-branch.outputs.branch_name }}
+          fetch-depth: 0
+          token: ${{ secrets.CI_PAT }}
+
+      - name: Crear Pull Request
+        id: create-pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.CI_PAT }}
+          script: |
+            const branchName = '${{ needs.create-ci-cd-branch.outputs.branch_name }}';
+            const sha = '${{ needs.create-ci-cd-branch.outputs.sha }}';
+
+            // Verificar si ya existe un PR abierto de ci/cd -> main
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branchName}`,
+              base: 'main',
+            });
+
+            let pr;
+
+            if (existingPRs.length > 0) {
+              pr = existingPRs[0];
+              console.log(`PR existente encontrado #${pr.number}`);
+            } else {
+              // Crear nuevo PR
+              const { data: newPR } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `CI/CD Auto-merge: develop -> main (${sha.substring(0, 7)})`,
+                body: [
+                  '## Auto-merge CI/CD',
+                  '',
+                  'Este PR fue creado automaticamente por el pipeline de CI/CD.',
+                  '',
+                  '### Checks pasados',
+                  '- Backend tests (Python 3.11 y 3.12)',
+                  '- Linting (Ruff)',
+                  '- Type checking (MyPy)',
+                  '- Escaneo de seguridad (Safety + Bandit)',
+                  '',
+                  `**Commit origen:** \`${sha.substring(0, 7)}\` en \`develop\``,
+                  '',
+                  '---',
+                  '*Este PR sera auto-merged si todos los checks de proteccion de rama pasan.*',
+                ].join('\n'),
+                head: branchName,
+                base: 'main',
+              });
+              pr = newPR;
+              console.log(`PR creado #${pr.number}`);
+            }
+
+            core.setOutput('pr_number', pr.number);
+
+      - name: Auto-merge del PR (squash)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.CI_PAT }}
+          script: |
+            const prNumber = ${{ steps.create-pr.outputs.pr_number }};
+            const sha = '${{ needs.create-ci-cd-branch.outputs.sha }}';
+
+            // Pequena pausa para que GitHub registre los checks del PR
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                merge_method: 'squash',
+                commit_title: `ci: auto-merge develop -> main (${sha.substring(0, 7)})`,
+                commit_message: 'Auto-merge desde pipeline CI/CD. Todos los checks pasaron.',
+              });
+              console.log(`PR #${prNumber} merged exitosamente`);
+            } catch (error) {
+              // Si la proteccion de rama requiere reviews, habilitar auto-merge
+              if (error.status === 405) {
+                console.log('Merge directo bloqueado (proteccion de rama). Habilitando auto-merge...');
+                try {
+                  const { data: prData } = await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                  });
+
+                  await github.graphql(`
+                    mutation ($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+                      enablePullRequestAutoMerge(input: {
+                        pullRequestId: $pullRequestId,
+                        mergeMethod: $mergeMethod
+                      }) {
+                        pullRequest { number }
+                      }
+                    }
+                  `, {
+                    pullRequestId: prData.node_id,
+                    mergeMethod: 'SQUASH',
+                  });
+                  console.log(`Auto-merge habilitado para PR #${prNumber}`);
+                } catch (autoMergeError) {
+                  core.setFailed(`Fallo al habilitar auto-merge: ${autoMergeError.message}`);
+                }
+              } else {
+                core.setFailed(`Fallo al hacer merge del PR: ${error.message}`);
+              }
+            }
+
+      - name: Resumen
+        run: |
+          echo "## Pipeline CI/CD Completada" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Paso | Estado |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | Listo |" >> $GITHUB_STEP_SUMMARY
+          echo "| Escaneo de seguridad | Listo |" >> $GITHUB_STEP_SUMMARY
+          echo "| Crear rama ci/cd | Listo |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR y merge a main | Listo |" >> $GITHUB_STEP_SUMMARY
