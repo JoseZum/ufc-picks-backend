@@ -14,6 +14,33 @@ from app.services.s3_service import get_s3_service, S3NotConfiguredError
 
 router = APIRouter(tags=["bouts"])
 
+# Cache global para resolución de image_key (se resetea al reiniciar el servidor)
+_image_key_cache: dict[str, str] = {}
+
+
+def _resolve_image_key(image_key: str) -> str:
+    """Buscar la mejor versión de la imagen. Prioridad: .png > .jpg"""
+    if image_key in _image_key_cache:
+        return _image_key_cache[image_key]
+
+    base, ext = image_key.rsplit('.', 1) if '.' in image_key else (image_key, '')
+
+    # Si ya es .png, no buscar más
+    if ext == 'png':
+        _image_key_cache[image_key] = image_key
+        return image_key
+
+    # Probar .png primero
+    png_key = f"{base}.png"
+    try:
+        s3 = get_s3_service()
+        s3.s3_client.head_object(Bucket=s3.settings.aws_s3_bucket, Key=png_key)
+        _image_key_cache[image_key] = png_key
+        return png_key
+    except Exception:
+        _image_key_cache[image_key] = image_key
+        return image_key
+
 
 def _process_fighters(fighters: dict) -> dict:
     """
@@ -60,9 +87,10 @@ def _process_fighters(fighters: dict) -> dict:
         # Always prioritize image_key (CloudFront) over old profile_image_url (proxy URLs)
         image_key = fighter.get("image_key")
         if image_key:
+            resolved_key = _resolve_image_key(image_key)
             try:
                 s3_service = get_s3_service()
-                cloudfront_url = s3_service.get_cloudfront_url(image_key)
+                cloudfront_url = s3_service.get_cloudfront_url(resolved_key)
                 if cloudfront_url:
                     processed_fighter["profile_image_url"] = cloudfront_url
                 else:
