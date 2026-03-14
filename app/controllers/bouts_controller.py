@@ -16,30 +16,37 @@ router = APIRouter(tags=["bouts"])
 
 # Cache global para resolución de image_key (se resetea al reiniciar el servidor)
 _image_key_cache: dict[str, str] = {}
+_image_extension_priority = ("png", "jpg", "jpeg", "webp", "avif", "gif")
 
 
 def _resolve_image_key(image_key: str) -> str:
-    """Buscar la mejor versión de la imagen. Prioridad: .png > .jpg"""
+    """Buscar la mejor versión disponible de la imagen en extensiones conocidas."""
     if image_key in _image_key_cache:
         return _image_key_cache[image_key]
 
     base, ext = image_key.rsplit('.', 1) if '.' in image_key else (image_key, '')
+    candidate_keys = [image_key]
+    for candidate_ext in _image_extension_priority:
+        candidate_key = f"{base}.{candidate_ext}"
+        if candidate_key not in candidate_keys:
+            candidate_keys.append(candidate_key)
 
-    # Si ya es .png, no buscar más
-    if ext == 'png':
-        _image_key_cache[image_key] = image_key
-        return image_key
-
-    # Probar .png primero
-    png_key = f"{base}.png"
     try:
         s3 = get_s3_service()
-        s3.s3_client.head_object(Bucket=s3.settings.aws_s3_bucket, Key=png_key)
-        _image_key_cache[image_key] = png_key
-        return png_key
+        for candidate_key in candidate_keys:
+            try:
+                s3.s3_client.head_object(Bucket=s3.settings.aws_s3_bucket, Key=candidate_key)
+                _image_key_cache[image_key] = candidate_key
+                return candidate_key
+            except Exception:
+                continue
     except Exception:
-        _image_key_cache[image_key] = image_key
-        return image_key
+        pass
+
+    # Si no podemos verificar en S3 o ninguna variante existe, usar la key almacenada.
+    fallback_key = image_key if ext else f"{base}.jpg"
+    _image_key_cache[image_key] = fallback_key
+    return fallback_key
 
 
 def _process_fighters(fighters: dict) -> dict:

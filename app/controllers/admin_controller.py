@@ -676,12 +676,12 @@ async def upload_fighter_photo(
     file: UploadFile = File(...)
 ):
     """Sube una foto de peleador a S3."""
-    # Validar que sea PNG o JPG
-    valid_extensions = ['.png', '.jpg', '.jpeg']
+    # Validar que sea un formato de imagen soportado por el frontend
+    valid_extensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif']
     if not file.filename or not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se aceptan archivos PNG y JPG"
+            detail=f"Solo se aceptan archivos: {', '.join(valid_extensions)}"
         )
 
     # Sanitizar filename para evitar path traversal
@@ -697,7 +697,9 @@ async def upload_fighter_photo(
     content_type_map = {
         'png': 'image/png',
         'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg'
+        'jpeg': 'image/jpeg',
+        'webp': 'image/webp',
+        'avif': 'image/avif',
     }
     content_type = content_type_map[ext]
 
