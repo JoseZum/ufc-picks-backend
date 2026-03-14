@@ -145,3 +145,33 @@ class TestPicksEndpoints:
         assert response.status_code == 403  # PickLockedError returns 403 Forbidden
         detail = response.json()["detail"].lower()
         assert "terminados" in detail or "cancelados" in detail
+
+    @pytest.mark.asyncio
+    async def test_cannot_create_pick_for_bout_with_registered_result(
+        self,
+        client,
+        auth_headers,
+        test_db,
+        sample_event_data,
+        sample_bout_data,
+        sample_pick_data
+    ):
+        """Test that picks cannot be created when the bout already has a result."""
+        sample_bout_data["result"] = {
+            "winner": "red",
+            "method": "KO/TKO",
+            "round": 2,
+            "time": "3:45",
+        }
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+
+        response = await client.post(
+            "/picks",
+            json=sample_pick_data,
+            headers=auth_headers
+        )
+
+        assert response.status_code == 403
+        detail = response.json()["detail"].lower()
+        assert "resultado" in detail or "terminaron" in detail

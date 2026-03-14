@@ -69,6 +69,12 @@ class PickService:
         if bout.event_id != pick_data.event_id:
             raise InvalidPickError("La pelea no pertenece a este evento")
 
+        # Si la pelea ya cerró o tiene resultado, no se pueden crear ni editar picks
+        if bout.status in ("completed", "cancelled") or bout.result is not None:
+            raise PickLockedError(
+                "No se pueden editar picks de peleas que ya terminaron, fueron canceladas o ya tienen resultado registrado"
+            )
+
         # Verificar que el nombre del peleador sea válido
         fighters = bout.fighters or {}
         red_fighter = fighters.get("red", {})

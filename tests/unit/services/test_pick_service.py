@@ -75,6 +75,37 @@ class TestPickService:
         
         with pytest.raises(PickLockedError):
             await service.create_or_update_pick("user123", pick_create)
+
+    @pytest.mark.asyncio
+    async def test_create_pick_for_completed_bout(self, test_db, sample_event_data, sample_bout_data, sample_pick_data):
+        """Test that picks cannot be created for bouts already marked completed."""
+        sample_bout_data["status"] = "completed"
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+
+        service = PickService(test_db)
+        pick_create = PickCreate(**sample_pick_data)
+
+        with pytest.raises(PickLockedError):
+            await service.create_or_update_pick("user123", pick_create)
+
+    @pytest.mark.asyncio
+    async def test_create_pick_for_bout_with_registered_result(self, test_db, sample_event_data, sample_bout_data, sample_pick_data):
+        """Test that picks cannot be created if the bout already has a result."""
+        sample_bout_data["result"] = {
+            "winner": "red",
+            "method": "KO/TKO",
+            "round": 2,
+            "time": "3:45",
+        }
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+
+        service = PickService(test_db)
+        pick_create = PickCreate(**sample_pick_data)
+
+        with pytest.raises(PickLockedError):
+            await service.create_or_update_pick("user123", pick_create)
     
     @pytest.mark.asyncio
     async def test_create_pick_with_admin_lock(self, test_db, sample_event_data, sample_bout_data, sample_pick_data):
