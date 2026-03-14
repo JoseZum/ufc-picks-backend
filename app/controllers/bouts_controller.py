@@ -73,10 +73,30 @@ def _process_fighters(fighters: dict) -> dict:
         processed_fighter = dict(fighter)
 
         # === FIELD NORMALIZATION FOR FRONTEND ===
-        
+
+        # bout_details historically stores `name`; frontend/backend expect `fighter_name`
+        if not processed_fighter.get("fighter_name"):
+            processed_fighter["fighter_name"] = processed_fighter.get("name") or "TBD"
+        if not processed_fighter.get("name") and processed_fighter.get("fighter_name"):
+            processed_fighter["name"] = processed_fighter["fighter_name"]
+
         # Map ufc_ranking to ranking (frontend expects 'ranking')
         if not processed_fighter.get("ranking") and processed_fighter.get("ufc_ranking"):
             processed_fighter["ranking"] = processed_fighter["ufc_ranking"]
+
+        # Keep both last_fights and last_5_fights compatible
+        if not processed_fighter.get("last_5_fights") and processed_fighter.get("last_fights"):
+            processed_fighter["last_5_fights"] = processed_fighter["last_fights"]
+        if not processed_fighter.get("last_fights") and processed_fighter.get("last_5_fights"):
+            processed_fighter["last_fights"] = processed_fighter["last_5_fights"]
+
+        # Fill convenience scalar fields from structured stats when missing
+        if not processed_fighter.get("age_at_fight_years") and isinstance(processed_fighter.get("age_at_fight"), dict):
+            processed_fighter["age_at_fight_years"] = processed_fighter["age_at_fight"].get("years")
+        if not processed_fighter.get("height_cm") and isinstance(processed_fighter.get("height"), dict):
+            processed_fighter["height_cm"] = processed_fighter["height"].get("cm")
+        if not processed_fighter.get("reach_cm") and isinstance(processed_fighter.get("reach"), dict):
+            processed_fighter["reach_cm"] = processed_fighter["reach"].get("cm")
         
         # Ensure corner field is set
         if not processed_fighter.get("corner"):
@@ -104,6 +124,46 @@ def _process_fighters(fighters: dict) -> dict:
         processed[corner] = processed_fighter
 
     return processed
+
+
+def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
+    """Merge canonical bout fighter fields into bout_details before API normalization."""
+    if not detail_fighters:
+        return bout_fighters or {}
+
+    merged = {}
+    for corner in ["red", "blue"]:
+        detail_fighter = dict(detail_fighters.get(corner, {}) or {})
+        bout_fighter = dict(bout_fighters.get(corner, {}) or {})
+
+        if not detail_fighter:
+            merged[corner] = bout_fighter
+            continue
+
+        for field in (
+            "fighter_name",
+            "name",
+            "corner",
+            "tapology_id",
+            "tapology_url",
+            "image_key",
+            "profile_image_url",
+            "last_fights",
+            "last_5_fights",
+            "ranking",
+            "ufc_ranking",
+        ):
+            if bout_fighter.get(field) and not detail_fighter.get(field):
+                detail_fighter[field] = bout_fighter[field]
+
+        if bout_fighter.get("fighter_name") and not detail_fighter.get("fighter_name"):
+            detail_fighter["fighter_name"] = bout_fighter["fighter_name"]
+        if detail_fighter.get("name") and not detail_fighter.get("fighter_name"):
+            detail_fighter["fighter_name"] = detail_fighter["name"]
+
+        merged[corner] = detail_fighter
+
+    return merged
 
 
 class FighterResponse(BaseModel):
@@ -191,18 +251,7 @@ async def get_event_bouts(
         if bout_detail:
             # Usar los datos detallados que incluyen height, reach, record, etc.
             if "fighters" in bout_detail:
-                detail_fighters = bout_detail["fighters"]
-                # Merge image data from bouts into bout_details (spider updates bouts, not bout_details)
-                for corner in ["red", "blue"]:
-                    if corner in detail_fighters and corner in bout_fighters_dict:
-                        bout_fighter = bout_fighters_dict.get(corner, {}) or {}
-                        # Merge image_key if exists in bouts but not in bout_details
-                        if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
-                            detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
-                        # Also merge profile_image_url as fallback (for fighters without image_key)
-                        if bout_fighter.get("profile_image_url") and not detail_fighters[corner].get("profile_image_url"):
-                            detail_fighters[corner]["profile_image_url"] = bout_fighter["profile_image_url"]
-                fighters = detail_fighters
+                fighters = _merge_detail_fighters(bout_detail["fighters"], bout_fighters_dict)
             if "result" in bout_detail and bout_detail["result"]:
                 bout_result = bout_detail["result"]
 
@@ -256,19 +305,7 @@ async def get_bout_details(
     bout_fighters = bout_data.get("fighters", {})
     fighters = bout_fighters
     if bout_details and "fighters" in bout_details:
-        # Usar los datos detallados que incluyen todos los campos extras
-        detail_fighters = bout_details.get("fighters", {})
-        # Merge image data from bouts into bout_details (spider updates bouts, not bout_details)
-        for corner in ["red", "blue"]:
-            if corner in detail_fighters and corner in bout_fighters:
-                bout_fighter = bout_fighters.get(corner, {}) or {}
-                # Merge image_key if exists in bouts but not in bout_details
-                if bout_fighter.get("image_key") and not detail_fighters[corner].get("image_key"):
-                    detail_fighters[corner]["image_key"] = bout_fighter["image_key"]
-                # Also merge profile_image_url as fallback (for fighters without image_key)
-                if bout_fighter.get("profile_image_url") and not detail_fighters[corner].get("profile_image_url"):
-                    detail_fighters[corner]["profile_image_url"] = bout_fighter["profile_image_url"]
-        fighters = detail_fighters
+        fighters = _merge_detail_fighters(bout_details.get("fighters", {}), bout_fighters)
 
     # Obtener resultado de bout_details si existe
     result = None
