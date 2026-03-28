@@ -69,7 +69,12 @@ def sample_user_data():
 @pytest.fixture
 def sample_event_data():
     """Sample event data for testing."""
-    future_event_date = datetime.now(timezone.utc) + timedelta(days=14)
+    future_event_day = (datetime.now(timezone.utc) + timedelta(days=14)).date()
+    future_event_date = datetime.combine(
+        future_event_day,
+        datetime.min.time(),
+        tzinfo=timezone.utc,
+    )
 
     return {
         "id": 12345,
