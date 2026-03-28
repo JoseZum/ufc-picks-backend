@@ -6,7 +6,7 @@ import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # MongoDB test database
 TEST_DB_URI = "mongodb://localhost:27017"
@@ -69,6 +69,8 @@ def sample_user_data():
 @pytest.fixture
 def sample_event_data():
     """Sample event data for testing."""
+    future_event_date = datetime.now(timezone.utc) + timedelta(days=14)
+
     return {
         "id": 12345,
         "source": "tapology",
@@ -77,7 +79,7 @@ def sample_event_data():
         "subtitle": None,
         "slug": "ufc-300-test-event",
         "url": "https://tapology.com/event/12345",
-        "date": datetime(2026, 3, 15, tzinfo=timezone.utc),
+        "date": future_event_date,
         "timezone": "America/New_York",
         "location": {
             "venue": "T-Mobile Arena",
