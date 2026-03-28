@@ -29,11 +29,11 @@ class EventService:
         return event
 
     async def get_upcoming_events(self, limit: int = 5) -> list[Event]:
-        """Get upcoming scheduled events."""
+        """Obtiene eventos programados próximos."""
         return await self.event_repo.get_upcoming(limit)
 
     async def get_recent_completed(self, limit: int = 5) -> list[Event]:
-        """Get recently completed events."""
+        """Obtiene eventos completados recientemente."""
         return await self.event_repo.get_recent_completed(limit)
 
     async def get_events_by_status(
@@ -41,19 +41,19 @@ class EventService:
         status: Optional[str] = None,
         limit: int = 20
     ) -> list[Event]:
-        """Get events filtered by status."""
+        """Obtiene eventos filtrados por estado."""
         if status == "scheduled":
             return await self.event_repo.get_upcoming(limit)
         elif status == "completed":
             return await self.event_repo.get_recent_completed(limit)
         else:
-            # Get both upcoming and recent
+            # Obtener tanto los próximos como los recientes
             upcoming = await self.event_repo.get_upcoming(limit)
             completed = await self.event_repo.get_recent_completed(limit)
             return upcoming + completed
 
     async def get_event_bouts(self, event_id: int) -> list[Bout]:
-        """Get all bouts for an event."""
+        """Obtiene todas las peleas de un evento."""
         event = await self.event_repo.get_by_id(event_id)
         if not event:
             raise EventNotFoundError(f"Event {event_id} not found")
@@ -61,7 +61,7 @@ class EventService:
         return await self.bout_repo.get_by_event(event_id)
 
     async def get_event_card_structure(self, event_id: int) -> list[EventCardSlot]:
-        """Get the card structure (bout order) for an event."""
+        """Obtiene la estructura de cartelera (orden de peleas) de un evento."""
         event = await self.event_repo.get_by_id(event_id)
         if not event:
             raise EventNotFoundError(f"Event {event_id} not found")

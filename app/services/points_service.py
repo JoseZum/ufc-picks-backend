@@ -103,7 +103,8 @@ class PointsService:
                 "error": "Pelea no encontrada"
             }
 
-        # Extraer el nombre del ganador
+        # Extraer el tipo de resultado y nombre del ganador
+        result_outcome = result.get("outcome")
         winner_name = result.get("winner_name")
 
         # Soporte legacy: si viene corner en lugar de nombre
@@ -114,7 +115,13 @@ class PointsService:
                 winner_data = fighters.get(winner_corner, {})
                 winner_name = winner_data.get("fighter_name")
 
-        if not winner_name:
+        # Compatibilidad hacia atrás: draws viejos se guardaban con winner=None
+        no_winner_result = (
+            result_outcome in ["draw", "nc"]
+            or (not winner_name and result.get("winner") not in ["red", "blue"])
+        )
+
+        if not winner_name and not no_winner_result:
             return {
                 "picks_processed": 0,
                 "points_distributed": 0,
@@ -130,14 +137,18 @@ class PointsService:
 
         # Procesar cada pick y calcular puntos
         for pick in picks:
-            points = await self.calculate_points(
-                pick, winner_name, result_method, result_round
-            )
+            if no_winner_result:
+                points = 0
+                is_correct = False
+            else:
+                points = await self.calculate_points(
+                    pick, winner_name, result_method, result_round
+                )
 
-            # Determinar si el pick fue correcto
-            picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
-            winner_normalized = self.normalize_name(winner_name)
-            is_correct = picked_name == winner_normalized
+                # Determinar si el pick fue correcto
+                picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
+                winner_normalized = self.normalize_name(winner_name)
+                is_correct = picked_name == winner_normalized
 
             # Guardar puntos en el pick
             await self.db["picks"].update_one(
@@ -162,7 +173,8 @@ class PointsService:
             "picks_processed": picks_updated,
             "points_distributed": total_points,
             "users_affected": len(users_affected),
-            "winner_name": winner_name
+            "winner_name": winner_name,
+            "outcome": result_outcome if result_outcome else ("draw" if no_winner_result else None)
         }
 
     async def revert_points(self, bout_id: int):

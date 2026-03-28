@@ -1,6 +1,4 @@
-"""
-PickRepository - MongoDB access for picks collection.
-"""
+"""Acceso a datos para la colección de picks."""
 
 from datetime import datetime
 from typing import Optional
@@ -16,7 +14,7 @@ class PickRepository:
         self.db = db
         self.collection = db["picks"]
 
-    # CREATE
+    # Create
 
     async def create(self, pick: Pick) -> Pick:
         """Create a new pick."""
@@ -28,7 +26,7 @@ class PickRepository:
         except DuplicateKeyError:
             raise ValueError(f"Pick {pick.id} already exists")
 
-    # READ
+    # Read
 
     async def get_by_id(self, pick_id: str) -> Optional[Pick]:
         """Get pick by composite ID (user_id:bout_id)."""
@@ -81,7 +79,7 @@ class PickRepository:
         docs = await cursor.to_list(length=limit)
         return [Pick(**doc) for doc in docs]
 
-    # UPDATE
+    # Update
 
     async def update_pick(
         self,
@@ -204,7 +202,7 @@ class PickRepository:
         else:
             return picked == "DEC"
 
-    # DELETE
+    # Delete
 
     async def delete(self, pick_id: str) -> bool:
         """Delete a pick (only if not locked)."""
@@ -214,7 +212,7 @@ class PickRepository:
         })
         return result.deleted_count > 0
 
-    # STATS
+    # Stats
 
     async def get_user_stats(self, user_id: str) -> dict:
         """Get user statistics."""

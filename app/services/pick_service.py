@@ -1,7 +1,7 @@
 """
-PickService - Business logic for picks.
+PickService - Lógica de negocio para picks.
 
-Handles validation, locking rules, and scoring.
+Maneja validaciones, reglas de bloqueo y puntuación.
 
 IMPORTANTE: Usamos picked_fighter_name (nombre del peleador) en lugar de
 picked_corner para evitar problemas cuando los corners cambian.

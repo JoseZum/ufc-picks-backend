@@ -56,7 +56,7 @@ class CORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         origin = request.headers.get("origin", "")
 
-        # Handle preflight OPTIONS request IMMEDIATELY
+        # Handle preflight OPTIONS requests before routing.
         if request.method == "OPTIONS":
             if is_allowed_origin(origin):
                 return Response(

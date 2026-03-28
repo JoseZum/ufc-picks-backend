@@ -1,8 +1,4 @@
-"""
-📅 EventRepository - CRUD para eventos UFC
-
-Repository para manejar eventos (cards completos)
-"""
+"""Acceso a datos para eventos y slots de cartelera."""
 
 from datetime import datetime, date
 from typing import Optional
@@ -18,9 +14,7 @@ class EventRepository:
         self.collection = db["events"]
         self.card_slots = db["event_card_slots"]
 
-    # ============================================
-    # 📌 CREATE
-    # ============================================
+    # Create
 
     async def create(self, event: Event) -> Event:
         """Crea un evento"""
@@ -42,9 +36,7 @@ class EventRepository:
         except DuplicateKeyError:
             raise ValueError(f"Card slot {slot.id} already exists")
 
-    # ============================================
-    # 📌 READ
-    # ============================================
+    # Read
 
     async def get_by_id(self, event_id: int) -> Optional[Event]:
         """Obtiene un evento por ID"""
@@ -121,11 +113,7 @@ class EventRepository:
         return [Event(**doc) for doc in docs]
 
     async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:
-        """
-        🔥 Obtiene la estructura de la cartelera ordenada
-        
-        Retorna las peleas en orden: main -> co-main -> prelims -> early
-        """
+        """Obtiene la estructura de cartelera en orden."""
         cursor = self.card_slots.find({
             "event_id": event_id
         }).sort("order_overall", 1)
@@ -143,9 +131,7 @@ class EventRepository:
         docs = await cursor.to_list(length=None)
         return [EventCardSlot(**doc) for doc in docs]
 
-    # ============================================
-    # 📌 UPDATE
-    # ============================================
+    # Update
 
     async def update(self, event_id: int, updates: dict) -> Optional[Event]:
         """Actualiza campos de un evento"""
@@ -167,9 +153,7 @@ class EventRepository:
         """Actualiza el conteo de peleas"""
         return await self.update(event_id, {"total_bouts": total_bouts})
 
-    # ============================================
-    # 📌 DELETE
-    # ============================================
+    # Delete
 
     async def delete(self, event_id: int) -> bool:
         """Elimina un evento"""
@@ -181,9 +165,7 @@ class EventRepository:
         result = await self.card_slots.delete_many({"event_id": event_id})
         return result.deleted_count
 
-    # ============================================
-    # 📌 UTILITY
-    # ============================================
+    # Utility
 
     async def exists(self, event_id: int) -> bool:
         """Verifica si existe un evento"""
@@ -198,32 +180,3 @@ class EventRepository:
             "date": {"$gte": today}
         })
 
-
-# ============================================
-# 🎯 EJEMPLO DE USO
-# ============================================
-
-"""
-event_repo = EventRepository(db)
-
-# Obtener próximos eventos
-upcoming = await event_repo.get_upcoming(limit=3)
-
-# Obtener estructura de cartelera
-card = await event_repo.get_card_structure(event_id=100)
-
-# Crear slot de cartelera
-slot = EventCardSlot(
-    id="100:12345",
-    event_id=100,
-    bout_id=12345,
-    card_section="main",
-    order_overall=1,
-    order_section=1,
-    is_main_event=True
-)
-await event_repo.create_card_slot(slot)
-
-# Actualizar estado
-await event_repo.update_status(event_id=100, status="completed")
-"""

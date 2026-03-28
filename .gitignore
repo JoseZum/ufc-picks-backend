@@ -1,4 +1,4 @@
-# ==================== Python ====================
+# Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -42,7 +42,7 @@ coverage.xml
 .pytest_cache/
 *.log
 
-# ==================== Environment ====================
+# Environment
 # Virtual environments
 venv/
 env/
@@ -59,7 +59,7 @@ venv.bak/
 
 
 
-# ==================== IDEs ====================
+# IDEs
 # VSCode
 .vscode/
 .vscode/*
@@ -83,7 +83,7 @@ venv.bak/
 *.swo
 *~
 
-# ==================== Local Development ====================
+# Local development
 # Archivos de desarrollo local que NO van a producción
 Makefile
 ci_local.py
@@ -95,7 +95,7 @@ nginx/
 # Configuraciones locales de docker (no se usan en deploy)
 docker/
 
-# ==================== OS Files ====================
+# OS files
 # macOS
 .DS_Store
 .AppleDouble
@@ -117,7 +117,7 @@ $RECYCLE.BIN/
 .directory
 .Trash-*
 
-# ==================== Logs ====================
+# Logs
 *.log
 logs/
 *.log.*
@@ -125,7 +125,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ==================== Temp Files ====================
+# Temp files
 tmp/
 temp/
 *.tmp
@@ -134,20 +134,20 @@ temp/
 *.swp
 *.swo
 
-# ==================== Database ====================
+# Database
 # Local database files (si existen)
 *.db
 *.sqlite
 *.sqlite3
 
-# ==================== CI/CD Artifacts ====================
+# CI/CD artifacts
 # Reportes que genera CI pero no se commitean
 bandit-report.json
 safety-report.json
 .mypy_cache/
 .ruff_cache/
 
-# ==================== Deployment ====================
+# Deployment
 # Archivos de deployment específicos del ambiente
 render.yaml.local
 deployment.local.yml
@@ -158,7 +158,7 @@ deployment.local.yml
 *.crt
 *.cer
 
-# ==================== Backend Specific ====================
+# Backend specific
 # Archivos generados por el backend
 app/__pycache__/
 app/**/__pycache__/

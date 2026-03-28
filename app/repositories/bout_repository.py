@@ -1,13 +1,4 @@
-"""
-🔥 BoutRepository - CRUD + Queries avanzadas para MongoDB Atlas
-
-Demuestra patrones comunes de queries:
-- Filtros por event_id, status, weight_class
-- Búsqueda de peleas por peleador
-- Queries con snapshots de peleadores
-- Agregaciones
-- Ordenamiento y paginación
-"""
+"""Acceso a datos para la colección de peleas."""
 
 from datetime import datetime
 from typing import Optional
@@ -22,9 +13,7 @@ class BoutRepository:
         self.db = db
         self.collection = db["bouts"]
 
-    # ============================================
-    # 📌 CREATE
-    # ============================================
+    # Create
 
     async def create(self, bout: Bout) -> Bout:
         """Inserta una nueva pelea"""
@@ -46,9 +35,7 @@ class BoutRepository:
         result = await self.collection.insert_many(bouts_dict, ordered=False)
         return len(result.inserted_ids)
 
-    # ============================================
-    # 📌 READ
-    # ============================================
+    # Read
 
     async def get_by_id(self, bout_id: int) -> Optional[Bout]:
         """Obtiene una pelea por su ID"""
@@ -101,12 +88,7 @@ class BoutRepository:
         return Bout(**doc) if doc else None
 
     async def search_by_fighter(self, fighter_name: str) -> list[Bout]:
-        """
-        🔥 QUERY AVANZADA: Busca peleas por nombre de peleador
-        
-        Busca en el campo nested fighters.*.fighter_name
-        Usa regex case-insensitive
-        """
+        """Busca peleas por nombre de peleador."""
         query = {
             "$or": [
                 {"fighters.red.fighter_name": {"$regex": fighter_name, "$options": "i"}},
@@ -148,9 +130,7 @@ class BoutRepository:
         docs = await cursor.to_list(length=None)
         return [Bout(**doc) for doc in docs]
 
-    # ============================================
-    # 📌 UPDATE
-    # ============================================
+    # Update
 
     async def update(self, bout_id: int, updates: dict) -> Optional[Bout]:
         """Actualiza campos específicos de una pelea"""
@@ -189,28 +169,17 @@ class BoutRepository:
         """Cambia el estado de una pelea"""
         return await self.update(bout_id, {"status": status})
 
-    # ============================================
-    # 📌 DELETE
-    # ============================================
+    # Delete
 
     async def delete(self, bout_id: int) -> bool:
         """Elimina una pelea"""
         result = await self.collection.delete_one({"id": bout_id})
         return result.deleted_count > 0
 
-    # ============================================
-    # 📌 AGGREGATIONS (queries avanzadas)
-    # ============================================
+    # Aggregations
 
     async def get_stats_by_weight_class(self) -> list[dict]:
-        """
-        🔥 AGGREGATION: Estadísticas por categoría de peso
-        
-        Retorna: [
-            {"weight_class": "Lightweight", "total_bouts": 150, "title_fights": 12},
-            ...
-        ]
-        """
+        """Obtiene estadísticas agrupadas por categoría de peso."""
         pipeline = [
             {
                 "$group": {
@@ -236,11 +205,7 @@ class BoutRepository:
         return await cursor.to_list(length=None)
 
     async def get_fighter_record(self, fighter_name: str) -> dict:
-        """
-        🔥 AGGREGATION: Récord de un peleador basado en resultados
-        
-        Cuenta victorias/derrotas desde los resultados almacenados
-        """
+        """Calcula el récord de un peleador a partir de resultados guardados."""
         pipeline = [
             {
                 "$match": {
@@ -298,9 +263,7 @@ class BoutRepository:
 
         return results[0]
 
-    # ============================================
-    # 📌 UTILITY
-    # ============================================
+    # Utility
 
     async def count_by_event(self, event_id: int) -> int:
         """Cuenta cuántas peleas tiene un evento"""
@@ -320,41 +283,3 @@ class BoutRepository:
         docs = await cursor.to_list(length=limit)
         return [Bout(**doc) for doc in docs]
 
-
-# ============================================
-# 🎯 EJEMPLO DE USO
-# ============================================
-
-"""
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-
-# Setup
-mongo_uri = os.getenv("MONGODB_URI")
-client = AsyncIOMotorClient(mongo_uri)
-db = client["ufc_picks"]
-
-bout_repo = BoutRepository(db)
-
-# Queries básicas
-bout = await bout_repo.get_by_id(12345)
-event_bouts = await bout_repo.get_by_event(event_id=123)
-
-# Búsqueda avanzada
-conor_bouts = await bout_repo.search_by_fighter("Conor McGregor")
-
-# Actualizar resultado
-await bout_repo.set_result(
-    bout_id=12345,
-    result={
-        "winner": "red",
-        "method": "Submission",
-        "round": 3,
-        "time": "2:35"
-    }
-)
-
-# Aggregations
-stats = await bout_repo.get_stats_by_weight_class()
-record = await bout_repo.get_fighter_record("Israel Adesanya")
-"""

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # CORS - de dónde pueden venir los requests
     cors_origins: str = "http://localhost:3000"  # URLs separadas por coma
 
-    # ==================== Configuración de Imágenes ====================
+    # Configuración de imágenes
     # Controla cómo se manejan las imágenes en el sistema
     # - "memory": Cache temporal en memoria del servidor (desarrollo/testing)
     # - "s3": Almacenamiento persistente en AWS S3 (producción)
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # Esto es útil para ambientes de staging que no deben modificar producción
     image_source_mode: str = "s3"
 
-    # ==================== AWS S3 y CloudFront ====================
+    # AWS S3 y CloudFront
     # Configuración de almacenamiento en S3 y CDN CloudFront
     # Solo necesario cuando image_cache_strategy="S3"
     aws_access_key_id: str | None = None

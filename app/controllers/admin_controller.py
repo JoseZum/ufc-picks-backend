@@ -19,9 +19,7 @@ from app.services.s3_service import get_s3_service, S3WriteNotAllowedError, S3Se
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-# ============================================
-# REQUEST SCHEMAS
-# ============================================
+# Request schemas
 
 class UpdateEventTimingRequest(BaseModel):
     """Datos para actualizar fecha/hora de un evento."""
@@ -57,9 +55,7 @@ class UpdateBoutDetailsRequest(BaseModel):
     is_co_main: Optional[bool] = None
 
 
-# ============================================
-# EVENT ART UPLOAD ENDPOINT
-# ============================================
+# Event art endpoints
 
 @router.post("/events/{event_id}/event-art")
 @limiter.limit("30/minute")
@@ -155,9 +151,7 @@ async def delete_event_art(
     }
 
 
-# ============================================
-# EVENT TIMING ENDPOINTS
-# ============================================
+# Event timing endpoints
 
 @router.put("/events/{event_id}/timing")
 @limiter.limit("30/minute")
@@ -265,9 +259,7 @@ async def update_bout_timing(
     }
 
 
-# ============================================
-# RESULT ENDPOINTS
-# ============================================
+# Result endpoints
 
 @router.put("/bouts/{bout_id}/result")
 @limiter.limit("30/minute")
@@ -306,6 +298,7 @@ async def update_bout_result(
     # Construir resultado
     result_data = {
         "winner": body.winner if body.winner not in ["draw", "nc"] else None,
+        "outcome": body.winner,
         "method": body.method,
         "round": body.round,
         "time": body.time
@@ -389,9 +382,7 @@ async def delete_bout_result(
     }
 
 
-# ============================================
-# STATS RECALCULATION ENDPOINT
-# ============================================
+# Stats recalculation endpoint
 
 @router.post("/recalculate-all-stats")
 @limiter.limit("30/minute")
@@ -435,9 +426,7 @@ async def recalculate_all_user_stats(
     }
 
 
-# ============================================
-# PICKS LOCK ENDPOINTS
-# ============================================
+# Pick lock endpoints
 
 @router.post("/events/{event_id}/lock-picks")
 @limiter.limit("30/minute")
@@ -599,9 +588,7 @@ async def unlock_bout_picks(
     }
 
 
-# ============================================
-# BOUT CANCELLATION ENDPOINT
-# ============================================
+# Bout cancellation endpoint
 
 @router.post("/bouts/{bout_id}/cancel")
 @limiter.limit("30/minute")
@@ -664,9 +651,7 @@ async def cancel_bout(
     }
 
 
-# ============================================
-# FIGHTER PHOTO UPLOAD ENDPOINT
-# ============================================
+# Fighter photo upload endpoint
 
 @router.post("/fighters/photo")
 @limiter.limit("30/minute")
@@ -740,9 +725,7 @@ async def upload_fighter_photo(
         )
 
 
-# ============================================
-# BOUT DELETION ENDPOINT
-# ============================================
+# Bout deletion endpoint
 
 @router.delete("/bouts/{bout_id}")
 @limiter.limit("30/minute")
@@ -818,9 +801,7 @@ async def delete_bout(
     }
 
 
-# ============================================
-# BOUT DETAILS EDIT ENDPOINT
-# ============================================
+# Bout details endpoint
 
 @router.put("/bouts/{bout_id}/details")
 @limiter.limit("30/minute")

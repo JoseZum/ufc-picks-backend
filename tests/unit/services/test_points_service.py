@@ -177,6 +177,76 @@ class TestPointsService:
         pick3 = await test_db["picks"].find_one({"_id": "user3:67890"})
         assert pick3["points_awarded"] == 0  # Wrong fighter
         assert pick3["is_correct"] is False
+
+    @pytest.mark.asyncio
+    async def test_calculate_and_assign_points_draw(self, test_db, sample_bout_data):
+        """Test draw result gives 0 points to everybody."""
+        await test_db["bouts"].insert_one(sample_bout_data)
+
+        picks = [
+            {
+                "_id": "user1:67890",
+                "user_id": "user1",
+                "bout_id": 67890,
+                "picked_fighter_name": "Test Fighter 1",
+                "picked_method": "DEC",
+                "picked_round": None
+            },
+            {
+                "_id": "user2:67890",
+                "user_id": "user2",
+                "bout_id": 67890,
+                "picked_fighter_name": "Test Fighter 2",
+                "picked_method": "DEC",
+                "picked_round": None
+            }
+        ]
+
+        await test_db["picks"].insert_many(picks)
+
+        await test_db["users"].insert_many([
+            {
+                "_id": "user1",
+                "name": "User 1",
+                "total_points": 0,
+                "picks_total": 0,
+                "picks_correct": 0,
+                "perfect_picks": 0,
+                "accuracy": 0.0
+            },
+            {
+                "_id": "user2",
+                "name": "User 2",
+                "total_points": 0,
+                "picks_total": 0,
+                "picks_correct": 0,
+                "perfect_picks": 0,
+                "accuracy": 0.0
+            }
+        ])
+
+        service = PointsService(test_db)
+
+        result = await service.calculate_and_assign_points(67890, {
+            "winner": None,
+            "outcome": "draw",
+            "method": "DEC",
+            "round": 3,
+            "time": "5:00"
+        })
+
+        assert result["picks_processed"] == 2
+        assert result["points_distributed"] == 0
+        assert result["users_affected"] == 2
+        assert result["outcome"] == "draw"
+
+        pick1 = await test_db["picks"].find_one({"_id": "user1:67890"})
+        assert pick1["points_awarded"] == 0
+        assert pick1["is_correct"] is False
+
+        pick2 = await test_db["picks"].find_one({"_id": "user2:67890"})
+        assert pick2["points_awarded"] == 0
+        assert pick2["is_correct"] is False
     
     @pytest.mark.asyncio
     async def test_revert_points(self, test_db):

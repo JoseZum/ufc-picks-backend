@@ -1,6 +1,4 @@
-# =============================================================================
-# Pipeline CI/CD del Backend
-# =============================================================================
+# Pipeline CI/CD del backend
 #
 # Flujo completo:
 #   - Push a main o develop, PR a main/develop, o disparador manual
@@ -16,8 +14,7 @@
 #   - Se recomienda PAT porque GITHUB_TOKEN no puede disparar otros workflows
 #     (ej. un deploy que se active en push a main)
 #
-# Si usas GITHUB_TOKEN en lugar de CI_PAT, descomenta la seccion de permisos
-# =============================================================================
+# Si usas GITHUB_TOKEN en lugar de CI_PAT, descomenta la sección de permisos.
 
 name: Backend CI/CD Pipeline
 
@@ -53,7 +50,7 @@ concurrency:
 #   pull-requests: write
 
 jobs:
-  # ==================== Job 1: Tests y Linting ====================
+  # Job 1: tests y linting
   test:
     name: Test Backend (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -157,7 +154,7 @@ jobs:
           echo "Resumen de cobertura:"
           coverage report --show-missing || echo "Reporte de cobertura no disponible"
 
-  # ==================== Job 2: Lint Dockerfile ====================
+  # Job 2: lint Dockerfile
   lint-dockerfile:
     name: Lint Dockerfile
     runs-on: ubuntu-latest
@@ -174,7 +171,7 @@ jobs:
           ignore: DL3008,DL3009
         continue-on-error: true
 
-  # ==================== Job 3: Escaneo de Seguridad ====================
+  # Job 3: escaneo de seguridad
   security-scan:
     name: Escaneo de Seguridad
     runs-on: ubuntu-latest
@@ -220,7 +217,7 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  # ==================== Job 4: Resumen del Pipeline ====================
+  # Job 4: resumen del pipeline
   test-summary:
     name: Resumen del Pipeline CI
     runs-on: ubuntu-latest
@@ -230,15 +227,11 @@ jobs:
     steps:
       - name: Verificar resultados
         run: |
-          echo "================================================"
-          echo "          Resumen del Pipeline CI/CD"
-          echo "================================================"
+          echo "Resumen del pipeline CI/CD"
           echo ""
           echo "Tests:             ${{ needs.test.result }}"
           echo "Dockerfile Lint:   ${{ needs.lint-dockerfile.result }}"
           echo "Escaneo Seguridad: ${{ needs.security-scan.result }}"
-          echo ""
-          echo "================================================"
 
       - name: Fallar si los tests fallaron
         if: needs.test.result == 'failure'
@@ -256,7 +249,7 @@ jobs:
           echo "2. Deploy a staging/produccion"
           echo "3. Ejecutar smoke tests en el entorno desplegado"
 
-  # ==================== Job 5: Formateo de codigo (solo en PRs) ====================
+  # Job 5: formateo de código (solo en PRs)
   # Este job solo se ejecuta en PRs y verifica si hay codigo sin formatear
   check-formatting:
     name: Verificar Formateo de Codigo
@@ -288,7 +281,7 @@ jobs:
         if: success()
         run: echo "Codigo correctamente formateado."
 
-  # ==================== Job 6: Crear rama ci/cd (solo en push a develop) ====================
+  # Job 6: crear rama ci/cd (solo en push a develop)
   # Solo se ejecuta cuando hay push a develop Y los tests pasaron.
   # Crea/actualiza la rama ci/cd con el contenido exacto de develop.
   create-ci-cd-branch:
@@ -328,7 +321,7 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Rama '${BRANCH_NAME}' actualizada a $(git rev-parse --short HEAD)"
 
-  # ==================== Job 7: Auto PR y Merge a main ====================
+  # Job 7: auto PR y merge a main
   # Solo se ejecuta despues de crear la rama ci/cd, si los tests y el escaneo
   # de seguridad terminaron. Crea un PR de ci/cd -> main y lo mergea con squash.
   auto-merge:

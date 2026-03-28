@@ -1,1 +1,1 @@
-# Services layer - business logic
+# Capa de servicios - lógica de negocio

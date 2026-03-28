@@ -1,6 +1,4 @@
-"""
-UserRepository - MongoDB access for users collection.
-"""
+"""Acceso a datos para la colección de usuarios."""
 
 from datetime import datetime, timezone
 from typing import Optional

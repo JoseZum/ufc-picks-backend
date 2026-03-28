@@ -38,8 +38,8 @@ async def verify_google_token(id_token: str) -> dict:
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"🔍 Verificando Google token...")
-    logger.info(f"🔑 GOOGLE_CLIENT_ID configurado: {settings.google_client_id}")
+    logger.info("Verificando Google token")
+    logger.info("GOOGLE_CLIENT_ID configurado: %s", settings.google_client_id)
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -49,27 +49,31 @@ async def verify_google_token(id_token: str) -> dict:
 
         if response.status_code != 200:
             error_msg = f"Token de Google inválido. Status: {response.status_code}, Response: {response.text}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(error_msg)
             raise GoogleAuthError(error_msg)
 
         data = response.json()
-        logger.info(f"✅ Token verificado por Google. aud={data.get('aud')}, email={data.get('email')}")
+        logger.info(
+            "Token verificado por Google. aud=%s, email=%s",
+            data.get("aud"),
+            data.get("email"),
+        )
 
         # Verifico que el token fue emitido para nuestra aplicación (no para otra)
         token_aud = data.get("aud")
         if token_aud != settings.google_client_id:
             error_msg = f"Token no fue emitido para esta aplicación. Expected: {settings.google_client_id}, Got: {token_aud}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(error_msg)
             raise GoogleAuthError(error_msg)
 
         # Verifico que el token no haya expirado
         exp = int(data.get("exp", 0))
         if datetime.now(timezone.utc).timestamp() > exp:
             error_msg = "Token expirado"
-            logger.error(f"❌ {error_msg}")
+            logger.error(error_msg)
             raise GoogleAuthError(error_msg)
 
-        logger.info(f"✅ Token válido para user: {data.get('email')}")
+        logger.info("Token valido para user: %s", data.get("email"))
         return {
             "sub": data.get("sub"),  # ID único del usuario en Google
             "email": data.get("email"),
@@ -89,7 +93,7 @@ async def verify_google_access_token(access_token: str) -> dict:
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info("🔍 Verificando Google access_token...")
+    logger.info("Verificando Google access_token")
     
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -99,15 +103,15 @@ async def verify_google_access_token(access_token: str) -> dict:
 
         if response.status_code != 200:
             error_msg = f"Google access_token inválido. Status: {response.status_code}, Response: {response.text}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(error_msg)
             raise GoogleAuthError(error_msg)
 
         data = response.json()
-        logger.info(f"✅ Access token verificado. email={data.get('email')}")
+        logger.info("Access token verificado. email=%s", data.get("email"))
 
         if not data.get("email_verified", False):
             error_msg = "Email not verified by Google"
-            logger.error(f"❌ {error_msg}")
+            logger.error(error_msg)
             raise GoogleAuthError(error_msg)
 
         return {

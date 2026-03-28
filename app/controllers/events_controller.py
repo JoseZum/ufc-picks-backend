@@ -186,8 +186,8 @@ async def _get_poster_url(event_id: int, proxy_url: Optional[str], s3_service) -
 
     Estrategia:
     1. Verificar si existe poster en S3 (ufc-posters/ufc{id}.jpeg)
-    2. Si existe Y CloudFront configurado → devolver URL de CloudFront
-    3. Si NO existe → devolver proxy_url de MongoDB (se cachea automáticamente cuando se solicita)
+    2. Si existe y CloudFront está configurado, devolver la URL de CloudFront
+    3. Si no existe, devolver proxy_url de MongoDB
 
     Args:
         event_id: ID del evento
@@ -212,11 +212,11 @@ async def _get_poster_url(event_id: int, proxy_url: Optional[str], s3_service) -
         exists = await s3_service.image_exists(s3_key)
 
         if exists:
-            # Existe en S3 → usar CloudFront
+            # Si existe en S3, usar CloudFront
             cloudfront_url = s3_service.get_cloudfront_url(s3_key)
             return cloudfront_url if cloudfront_url else proxy_url
         else:
-            # No existe en S3 → usar proxy del backend (cachea automáticamente)
+            # Si no existe en S3, usar el proxy del backend
             return proxy_url
 
     except Exception:

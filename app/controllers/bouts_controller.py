@@ -79,7 +79,7 @@ def _process_fighters(fighters: dict) -> dict:
         # Copy fighter data
         processed_fighter = dict(fighter)
 
-        # === FIELD NORMALIZATION FOR FRONTEND ===
+        # Normalize fields for the frontend.
 
         # bout_details historically stores `name`; frontend/backend expect `fighter_name`
         if not processed_fighter.get("fighter_name"):
@@ -109,7 +109,7 @@ def _process_fighters(fighters: dict) -> dict:
         if not processed_fighter.get("corner"):
             processed_fighter["corner"] = corner
 
-        # === IMAGE URL PROCESSING ===
+        # Resolve image URLs.
 
         # Always prioritize image_key (CloudFront) over old profile_image_url (proxy URLs)
         image_key = fighter.get("image_key")
@@ -133,6 +133,16 @@ def _process_fighters(fighters: dict) -> dict:
     return processed
 
 
+def _is_missing_fighter_value(value) -> bool:
+    if value in (None, "", [], {}, 0):
+        return True
+
+    if isinstance(value, dict):
+        return all(_is_missing_fighter_value(item) for item in value.values())
+
+    return False
+
+
 def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
     """Merge canonical bout fighter fields into bout_details before API normalization."""
     if not detail_fighters:
@@ -151,6 +161,19 @@ def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
             "fighter_name",
             "name",
             "corner",
+            "nationality",
+            "record_at_fight",
+            "fighting_out_of",
+            "age_at_fight_years",
+            "age_at_fight",
+            "height_cm",
+            "height",
+            "reach_cm",
+            "reach",
+            "latest_weight",
+            "betting_odds",
+            "gym",
+            "title_status",
             "tapology_id",
             "tapology_url",
             "image_key",
@@ -160,7 +183,7 @@ def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
             "ranking",
             "ufc_ranking",
         ):
-            if bout_fighter.get(field) and not detail_fighter.get(field):
+            if not _is_missing_fighter_value(bout_fighter.get(field)) and _is_missing_fighter_value(detail_fighter.get(field)):
                 detail_fighter[field] = bout_fighter[field]
 
         if bout_fighter.get("fighter_name") and not detail_fighter.get("fighter_name"):

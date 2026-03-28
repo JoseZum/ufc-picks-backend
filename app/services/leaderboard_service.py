@@ -1,8 +1,8 @@
 """
-LeaderboardService - Calculates and serves leaderboard data in real-time.
+LeaderboardService - Calcula y sirve datos de clasificación en tiempo real.
 
-This service calculates leaderboards on-the-fly from picks data.
-For better performance in production, consider pre-computing these values.
+Este servicio calcula rankings al vuelo a partir de datos de picks.
+Para mejor rendimiento en producción, considera precomputar estos valores.
 """
 
 from typing import Optional
@@ -14,12 +14,12 @@ from app.models.leaderboard import LeaderboardEntry
 
 
 class LeaderboardServiceError(Exception):
-    """Base exception for leaderboard service errors."""
+    """Excepción base para errores del servicio de clasificación."""
     pass
 
 
 class LeaderboardNotFoundError(LeaderboardServiceError):
-    """Raised when leaderboard data is not found."""
+    """Se lanza cuando no se encuentran datos de clasificación."""
     pass
 
 
@@ -37,20 +37,20 @@ class LeaderboardService:
         year: Optional[int] = None
     ) -> Optional[dict]:
         """
-        Get stats for a single user.
+        Obtiene estadísticas de un solo usuario.
 
         NOTA: Ahora usa los campos pre-calculados del User model.
         Solo calcula en tiempo real si hay filtros (event, year).
         """
 
-        # Get user info
+        # Obtener información del usuario
         user = await self.users_collection.find_one({"_id": user_id})
         if not user:
             return None
 
-        # Si NO hay filtros, usar stats pre-calculadas del User (RÁPIDO)
+        # Si no hay filtros, usar estadísticas precalculadas del usuario.
         if not event_filter and not year:
-            # Usar campos del User model que se actualizan automáticamente
+            # Usar campos del modelo User que se actualizan automáticamente.
             return {
                 "user_id": user_id,
                 "username": user.get("name", "Unknown"),
@@ -62,7 +62,7 @@ class LeaderboardService:
                 "perfect_picks": user.get("perfect_picks", 0),
             }
 
-        # Si HAY filtros, calcular en tiempo real (event o year específico)
+        # Si hay filtros, calcular en tiempo real.
         picks_query = {"user_id": user_id}
 
         if event_filter:
@@ -73,7 +73,7 @@ class LeaderboardService:
         if not picks:
             return None
 
-        # Filter by year if needed
+        # Filtrar por año si hace falta
         if year:
             event_ids = [p["event_id"] for p in picks]
             events = await self.events_collection.find({
@@ -87,7 +87,7 @@ class LeaderboardService:
         if not picks:
             return None
 
-        # Calculate stats en tiempo real para este subset de picks
+        # Calcular estadísticas para este subconjunto de picks.
         total_points = sum(p.get("points_awarded", 0) for p in picks)
         picks_total = len(picks)
 
@@ -114,14 +114,14 @@ class LeaderboardService:
         year: Optional[int] = None
     ) -> list[LeaderboardEntry]:
         """
-        Get global leaderboard (all events).
+        Obtiene el ranking global (todos los eventos).
 
-        Si NO hay filtro de año, usa los campos pre-calculados del User (RÁPIDO).
-        Si HAY filtro de año, calcula en tiempo real.
+        Si no hay filtro de año, usa los campos precalculados del usuario.
+        Si hay filtro de año, calcula en tiempo real.
         """
-        # Si NO hay filtro de año, usar stats pre-calculadas (OPTIMIZADO)
+        # Si no hay filtro de año, usar estadísticas precalculadas.
         if not year:
-            # Obtener todos los usuarios que tienen picks (picks_total > 0)
+            # Obtener todos los usuarios que tienen picks.
             users = await self.users_collection.find({
                 "picks_total": {"$gt": 0}
             }).to_list(length=None)
@@ -141,12 +141,12 @@ class LeaderboardService:
                     perfect_picks=user.get("perfect_picks", 0),
                 ))
 
-            # Sort by total points (descending)
+            # Ordenar por puntos totales (descendente)
             entries.sort(key=lambda x: x.total_points, reverse=True)
 
             return entries[:limit]
 
-        # Si HAY filtro de año, calcular en tiempo real
+        # Si hay filtro de año, calcular en tiempo real.
         user_ids = await self.picks_collection.distinct("user_id")
 
         entries = []
@@ -159,7 +159,7 @@ class LeaderboardService:
                     **stats
                 ))
 
-        # Sort by total points (descending)
+        # Ordenar por puntos totales (descendente)
         entries.sort(key=lambda x: x.total_points, reverse=True)
 
         return entries[:limit]
@@ -169,12 +169,12 @@ class LeaderboardService:
         event_id: int,
         limit: int = 100
     ) -> list[LeaderboardEntry]:
-        """Get leaderboard for a specific event."""
+        """Obtiene el ranking para un evento específico."""
         
-        # Get all unique user IDs who have picks for this event
+        # Obtener todos los IDs únicos de usuarios con picks en este evento
         user_ids = await self.picks_collection.distinct("user_id", {"event_id": event_id})
         
-        # Calculate stats for each user
+        # Calcular estadísticas para cada usuario
         entries = []
         for user_id in user_ids:
             stats = await self._calculate_user_stats(user_id, event_filter={"event_id": event_id})
@@ -185,7 +185,7 @@ class LeaderboardService:
                     **stats
                 ))
         
-        # Sort by total points (descending)
+        # Ordenar por puntos totales (descendente)
         entries.sort(key=lambda x: x.total_points, reverse=True)
         
         return entries[:limit]
@@ -197,15 +197,15 @@ class LeaderboardService:
         year: Optional[int] = None
     ) -> list[LeaderboardEntry]:
         """
-        Get leaderboard by category.
+        Obtiene el ranking por categoría.
         
-        Categories: global, main_events, main_card, prelims, early_prelims
+        Categorías: global, main_events, main_card, prelims, early_prelims
         
-        For now, returns global leaderboard. 
-        TODO: Filter by bout card_position when implemented.
+        Por ahora, devuelve el ranking global.
+        TODO: Filtrar por card_position de la pelea cuando se implemente.
         """
-        # For simplicity, return global leaderboard
-        # In the future, filter picks by bout's card_position
+        # Por simplicidad, devolver ranking global
+        # En el futuro, filtrar picks por card_position de la pelea
         return await self.get_global_leaderboard(limit, year)
 
     async def get_user_rank(
@@ -214,14 +214,14 @@ class LeaderboardService:
         category: str = "global"
     ) -> Optional[dict]:
         """
-        Get user's rank in a specific leaderboard category.
+        Obtiene la posición del usuario en una categoría específica.
         
-        Returns dict with rank and entry data, or None if not found.
+        Devuelve un dict con la posición y los datos de entrada, o None si no existe.
         """
-        # Get full leaderboard
+        # Obtener ranking completo
         leaderboard = await self.get_global_leaderboard(limit=1000)
         
-        # Find user's position
+        # Encontrar la posición del usuario
         for idx, entry in enumerate(leaderboard):
             if entry.user_id == user_id:
                 return {
@@ -229,8 +229,8 @@ class LeaderboardService:
                     "entry": entry
                 }
         
-        # User not found in leaderboard
-        # Try to get their stats anyway
+        # Usuario no encontrado en el ranking
+        # Intentar obtener sus estadísticas de todas formas
         stats = await self._calculate_user_stats(user_id)
         if stats:
             return {

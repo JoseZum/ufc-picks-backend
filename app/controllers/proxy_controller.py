@@ -1,28 +1,4 @@
-"""
-Controlador de proxy de imágenes - Proxy inteligente para imágenes de Tapology
-
-Este controlador actúa como intermediario entre el frontend y las imágenes de Tapology,
-implementando diferentes estrategias de caché según la configuración.
-
-¿Por qué necesitamos un proxy?
-- Las imágenes de Tapology pueden cambiar o desaparecer
-- CORS: el navegador bloquea requests directos a dominios externos
-- Performance: cachear evita requests repetidos a Tapology
-- Costos: reducir bandwidth usando CloudFront
-
-Estrategias de caché disponibles (IMAGE_CACHE_STRATEGY):
-- MEMORY: Cache en memoria del servidor (desarrollo/testing, límite 200 imágenes)
-- S3: Almacenamiento persistente en AWS S3 + CloudFront CDN (producción)
-
-Modos de operación S3 (IMAGE_SOURCE_MODE):
-- s3: Modo completo - lee de S3, sube automáticamente si no existe
-- cache: Solo lectura - sirve desde CloudFront, NUNCA escribe en S3
-
-Headers de cache optimizados para:
-- Browser cache (cliente final)
-- Vercel Edge cache (si está en Vercel)
-- Cloudflare CDN cache (si está detrás de Cloudflare)
-"""
+"""Proxy de imágenes de Tapology con caché en memoria o S3."""
 
 import httpx
 from fastapi import APIRouter, HTTPException, Response
@@ -43,7 +19,7 @@ settings = get_settings()
 # Estrategia de caché configurada (MEMORY o S3)
 CACHE_STRATEGY: Literal["MEMORY", "S3"] = settings.image_cache_strategy.upper()  # type: ignore
 
-# ==================== MEMORY CACHE ====================
+# In-memory cache
 # Cache en memoria - solo para desarrollo
 # Estructura: {cache_key: (image_bytes, content_type, etag, timestamp)}
 _image_cache: dict[str, tuple[bytes, str, str, float]] = {}
@@ -202,15 +178,15 @@ async def _fetch_from_tapology(tapology_url: str, path: str) -> tuple[bytes, str
         return content, content_type
 
 
-# ==================== MEMORY STRATEGY ====================
+# In-memory strategy
 async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Response:
     """
     Obtiene imagen usando estrategia de cache en memoria
 
     Flujo:
     1. Buscar en cache en memoria usando hash del path
-    2. Si existe y no expiró → servir desde cache (HIT)
-    3. Si no existe → descargar desde Tapology
+    2. Si existe y no expiró, servir desde caché
+    3. Si no existe, descargar desde Tapology
     4. Guardar en cache para futuras requests
     5. Limpiar cache viejo periódicamente
 
@@ -266,7 +242,7 @@ async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Re
         raise HTTPException(status_code=502, detail=f"Error fetching image: {str(e)}")
 
 
-# ==================== S3 STRATEGY ====================
+# S3 strategy
 async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Response:
     """
     Obtiene imagen usando estrategia de almacenamiento en S3
@@ -275,7 +251,7 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
 
     Modo "s3" (lectura + escritura):
     1. Verificar si existe en S3
-    2. Si existe → redirigir a CloudFront (HIT)
+    2. Si existe, redirigir a CloudFront
     3. Si no existe:
        a. Descargar desde Tapology
        b. Subir a S3
@@ -283,8 +259,8 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
 
     Modo "cache" (solo lectura):
     1. Verificar si existe en S3
-    2. Si existe → redirigir a CloudFront (HIT)
-    3. Si no existe → error 404 (NO se descarga ni sube)
+    2. Si existe, redirigir a CloudFront
+    3. Si no existe, devolver error 404
 
     ¿Por qué redirigir a CloudFront en lugar de servir directo?
     - CloudFront tiene edge locations globales (menor latencia)

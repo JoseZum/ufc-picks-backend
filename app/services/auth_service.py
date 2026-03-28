@@ -1,5 +1,5 @@
 """
-AuthService - Google OAuth authentication logic.
+AuthService - Lógica de autenticación con Google OAuth.
 """
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -10,7 +10,7 @@ from app.models.user import User, UserCreate
 
 
 class AuthServiceError(Exception):
-    """Base exception for auth service errors."""
+    """Excepción base para errores del servicio de autenticación."""
     pass
 
 
@@ -20,14 +20,14 @@ class AuthService:
 
     async def authenticate_with_google(self, google_id_token: str) -> tuple[User, str]:
         """
-        Authenticate user with Google id_token.
+        Autentica un usuario con un id_token de Google.
 
-        1. Verifies the Google token
-        2. Creates or finds user in database
-        3. Returns user and JWT access token
+        1. Verifica el token de Google
+        2. Crea o busca al usuario en base de datos
+        3. Devuelve el usuario y el token de acceso JWT
 
-        Returns: (user, jwt_token)
-        Raises: AuthServiceError on failure
+        Retorna: (usuario, jwt_token)
+        Lanza: AuthServiceError en caso de fallo
         """
         try:
             google_data = await verify_google_token(google_id_token)
@@ -39,7 +39,7 @@ class AuthService:
         name = google_data.get("name", email.split("@")[0])
         picture = google_data.get("picture")
 
-        # Find or create user
+        # Buscar o crear usuario
         user = await self.user_repo.get_by_google_id(google_id)
 
         if user is None:
@@ -53,21 +53,21 @@ class AuthService:
         else:
             await self.user_repo.update_last_login(user.id)
 
-        # Generate JWT
+        # Generar JWT
         access_token = create_access_token(user.id, user.email)
 
         return user, access_token
 
     async def authenticate_with_google_access_token(self, google_access_token: str) -> tuple[User, str]:
         """
-        Authenticate user with Google access_token (from custom button flow).
+        Autentica un usuario con un access_token de Google (flujo de botón personalizado).
 
-        1. Verifies the Google access_token via userinfo endpoint
-        2. Creates or finds user in database
-        3. Returns user and JWT access token
+        1. Verifica el access_token de Google vía endpoint userinfo
+        2. Crea o busca al usuario en base de datos
+        3. Devuelve el usuario y el token de acceso JWT
 
-        Returns: (user, jwt_token)
-        Raises: AuthServiceError on failure
+        Retorna: (usuario, jwt_token)
+        Lanza: AuthServiceError en caso de fallo
         """
         try:
             google_data = await verify_google_access_token(google_access_token)
@@ -79,7 +79,7 @@ class AuthService:
         name = google_data.get("name", email.split("@")[0])
         picture = google_data.get("picture")
 
-        # Find or create user
+        # Buscar o crear usuario
         user = await self.user_repo.get_by_google_id(google_id)
 
         if user is None:
@@ -93,7 +93,7 @@ class AuthService:
         else:
             await self.user_repo.update_last_login(user.id)
 
-        # Generate JWT
+        # Generar JWT
         access_token = create_access_token(user.id, user.email)
 
         return user, access_token
