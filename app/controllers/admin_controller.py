@@ -508,6 +508,38 @@ async def unlock_event_picks(
     }
 
 
+@router.post("/events/{event_id}/complete")
+@limiter.limit("30/minute")
+async def complete_event(
+    request: Request,
+    event_id: int,
+    admin: CurrentAdmin,
+    db: Database
+):
+    """
+    Marca un evento como completado manualmente.
+    Solo administradores.
+    """
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado"
+        )
+
+    await db["events"].update_one(
+        {"id": event_id},
+        {"$set": {"status": "completed"}}
+    )
+
+    return {
+        "success": True,
+        "message": f"Evento {event_id} marcado como completado",
+        "event_id": event_id,
+        "status": "completed"
+    }
+
+
 @router.post("/bouts/{bout_id}/lock-picks")
 @limiter.limit("30/minute")
 async def lock_bout_picks(

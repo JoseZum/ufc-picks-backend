@@ -50,16 +50,12 @@ class EventRepository:
 
     async def get_upcoming(self, limit: int = 5) -> list[Event]:
         """
-        Obtiene próximos eventos programados
+        Obtiene eventos programados (incluyendo los que ya pasaron su datetime pero no fueron completados)
 
         Ordenados por fecha ascendente
         """
-        # MongoDB necesita datetime, no date
-        today = datetime.combine(date.today(), datetime.min.time())
-
         cursor = self.collection.find({
             "status": "scheduled",
-            "date": {"$gte": today}
         }).sort("date", 1).limit(limit)
 
         docs = await cursor.to_list(length=limit)
