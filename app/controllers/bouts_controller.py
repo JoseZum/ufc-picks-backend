@@ -228,10 +228,18 @@ class BoutResponse(BaseModel):
     gender: str
     rounds_scheduled: int
     is_title_fight: bool
+    is_main_event: bool = False
     status: str
     fighters: dict
     result: Optional[dict] = None
     picks_locked: bool = False
+
+
+def _effective_rounds(is_main_event: bool, rounds_scheduled) -> int:
+    """Los main events siempre son a 5 rounds, sin importar lo que diga el scraper."""
+    if is_main_event:
+        return 5
+    return rounds_scheduled or 3
 
 
 @router.get("/events/{event_id}/bouts", response_model=list[BoutResponse])
@@ -262,7 +270,7 @@ async def get_event_bouts(
     bout_details_map = {bd["bout_id"]: bd for bd in bout_details_list}
 
     result = []
-    for b in bouts:
+    for idx, b in enumerate(bouts):
         # Convert Pydantic FighterSnapshot models to dicts for easier manipulation
         # b.fighters is dict[str, FighterSnapshot], need to convert to dict[str, dict]
         bout_fighters_dict = {}
@@ -285,14 +293,19 @@ async def get_event_bouts(
             if "result" in bout_detail and bout_detail["result"]:
                 bout_result = bout_detail["result"]
 
+        # El bout principal es el marcado por el scraper, o el primero (las bouts
+        # vienen ordenadas con el main event al frente). Garantiza 5 rounds aunque
+        # el flag no esté seteado en datos antiguos.
+        is_main_event = getattr(b, 'is_main_event', False) or idx == 0
         result.append(
             BoutResponse(
                 id=b.id,
                 event_id=b.event_id,
                 weight_class=b.weight_class or "Unknown",
                 gender=b.gender or "male",
-                rounds_scheduled=b.rounds_scheduled or 3,
+                rounds_scheduled=_effective_rounds(is_main_event, b.rounds_scheduled),
                 is_title_fight=b.is_title_fight,
+                is_main_event=is_main_event,
                 status=b.status,
                 fighters=_process_fighters(fighters),
                 result=bout_result,
@@ -345,13 +358,18 @@ async def get_bout_details(
         result = bout_data.get("result")
 
     # Mapear los datos a la respuesta
+    is_main_event = bout_data.get("is_main_event", False)
     return BoutResponse(
         id=bout_data.get("id"),
         event_id=bout_data.get("event_id"),
         weight_class=bout_data.get("weight_class", "Unknown"),
         gender=bout_data.get("gender", "M"),
-        rounds_scheduled=bout_data.get("scheduled_rounds", 3),
+        rounds_scheduled=_effective_rounds(
+            is_main_event,
+            bout_data.get("scheduled_rounds", bout_data.get("rounds_scheduled", 3)),
+        ),
         is_title_fight=bout_data.get("is_title_fight", False),
+        is_main_event=is_main_event,
         status=bout_data.get("status", "scheduled"),
         fighters=_process_fighters(fighters),
         result=result,
