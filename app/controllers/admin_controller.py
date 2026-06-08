@@ -47,6 +47,7 @@ class UpdateBoutDetailsRequest(BaseModel):
     rounds_scheduled: Optional[int] = None  # 3 o 5
     weight_class: Optional[str] = None
     is_title_fight: Optional[bool] = None
+    is_bmf_title_fight: Optional[bool] = None
     # Campos del event_card_slot
     card_section: Optional[str] = None  # "main" | "prelim" | "early_prelim"
     order_overall: Optional[int] = None
@@ -873,6 +874,9 @@ async def update_bout_details(
 
     if body.is_title_fight is not None:
         bout_update["is_title_fight"] = body.is_title_fight
+
+    if body.is_bmf_title_fight is not None:
+        bout_update["is_bmf_title_fight"] = body.is_bmf_title_fight
 
     if body.card_section is not None:
         if body.card_section not in ["main", "prelim", "early_prelim"]:

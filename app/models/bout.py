@@ -65,6 +65,7 @@ class Bout(BaseModel):
 
     rounds_scheduled: Optional[int] = 3
     is_title_fight: bool = False
+    is_bmf_title_fight: bool = False  # Pelea por el cinturón BMF (tratamiento plateado)
     is_main_event: bool = False  # La pelea principal del evento (5 rounds)
 
     status: str = "scheduled"  # scheduled | completed

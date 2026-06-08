@@ -228,6 +228,7 @@ class BoutResponse(BaseModel):
     gender: str
     rounds_scheduled: int
     is_title_fight: bool
+    is_bmf_title_fight: bool = False
     is_main_event: bool = False
     status: str
     fighters: dict
@@ -305,6 +306,7 @@ async def get_event_bouts(
                 gender=b.gender or "male",
                 rounds_scheduled=_effective_rounds(is_main_event, b.rounds_scheduled),
                 is_title_fight=b.is_title_fight,
+                is_bmf_title_fight=getattr(b, 'is_bmf_title_fight', False),
                 is_main_event=is_main_event,
                 status=b.status,
                 fighters=_process_fighters(fighters),
@@ -369,6 +371,7 @@ async def get_bout_details(
             bout_data.get("scheduled_rounds", bout_data.get("rounds_scheduled", 3)),
         ),
         is_title_fight=bout_data.get("is_title_fight", False),
+        is_bmf_title_fight=bout_data.get("is_bmf_title_fight", False),
         is_main_event=is_main_event,
         status=bout_data.get("status", "scheduled"),
         fighters=_process_fighters(fighters),

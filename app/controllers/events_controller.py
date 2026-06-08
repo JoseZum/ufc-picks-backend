@@ -39,6 +39,7 @@ class EventResponse(BaseModel):
     event_art_url: Optional[str] = None
     picks_locked: bool = False
     is_title_fight: bool = False  # True si la pelea principal es por título
+    is_bmf_title_fight: bool = False  # True si la pelea principal es por el cinturón BMF
 
 
 class EventDetailResponse(EventResponse):
@@ -71,8 +72,9 @@ async def get_events(
         async for doc in cursor:
             events_with_art.add(doc["id"])
 
-    # Determinar qué eventos tienen pelea principal por título (para destacarlos en dorado)
-    title_event_ids = await _get_title_fight_event_ids(db, event_ids)
+    # Determinar qué eventos tienen pelea principal por título (dorado) o BMF (plateado)
+    title_event_ids = await _get_main_event_flag_ids(db, event_ids, "is_title_fight")
+    bmf_event_ids = await _get_main_event_flag_ids(db, event_ids, "is_bmf_title_fight")
 
     # Procesar cada evento y obtener su poster URL
     result = []
@@ -93,7 +95,8 @@ async def get_events(
                 poster_image_url=poster_url,
                 event_art_url=event_art_url,
                 picks_locked=getattr(e, 'picks_locked', False),
-                is_title_fight=e.id in title_event_ids
+                is_title_fight=e.id in title_event_ids,
+                is_bmf_title_fight=e.id in bmf_event_ids
             )
         )
 
@@ -141,7 +144,8 @@ async def get_event(
         promotion=event.promotion,
         url=event.url,
         picks_locked=getattr(event, 'picks_locked', False),
-        is_title_fight=bool(await _get_title_fight_event_ids(db, [event_id]))
+        is_title_fight=bool(await _get_main_event_flag_ids(db, [event_id], "is_title_fight")),
+        is_bmf_title_fight=bool(await _get_main_event_flag_ids(db, [event_id], "is_bmf_title_fight"))
     )
 
 
@@ -186,25 +190,25 @@ async def get_event_art(
     )
 
 
-async def _get_title_fight_event_ids(db, event_ids: list[int]) -> set[int]:
+async def _get_main_event_flag_ids(db, event_ids: list[int], flag_field: str) -> set[int]:
     """
-    Devuelve el set de event_ids cuya pelea principal es por título.
+    Devuelve el set de event_ids cuya pelea principal tiene `flag_field`=True.
 
-    Hace una sola consulta para todos los eventos pedidos (eficiente).
-    Un evento es "title fight" si su bout principal (is_main_event=True) tiene
-    is_title_fight=True.
+    Hace una sola consulta para todos los eventos pedidos (eficiente). Se usa para
+    detectar eventos con main event por título (is_title_fight) o por el cinturón
+    BMF (is_bmf_title_fight).
     """
     if not event_ids:
         return set()
 
-    title_ids: set[int] = set()
+    matched: set[int] = set()
     cursor = db["bouts"].find(
-        {"event_id": {"$in": event_ids}, "is_main_event": True, "is_title_fight": True},
+        {"event_id": {"$in": event_ids}, "is_main_event": True, flag_field: True},
         {"event_id": 1}
     )
     async for doc in cursor:
-        title_ids.add(doc["event_id"])
-    return title_ids
+        matched.add(doc["event_id"])
+    return matched
 
 
 async def _get_poster_url(event_id: int, proxy_url: Optional[str], s3_service) -> Optional[str]:
