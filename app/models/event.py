@@ -24,7 +24,18 @@ class Event(BaseModel):
 
     total_bouts: int  # Cuántas peleas tiene
     main_event_bout_id: Optional[int] = None  # ID de la pelea principal
-    poster_image_url: Optional[str] = None  # /proxy/tapology/poster_images/... path for nginx
+    # Vertical card poster resolved through the event's Wikipedia Source/Credit.
+    poster_image_url: Optional[str] = None
+    poster_image_source: Optional[str] = None
+    poster_source_page_url: Optional[str] = None
+    wikipedia_article_url: Optional[str] = None
+    wikipedia_file_url: Optional[str] = None
+    wikipedia_image_url: Optional[str] = None
+
+    # Wide high-resolution art from the official UFC event page.
+    hero_image_url: Optional[str] = None
+    hero_image_source: Optional[str] = None
+    official_url: Optional[str] = None
     # event_art stored as binary in MongoDB, served via /events/{id}/event-art endpoint
 
     picks_locked: bool = False  # Admin puede lockear picks para este evento

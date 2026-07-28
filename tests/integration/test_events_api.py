@@ -24,6 +24,8 @@ class TestEventsEndpoints:
         assert len(data) >= 1
         assert data[0]["id"] == sample_event_data["id"]
         assert data[0]["name"] == sample_event_data["name"]
+        assert data[0]["poster_image_url"] == sample_event_data["poster_image_url"]
+        assert data[0]["hero_image_url"] == sample_event_data["hero_image_url"]
     
     @pytest.mark.asyncio
     async def test_get_event_by_id(self, client, test_db, sample_event_data):
@@ -40,6 +42,8 @@ class TestEventsEndpoints:
         assert data["id"] == sample_event_data["id"]
         assert data["name"] == sample_event_data["name"]
         assert data["status"] == "scheduled"
+        assert data["poster_image_url"] == sample_event_data["poster_image_url"]
+        assert data["hero_image_url"] == sample_event_data["hero_image_url"]
     
     @pytest.mark.asyncio
     async def test_get_event_not_found(self, client):

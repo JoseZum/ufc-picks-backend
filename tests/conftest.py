@@ -95,6 +95,10 @@ def sample_event_data():
         "status": "scheduled",
         "total_bouts": 12,
         "main_event_bout_id": 67890,
+        "poster_image_url": "https://pbs.twimg.com/media/poster.jpg:large",
+        "poster_image_source": "wikipedia_source",
+        "hero_image_url": "https://ufc.com/images/styles/background_image_xl_2x/s3/event-art.jpg",
+        "hero_image_source": "ufc_official_xl_2x",
         "scraped_at": datetime.now(timezone.utc),
         "last_updated": datetime.now(timezone.utc)
     }

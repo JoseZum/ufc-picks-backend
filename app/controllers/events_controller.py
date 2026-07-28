@@ -11,7 +11,6 @@ from datetime import date
 
 from app.core.dependencies import Database
 from app.services.event_service import EventService, EventNotFoundError
-from app.services.s3_service import get_s3_service
 
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -36,6 +35,7 @@ class EventResponse(BaseModel):
     status: str
     total_bouts: int
     poster_image_url: Optional[str] = None
+    hero_image_url: Optional[str] = None
     event_art_url: Optional[str] = None
     picks_locked: bool = False
     is_title_fight: bool = False  # True si la pelea principal es por título
@@ -57,8 +57,6 @@ async def get_events(
     """Obtiene lista de eventos próximos y recientes."""
     event_service = EventService(db)
     events = await event_service.get_events_by_status(status, limit)
-    s3_service = get_s3_service()
-    
     # Get event IDs to check for event_art
     event_ids = [e.id for e in events]
     
@@ -79,7 +77,10 @@ async def get_events(
     # Procesar cada evento y obtener su poster URL
     result = []
     for e in events:
-        poster_url = await _get_poster_url(e.id, getattr(e, 'poster_image_url', None), s3_service)
+        poster_url = _get_poster_url(
+            getattr(e, 'poster_image_url', None),
+            getattr(e, 'poster_image_source', None),
+        )
         event_art_url = f"/events/{e.id}/event-art" if e.id in events_with_art else None
         result.append(
             EventResponse(
@@ -93,6 +94,10 @@ async def get_events(
                 status=e.status,
                 total_bouts=e.total_bouts,
                 poster_image_url=poster_url,
+                hero_image_url=_get_hero_url(
+                    getattr(e, 'hero_image_url', None),
+                    getattr(e, 'hero_image_source', None),
+                ),
                 event_art_url=event_art_url,
                 picks_locked=getattr(e, 'picks_locked', False),
                 is_title_fight=e.id in title_event_ids,
@@ -110,8 +115,6 @@ async def get_event(
 ):
     """Obtener un evento por su ID."""
     event_service = EventService(db)
-    s3_service = get_s3_service()
-
     try:
         event = await event_service.get_event(event_id)
     except EventNotFoundError:
@@ -120,7 +123,10 @@ async def get_event(
             detail=f"Event {event_id} not found"
         )
 
-    poster_url = await _get_poster_url(event.id, getattr(event, 'poster_image_url', None), s3_service)
+    poster_url = _get_poster_url(
+        getattr(event, 'poster_image_url', None),
+        getattr(event, 'poster_image_source', None),
+    )
     
     # Check if event has event_art
     event_doc = await db["events"].find_one(
@@ -140,6 +146,10 @@ async def get_event(
         status=event.status,
         total_bouts=event.total_bouts,
         poster_image_url=poster_url,
+        hero_image_url=_get_hero_url(
+            getattr(event, 'hero_image_url', None),
+            getattr(event, 'hero_image_source', None),
+        ),
         event_art_url=event_art_url,
         promotion=event.promotion,
         url=event.url,
@@ -211,45 +221,25 @@ async def _get_main_event_flag_ids(db, event_ids: list[int], flag_field: str) ->
     return matched
 
 
-async def _get_poster_url(event_id: int, proxy_url: Optional[str], s3_service) -> Optional[str]:
-    """
-    Helper para obtener la URL del poster.
-
-    Estrategia:
-    1. Verificar si existe poster en S3 (ufc-posters/ufc{id}.jpeg)
-    2. Si existe y CloudFront está configurado, devolver la URL de CloudFront
-    3. Si no existe, devolver proxy_url de MongoDB
-
-    Args:
-        event_id: ID del evento
-        proxy_url: URL de proxy desde MongoDB (/proxy/tapology/...)
-        s3_service: Servicio S3
-
-    Returns:
-        URL de CloudFront si existe en S3, o proxy_url de MongoDB si no
-    """
-    if not proxy_url:
+def _get_poster_url(
+    source_url: Optional[str],
+    source_kind: Optional[str],
+) -> Optional[str]:
+    """Return only posters owned by the Wikipedia/source resolver."""
+    if source_kind not in {"wikipedia_source", "wikipedia_file"}:
         return None
+    if not source_url or not source_url.startswith(("https://", "http://")):
+        return None
+    return source_url
 
-    # Verificar si CloudFront está configurado
-    if not s3_service.is_cloudfront_configured():
-        return proxy_url
 
-    try:
-        # Formato en S3: ufc-posters/ufc{numero}.jpeg
-        s3_key = f"ufc-posters/ufc{event_id}.jpeg"
-
-        # Verificar si existe en S3
-        exists = await s3_service.image_exists(s3_key)
-
-        if exists:
-            # Si existe en S3, usar CloudFront
-            cloudfront_url = s3_service.get_cloudfront_url(s3_key)
-            return cloudfront_url if cloudfront_url else proxy_url
-        else:
-            # Si no existe en S3, usar el proxy del backend
-            return proxy_url
-
-    except Exception:
-        # Si hay error verificando S3, usar proxy como fallback
-        return proxy_url
+def _get_hero_url(
+    source_url: Optional[str],
+    source_kind: Optional[str],
+) -> Optional[str]:
+    """Return only official UFC XL 2x hero art."""
+    if source_kind != "ufc_official_xl_2x":
+        return None
+    if not source_url or not source_url.startswith(("https://", "http://")):
+        return None
+    return source_url
