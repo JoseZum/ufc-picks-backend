@@ -182,6 +182,14 @@ def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
             "last_5_fights",
             "ranking",
             "ufc_ranking",
+            "espn_id",
+            "espn_url",
+            "espn_headshot_url",
+            "date_of_birth",
+            "stance",
+            "weight_class",
+            "career_stats",
+            "image_source",
         ):
             if not _is_missing_fighter_value(bout_fighter.get(field)) and _is_missing_fighter_value(detail_fighter.get(field)):
                 detail_fighter[field] = bout_fighter[field]
@@ -209,6 +217,8 @@ class FighterResponse(BaseModel):
     fighting_out_of: Optional[str] = None
     tapology_id: Optional[str] = None
     tapology_url: Optional[str] = None
+    espn_id: Optional[str] = None
+    espn_url: Optional[str] = None
     profile_image_url: Optional[str] = None
 
 

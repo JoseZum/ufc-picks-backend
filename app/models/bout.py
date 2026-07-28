@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -39,6 +39,16 @@ class FighterSnapshot(BaseModel):
     # Training
     gym: Optional[dict] = None  # {"primary": "Tiger Muay Thai", "other": ["Freestyle Fighting Gym"]}
 
+    # ESPN enrichment
+    espn_id: Optional[str] = None
+    espn_url: Optional[str] = None
+    espn_headshot_url: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    stance: Optional[str] = None
+    weight_class: Optional[str] = None
+    career_stats: Optional[dict] = None
+    image_source: Optional[str] = None
+
     # Tapology data for images
     tapology_id: Optional[str] = None
     tapology_url: Optional[str] = None
@@ -59,6 +69,9 @@ class Bout(BaseModel):
     source: Optional[str] = None
     url: Optional[str] = None
     slug: Optional[str] = None
+    espn_competition_id: Optional[str] = None
+    espn_match_number: Optional[int] = None
+    espn_card_segment: Optional[str] = None
 
     weight_class: Optional[str] = None
     gender: Optional[str] = "male"

@@ -36,6 +36,10 @@ class Event(BaseModel):
     hero_image_url: Optional[str] = None
     hero_image_source: Optional[str] = None
     official_url: Optional[str] = None
+
+    # Stable ESPN source mapping used by the ESPN ETL.
+    espn_event_id: Optional[str] = None
+    espn_url: Optional[str] = None
     # event_art stored as binary in MongoDB, served via /events/{id}/event-art endpoint
 
     picks_locked: bool = False  # Admin puede lockear picks para este evento

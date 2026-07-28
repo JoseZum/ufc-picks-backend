@@ -86,15 +86,34 @@ async def create_indexes():
     await db.events.create_index("status")
     await db.events.create_index("date")
     await db.events.create_index([("status", 1), ("date", 1)])
+    await db.events.create_index(
+        "espn_event_id",
+        unique=True,
+        partialFilterExpression={"espn_event_id": {"$type": "string"}},
+    )
 
     # Índices para Bouts - muchas búsquedas por evento
     await db.bouts.create_index("id", unique=True)
     await db.bouts.create_index("event_id")
     await db.bouts.create_index("status")
     await db.bouts.create_index([("event_id", 1), ("status", 1)])
+    await db.bouts.create_index(
+        "espn_competition_id",
+        unique=True,
+        partialFilterExpression={"espn_competition_id": {"$type": "string"}},
+    )
     # Búsquedas de peleadores dentro de nested fields
     await db.bouts.create_index("fighters.red.fighter_name")
     await db.bouts.create_index("fighters.blue.fighter_name")
+    await db.bouts.create_index("fighters.red.espn_id")
+    await db.bouts.create_index("fighters.blue.espn_id")
+
+    # Perfiles canónicos de ESPN usados para propagar stats e imágenes.
+    await db.fighters.create_index(
+        "espn_id",
+        unique=True,
+        partialFilterExpression={"espn_id": {"$type": "string"}},
+    )
 
     # Índices para Picks - la combinación user_id:bout_id es única
     await db.picks.create_index("_id", unique=True)
