@@ -14,6 +14,18 @@ class EventRepository:
         self.collection = db["events"]
         self.card_slots = db["event_card_slots"]
 
+    @staticmethod
+    def _normalize_document(doc: dict) -> dict:
+        """Normalize legacy Mongo values before Pydantic validation."""
+        if isinstance(doc.get("date"), datetime):
+            doc["date"] = doc["date"].date()
+        if "main_event_bout_id" in doc and not isinstance(
+            doc["main_event_bout_id"],
+            int,
+        ):
+            doc.pop("main_event_bout_id", None)
+        return doc
+
     # Create
 
     async def create(self, event: Event) -> Event:
@@ -42,10 +54,7 @@ class EventRepository:
         """Obtiene un evento por ID"""
         doc = await self.collection.find_one({"id": event_id})
         if doc:
-            # Clean up: remove main_event_bout_id if it's an ObjectId
-            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
-                doc.pop("main_event_bout_id", None)
-            return Event(**doc)
+            return Event(**self._normalize_document(doc))
         return None
 
     async def get_upcoming(self, limit: int = 5) -> list[Event]:
@@ -60,12 +69,7 @@ class EventRepository:
 
         docs = await cursor.to_list(length=limit)
         
-        # Clean up docs: remove main_event_bout_id if it's an ObjectId
-        for doc in docs:
-            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
-                doc.pop("main_event_bout_id", None)
-        
-        return [Event(**doc) for doc in docs]
+        return [Event(**self._normalize_document(doc)) for doc in docs]
 
     async def get_recent_completed(self, limit: int = 5) -> list[Event]:
         """Obtiene eventos recientes completados"""
@@ -75,12 +79,7 @@ class EventRepository:
 
         docs = await cursor.to_list(length=limit)
 
-        # Clean up docs: remove main_event_bout_id if it's an ObjectId
-        for doc in docs:
-            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
-                doc.pop("main_event_bout_id", None)
-
-        return [Event(**doc) for doc in docs]
+        return [Event(**self._normalize_document(doc)) for doc in docs]
 
     async def get_by_date_range(
         self,
@@ -101,12 +100,7 @@ class EventRepository:
 
         docs = await cursor.to_list(length=None)
         
-        # Clean up docs: remove main_event_bout_id if it's an ObjectId
-        for doc in docs:
-            if "main_event_bout_id" in doc and not isinstance(doc["main_event_bout_id"], int):
-                doc.pop("main_event_bout_id", None)
-        
-        return [Event(**doc) for doc in docs]
+        return [Event(**self._normalize_document(doc)) for doc in docs]
 
     async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:
         """Obtiene la estructura de cartelera en orden."""
