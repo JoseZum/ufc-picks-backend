@@ -262,6 +262,56 @@ async def update_bout_timing(
 
 # Result endpoints
 
+async def _complete_event_when_all_results_exist(db, event_id: int) -> bool:
+    """Synchronize event status immediately after the final result is stored."""
+    event = await db["events"].find_one(
+        {"id": event_id},
+        {"total_bouts": 1},
+    )
+    if not event:
+        return False
+
+    bouts = await db["bouts"].find({"event_id": event_id}).to_list(length=None)
+    active_bouts = [
+        bout for bout in bouts if bout.get("status") != "cancelled"
+    ]
+    result_bouts = [
+        bout
+        for bout in active_bouts
+        if isinstance(bout.get("result"), dict) and bool(bout["result"])
+    ]
+    expected_total = int(event.get("total_bouts") or 0)
+    is_complete = (
+        len(result_bouts) >= expected_total
+        if expected_total > 0
+        else bool(active_bouts) and len(result_bouts) == len(active_bouts)
+    )
+    if not is_complete:
+        return False
+
+    result_ids = [bout["id"] for bout in result_bouts]
+    stale_ids = [
+        bout["id"]
+        for bout in active_bouts
+        if not isinstance(bout.get("result"), dict) or not bout["result"]
+    ]
+    if result_ids:
+        await db["bouts"].update_many(
+            {"id": {"$in": result_ids}},
+            {"$set": {"status": "completed"}},
+        )
+    if stale_ids:
+        await db["bouts"].update_many(
+            {"id": {"$in": stale_ids}},
+            {"$set": {"status": "cancelled"}},
+        )
+    await db["events"].update_one(
+        {"id": event_id},
+        {"$set": {"status": "completed"}},
+    )
+    return True
+
+
 @router.put("/bouts/{bout_id}/result")
 @limiter.limit("30/minute")
 async def update_bout_result(
@@ -325,12 +375,17 @@ async def update_bout_result(
     # Calcular y asignar puntos
     points_service = PointsService(db)
     points_result = await points_service.calculate_and_assign_points(bout_id, result_data)
+    event_completed = await _complete_event_when_all_results_exist(
+        db,
+        int(bout["event_id"]),
+    )
 
     return {
         "success": True,
         "message": f"Resultado del bout {bout_id} registrado correctamente",
         "result": result_data,
-        "points_assigned": points_result
+        "points_assigned": points_result,
+        "event_completed": event_completed,
     }
 
 
@@ -375,6 +430,10 @@ async def delete_bout_result(
                 "status": "scheduled"
             }
         }
+    )
+    await db["events"].update_one(
+        {"id": int(bout["event_id"]), "status": "completed"},
+        {"$set": {"status": "scheduled"}},
     )
 
     return {

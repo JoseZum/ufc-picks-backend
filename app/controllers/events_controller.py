@@ -225,8 +225,12 @@ def _get_poster_url(
     source_url: Optional[str],
     source_kind: Optional[str],
 ) -> Optional[str]:
-    """Return only posters owned by the Wikipedia/source resolver."""
-    if source_kind not in {"wikipedia_source", "wikipedia_file"}:
+    """Prefer Wikipedia posters and allow the explicit official UFC fallback."""
+    if source_kind not in {
+        "wikipedia_source",
+        "wikipedia_file",
+        "ufc_official_fallback",
+    }:
         return None
     if not source_url or not source_url.startswith(("https://", "http://")):
         return None

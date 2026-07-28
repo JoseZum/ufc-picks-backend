@@ -44,6 +44,24 @@ class TestEventsEndpoints:
         assert data["status"] == "scheduled"
         assert data["poster_image_url"] == sample_event_data["poster_image_url"]
         assert data["hero_image_url"] == sample_event_data["hero_image_url"]
+
+    @pytest.mark.asyncio
+    async def test_official_hero_fallback_is_exposed_as_card_poster(
+        self, client, test_db, sample_event_data
+    ):
+        sample_event_data["poster_image_url"] = (
+            "https://ufc.com/images/styles/background_image_xl_2x/s3/art.jpg"
+        )
+        sample_event_data["poster_image_source"] = "ufc_official_fallback"
+        await test_db["events"].insert_one(sample_event_data)
+
+        response = await client.get(f"/events/{sample_event_data['id']}")
+
+        assert response.status_code == 200
+        assert (
+            response.json()["poster_image_url"]
+            == sample_event_data["poster_image_url"]
+        )
     
     @pytest.mark.asyncio
     async def test_get_event_not_found(self, client):
