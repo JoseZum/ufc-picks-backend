@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="./public/ufcbackend-logo.png" alt="UFC Picks API" width="600">
+<img src="./public/ufcbackend-logo.png" alt="UFC Picks API" width="400">
 
-# UFC Picks — API
+# UFC Picks - API
 
 ### The prediction, scoring, and leaderboard engine behind UFC Picks.
 
