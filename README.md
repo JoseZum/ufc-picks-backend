@@ -2,7 +2,7 @@
 
 <img src="./public/ufcbackend-logo.png" alt="UFC Picks API" width="400">
 
-# UFC Picks - API
+# UFC Picks - Backend
 
 ### The prediction, scoring, and leaderboard engine behind UFC Picks.
 
