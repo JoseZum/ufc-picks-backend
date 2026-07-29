@@ -59,6 +59,9 @@ class BoutRepository:
         query = {"event_id": event_id}
         if status:
             query["status"] = status
+        else:
+            # Removed/cancelled matchups must not remain on the public card.
+            query["status"] = {"$ne": "cancelled"}
 
         # Orden correcto: main event -> co-main -> main card -> prelims
         # Usamos múltiples criterios de ordenamiento

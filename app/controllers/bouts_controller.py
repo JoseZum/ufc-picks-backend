@@ -3,6 +3,7 @@ Controlador de peleas - Endpoints relacionados con bouts
 """
 
 from typing import Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -17,6 +18,29 @@ router = APIRouter(tags=["bouts"])
 # Cache global para resolución de image_key (se resetea al reiniciar el servidor)
 _image_key_cache: dict[str, str] = {}
 _image_extension_priority = ("png", "jpg", "jpeg", "webp", "avif", "gif")
+
+
+def _normalize_weight_class(value: str | None) -> str:
+    """Return the division only; presentation layers add BOUT/TITLE."""
+    words = [
+        word
+        for word in " ".join(str(value or "").split()).split()
+        if word.lower().strip(" .:-") not in {"bout", "match"}
+    ]
+    if len(words) % 2 == 0:
+        midpoint = len(words) // 2
+        if [word.lower() for word in words[:midpoint]] == [
+            word.lower() for word in words[midpoint:]
+        ]:
+            words = words[:midpoint]
+    return " ".join(words) or "Unknown"
+
+
+def _is_ufc_profile_url(value: str | None) -> bool:
+    if not value:
+        return False
+    host = (urlparse(value).hostname or "").lower()
+    return host in {"ufc.com", "www.ufc.com", "ufcespanol.com", "www.ufcespanol.com"}
 
 
 def _resolve_image_key(image_key: str) -> str:
@@ -111,9 +135,18 @@ def _process_fighters(fighters: dict) -> dict:
 
         # Resolve image URLs.
 
-        # Always prioritize image_key (CloudFront) over old profile_image_url (proxy URLs)
+        # Prefer ESPN mirrors, then ESPN's stable CDN, then legacy images.
         image_key = fighter.get("image_key")
-        if image_key:
+        image_source = fighter.get("image_source")
+        espn_headshot_url = fighter.get("espn_headshot_url")
+        is_espn_key = bool(
+            image_key
+            and (
+                image_source == "espn"
+                or str(image_key).startswith("fighters/espn-")
+            )
+        )
+        if is_espn_key:
             resolved_key = _resolve_image_key(image_key)
             try:
                 s3_service = get_s3_service()
@@ -125,8 +158,26 @@ def _process_fighters(fighters: dict) -> dict:
                     processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
             except S3NotConfiguredError:
                 processed_fighter["profile_image_url"] = f"/proxy/tapology/{image_key}"
-        # If no image_key but has old profile_image_url, keep it (backward compatibility)
-        # If neither exists, frontend will show placeholder
+        elif isinstance(espn_headshot_url, str) and espn_headshot_url.startswith(
+            ("https://", "http://")
+        ):
+            processed_fighter["profile_image_url"] = espn_headshot_url
+        elif image_key:
+            resolved_key = _resolve_image_key(image_key)
+            try:
+                s3_service = get_s3_service()
+                cloudfront_url = s3_service.get_cloudfront_url(resolved_key)
+                processed_fighter["profile_image_url"] = (
+                    cloudfront_url or f"/proxy/tapology/{image_key}"
+                )
+            except S3NotConfiguredError:
+                processed_fighter["profile_image_url"] = (
+                    f"/proxy/tapology/{image_key}"
+                )
+        elif _is_ufc_profile_url(processed_fighter.get("profile_image_url")):
+            # UFC fight-card assets are often cropped torsos or stale lineup
+            # images. ESPN is canonical; without it, show the neutral placeholder.
+            processed_fighter["profile_image_url"] = None
 
         processed[corner] = processed_fighter
 
@@ -312,7 +363,7 @@ async def get_event_bouts(
             BoutResponse(
                 id=b.id,
                 event_id=b.event_id,
-                weight_class=b.weight_class or "Unknown",
+                weight_class=_normalize_weight_class(b.weight_class),
                 gender=b.gender or "male",
                 rounds_scheduled=_effective_rounds(is_main_event, b.rounds_scheduled),
                 is_title_fight=b.is_title_fight,
@@ -374,7 +425,7 @@ async def get_bout_details(
     return BoutResponse(
         id=bout_data.get("id"),
         event_id=bout_data.get("event_id"),
-        weight_class=bout_data.get("weight_class", "Unknown"),
+        weight_class=_normalize_weight_class(bout_data.get("weight_class")),
         gender=bout_data.get("gender", "M"),
         rounds_scheduled=_effective_rounds(
             is_main_event,
