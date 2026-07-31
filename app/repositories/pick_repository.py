@@ -91,7 +91,7 @@ class PickRepository:
     ) -> Optional[Pick]:
         """Update a pick's prediction."""
         result = await self.collection.find_one_and_update(
-            {"_id": pick_id, "locked": False},
+            {"_id": pick_id},
             {
                 "$set": {
                     "picked_fighter_name": picked_fighter_name,

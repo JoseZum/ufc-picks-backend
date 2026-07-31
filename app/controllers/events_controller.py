@@ -6,8 +6,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
-from pydantic import BaseModel
-from datetime import date
+from pydantic import BaseModel, Field
+from datetime import date, datetime
 
 from app.core.dependencies import Database
 from app.services.event_service import EventService, EventNotFoundError
@@ -38,6 +38,12 @@ class EventResponse(BaseModel):
     hero_image_url: Optional[str] = None
     event_art_url: Optional[str] = None
     picks_locked: bool = False
+    picks_lock_override: Optional[str] = None
+    card_start_time_utc: Optional[datetime] = None
+    picks_lock_time_utc: Optional[datetime] = None
+    section_start_times_utc: dict[str, datetime] = Field(default_factory=dict)
+    section_lock_times_utc: dict[str, datetime] = Field(default_factory=dict)
+    timing_source: Optional[str] = None
     is_title_fight: bool = False  # True si la pelea principal es por título
     is_bmf_title_fight: bool = False  # True si la pelea principal es por el cinturón BMF
 
@@ -100,6 +106,16 @@ async def get_events(
                 ),
                 event_art_url=event_art_url,
                 picks_locked=getattr(e, 'picks_locked', False),
+                picks_lock_override=getattr(e, 'picks_lock_override', None),
+                card_start_time_utc=getattr(e, 'card_start_time_utc', None),
+                picks_lock_time_utc=getattr(e, 'picks_lock_time_utc', None),
+                section_start_times_utc=getattr(
+                    e, 'section_start_times_utc', {}
+                ),
+                section_lock_times_utc=getattr(
+                    e, 'section_lock_times_utc', {}
+                ),
+                timing_source=getattr(e, 'timing_source', None),
                 is_title_fight=e.id in title_event_ids,
                 is_bmf_title_fight=e.id in bmf_event_ids
             )
@@ -154,6 +170,16 @@ async def get_event(
         promotion=event.promotion,
         url=event.url,
         picks_locked=getattr(event, 'picks_locked', False),
+        picks_lock_override=getattr(event, 'picks_lock_override', None),
+        card_start_time_utc=getattr(event, 'card_start_time_utc', None),
+        picks_lock_time_utc=getattr(event, 'picks_lock_time_utc', None),
+        section_start_times_utc=getattr(
+            event, 'section_start_times_utc', {}
+        ),
+        section_lock_times_utc=getattr(
+            event, 'section_lock_times_utc', {}
+        ),
+        timing_source=getattr(event, 'timing_source', None),
         is_title_fight=bool(await _get_main_event_flag_ids(db, [event_id], "is_title_fight")),
         is_bmf_title_fight=bool(await _get_main_event_flag_ids(db, [event_id], "is_bmf_title_fight"))
     )

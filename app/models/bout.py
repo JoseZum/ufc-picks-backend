@@ -80,6 +80,11 @@ class Bout(BaseModel):
     is_title_fight: bool = False
     is_bmf_title_fight: bool = False  # Pelea por el cinturón BMF (tratamiento plateado)
     is_main_event: bool = False  # La pelea principal del evento (5 rounds)
+    is_co_main_event: bool = False
+    card_section: Optional[str] = None
+    card_order: Optional[int] = None
+    order_overall: Optional[int] = None
+    order_section: Optional[int] = None
 
     status: str = "scheduled"  # scheduled | completed
 
@@ -88,6 +93,8 @@ class Bout(BaseModel):
     result: Optional[dict] = None
 
     picks_locked: bool = False  # Admin puede lockear picks para esta pelea
+    picks_lock_override: Optional[str] = None  # locked | unlocked | None
+    automatic_lock_time_utc: Optional[datetime] = None
 
     scraped_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None

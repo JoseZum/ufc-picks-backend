@@ -85,3 +85,29 @@ class TestEventsEndpoints:
         assert len(data) >= 1
         assert data[0]["id"] == sample_bout_data["id"]
         assert data[0]["event_id"] == sample_event_data["id"]
+
+    @pytest.mark.asyncio
+    async def test_bout_response_exposes_section_lock_state(
+        self,
+        client,
+        test_db,
+        sample_event_data,
+        sample_bout_data,
+    ):
+        sample_event_data["section_lock_times_utc"] = {
+            "prelim": datetime.now(timezone.utc),
+        }
+        sample_bout_data["card_section"] = "prelim"
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+
+        response = await client.get(
+            f"/events/{sample_event_data['id']}/bouts"
+        )
+
+        assert response.status_code == 200
+        bout = response.json()[0]
+        assert bout["card_section"] == "prelim"
+        assert bout["effective_picks_locked"] is True
+        assert bout["picks_lock_reason"] == "section_time"
+        assert bout["automatic_lock_time_utc"] is not None

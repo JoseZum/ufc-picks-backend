@@ -16,6 +16,7 @@ from app.repositories.pick_repository import PickRepository
 from app.repositories.event_repository import EventRepository
 from app.repositories.bout_repository import BoutRepository
 from app.models.pick import Pick, PickCreate
+from app.services.pick_lock_service import evaluate_bout_pick_lock
 
 
 class PickServiceError(Exception):
@@ -70,9 +71,25 @@ class PickService:
             raise InvalidPickError("La pelea no pertenece a este evento")
 
         # Si la pelea ya cerró o tiene resultado, no se pueden crear ni editar picks
-        if bout.status in ("completed", "cancelled") or bout.result is not None:
+        lock_state = evaluate_bout_pick_lock(event, bout)
+        if lock_state.locked:
+            messages = {
+                "result": (
+                    "No se pueden editar picks de peleas terminadas, "
+                    "canceladas o con resultado"
+                ),
+                "admin_event": (
+                    "Los picks están bloqueados por el admin en este evento"
+                ),
+                "admin_bout": (
+                    "Los picks están bloqueados por el admin en esta pelea"
+                ),
+                "section_time": (
+                    "Los picks cerraron al comenzar esta sección de la cartelera"
+                ),
+            }
             raise PickLockedError(
-                "No se pueden editar picks de peleas que ya terminaron, fueron canceladas o ya tienen resultado registrado"
+                messages.get(lock_state.reason, "Los picks están bloqueados")
             )
 
         # Verificar que el nombre del peleador sea válido
@@ -95,21 +112,7 @@ class PickService:
                 f"Válidos: {red_name}, {blue_name}"
             )
 
-        # Si el evento ya empezó o fue cancelado, no se puede editar
-        if event.status in ("completed", "cancelled"):
-            raise PickLockedError("No se pueden editar picks en eventos terminados o cancelados")
-
-        # Revisar bloqueos del admin a nivel evento
-        if getattr(event, "picks_locked", False):
-            raise PickLockedError("Los picks están bloqueados en este evento")
-
-        if getattr(bout, "picks_locked", False):
-            raise PickLockedError("Los picks están bloqueados en esta pelea")
-
-        # Revisar si este pick en específico ya fue bloqueado
         existing_pick = await self.pick_repo.get_user_pick_for_bout(user_id, pick_data.bout_id)
-        if existing_pick and existing_pick.locked:
-            raise PickLockedError("Este pick ya fue bloqueado")
 
         # Para DEC no se puede especificar round
         if pick_data.picked_method == "DEC" and pick_data.picked_round is not None:

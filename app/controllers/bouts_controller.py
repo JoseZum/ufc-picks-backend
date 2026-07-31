@@ -4,6 +4,7 @@ Controlador de peleas - Endpoints relacionados con bouts
 
 from typing import Optional
 from urllib.parse import urlparse
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from app.core.dependencies import Database
 from app.services.event_service import EventService, EventNotFoundError
 from app.services.s3_service import get_s3_service, S3NotConfiguredError
+from app.services.pick_lock_service import evaluate_bout_pick_lock
 
 
 router = APIRouter(tags=["bouts"])
@@ -291,10 +293,19 @@ class BoutResponse(BaseModel):
     is_title_fight: bool
     is_bmf_title_fight: bool = False
     is_main_event: bool = False
+    is_co_main_event: bool = False
+    card_section: Optional[str] = None
+    card_order: Optional[int] = None
+    order_overall: Optional[int] = None
+    order_section: Optional[int] = None
     status: str
     fighters: dict
     result: Optional[dict] = None
     picks_locked: bool = False
+    picks_lock_override: Optional[str] = None
+    automatic_lock_time_utc: Optional[datetime] = None
+    effective_picks_locked: bool = False
+    picks_lock_reason: Optional[str] = None
 
 
 def _effective_rounds(is_main_event: bool, rounds_scheduled) -> int:
@@ -330,6 +341,7 @@ async def get_event_bouts(
     bout_details_cursor = db["bout_details"].find({"bout_id": {"$in": bout_ids}})
     bout_details_list = await bout_details_cursor.to_list(length=None)
     bout_details_map = {bd["bout_id"]: bd for bd in bout_details_list}
+    event_doc = await db["events"].find_one({"id": event_id}) or {}
 
     result = []
     for idx, b in enumerate(bouts):
@@ -359,6 +371,13 @@ async def get_event_bouts(
         # vienen ordenadas con el main event al frente). Garantiza 5 rounds aunque
         # el flag no esté seteado en datos antiguos.
         is_main_event = getattr(b, 'is_main_event', False) or idx == 0
+        lock_subject = (
+            b.model_dump()
+            if hasattr(b, "model_dump")
+            else b.dict()
+        )
+        lock_subject["result"] = bout_result
+        lock_state = evaluate_bout_pick_lock(event_doc, lock_subject)
         result.append(
             BoutResponse(
                 id=b.id,
@@ -369,10 +388,19 @@ async def get_event_bouts(
                 is_title_fight=b.is_title_fight,
                 is_bmf_title_fight=getattr(b, 'is_bmf_title_fight', False),
                 is_main_event=is_main_event,
+                is_co_main_event=getattr(b, 'is_co_main_event', False),
+                card_section=getattr(b, 'card_section', None),
+                card_order=getattr(b, 'card_order', None),
+                order_overall=getattr(b, 'order_overall', None),
+                order_section=getattr(b, 'order_section', None),
                 status=b.status,
                 fighters=_process_fighters(fighters),
                 result=bout_result,
-                picks_locked=getattr(b, 'picks_locked', False)
+                picks_locked=getattr(b, 'picks_locked', False),
+                picks_lock_override=getattr(b, 'picks_lock_override', None),
+                automatic_lock_time_utc=lock_state.automatic_lock_time_utc,
+                effective_picks_locked=lock_state.locked,
+                picks_lock_reason=lock_state.reason,
             )
         )
 
@@ -422,6 +450,10 @@ async def get_bout_details(
 
     # Mapear los datos a la respuesta
     is_main_event = bout_data.get("is_main_event", False)
+    event_doc = await db["events"].find_one({"id": event_id}) or {}
+    lock_subject = dict(bout_data)
+    lock_subject["result"] = result
+    lock_state = evaluate_bout_pick_lock(event_doc, lock_subject)
     return BoutResponse(
         id=bout_data.get("id"),
         event_id=bout_data.get("event_id"),
@@ -434,8 +466,17 @@ async def get_bout_details(
         is_title_fight=bout_data.get("is_title_fight", False),
         is_bmf_title_fight=bout_data.get("is_bmf_title_fight", False),
         is_main_event=is_main_event,
+        is_co_main_event=bout_data.get("is_co_main_event", False),
+        card_section=bout_data.get("card_section"),
+        card_order=bout_data.get("card_order"),
+        order_overall=bout_data.get("order_overall"),
+        order_section=bout_data.get("order_section"),
         status=bout_data.get("status", "scheduled"),
         fighters=_process_fighters(fighters),
         result=result,
-        picks_locked=bout_data.get("picks_locked", False)
+        picks_locked=bout_data.get("picks_locked", False),
+        picks_lock_override=bout_data.get("picks_lock_override"),
+        automatic_lock_time_utc=lock_state.automatic_lock_time_utc,
+        effective_picks_locked=lock_state.locked,
+        picks_lock_reason=lock_state.reason,
     )

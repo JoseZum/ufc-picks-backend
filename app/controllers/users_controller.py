@@ -95,7 +95,7 @@ async def get_user_picks(
     - year: Año del evento
     - status: correct, incorrect, pending
 
-    Solo muestra picks de eventos que ya comenzaron (locked).
+    Solo muestra picks de peleas que ya tienen resultado público.
     """
     # Verificar que el usuario existe
     user = await db["users"].find_one({"_id": user_id})
@@ -105,8 +105,30 @@ async def get_user_picks(
             detail=f"User {user_id} not found"
         )
 
-    # Construir query para picks
-    query = {"user_id": user_id, "locked": True}  # Solo picks bloqueados (públicos)
+    resulted_bout_ids = set(await db["bouts"].distinct(
+        "id",
+        {
+            "result": {
+                "$exists": True,
+                "$nin": [None, {}],
+            }
+        },
+    ))
+    resulted_bout_ids.update(
+        await db["bout_details"].distinct(
+            "bout_id",
+            {
+                "result": {
+                    "$exists": True,
+                    "$nin": [None, {}],
+                }
+            },
+        )
+    )
+    query = {
+        "user_id": user_id,
+        "bout_id": {"$in": list(resulted_bout_ids)},
+    }
 
     if event_id:
         query["event_id"] = event_id
@@ -139,13 +161,26 @@ async def get_user_picks(
     if year:
         picks = [
             p for p in picks
-            if events_map.get(p["event_id"], {}).get("event_date", "").startswith(str(year))
+            if str(
+                events_map.get(p["event_id"], {}).get("date")
+                or events_map.get(p["event_id"], {}).get("event_date")
+                or ""
+            ).startswith(str(year))
         ]
 
     # Fetch bouts
     bouts_cursor = db["bouts"].find({"id": {"$in": bout_ids}})
     bouts = await bouts_cursor.to_list(length=None)
     bouts_map = {b["id"]: b for b in bouts}
+    details_cursor = db["bout_details"].find(
+        {"bout_id": {"$in": bout_ids}, "result": {"$nin": [None, {}]}}
+    )
+    details = await details_cursor.to_list(length=None)
+    detail_results = {
+        detail["bout_id"]: detail["result"]
+        for detail in details
+        if detail.get("result")
+    }
 
     # Construir respuesta
     result = []
@@ -159,18 +194,18 @@ async def get_user_picks(
             bout_id=p.get("bout_id"),
             event_id=p.get("event_id"),
             event_name=event.get("name"),
-            event_date=event.get("event_date"),
+            event_date=str(event.get("date") or event.get("event_date") or "") or None,
             picked_fighter_name=p.get("picked_fighter_name", ""),
             picked_method=p.get("picked_method"),
             picked_round=p.get("picked_round"),
             is_correct=p.get("is_correct"),
             points_awarded=p.get("points_awarded", 0),
-            locked=p.get("locked", False),
+            locked=True,
             created_at=p.get("created_at", datetime.utcnow()),
             fighter_red=fighters.get("red", {}).get("fighter_name"),
             fighter_blue=fighters.get("blue", {}).get("fighter_name"),
             weight_class=bout.get("weight_class"),
-            result=bout.get("result")
+            result=bout.get("result") or detail_results.get(p.get("bout_id"))
         ))
 
     return result
@@ -200,8 +235,8 @@ async def get_user_picks_stats(
             detail=f"User {user_id} not found"
         )
 
-    # Query base
-    match_stage = {"user_id": user_id, "locked": True}
+    # Public stats include only bouts whose result has been published.
+    match_stage = {"user_id": user_id}
 
     # Pipeline de agregación
     pipeline = [
@@ -215,13 +250,64 @@ async def get_user_picks_stats(
             }
         },
         {"$unwind": {"path": "$event", "preserveNullAndEmptyArrays": True}},
+        {
+            "$lookup": {
+                "from": "bouts",
+                "localField": "bout_id",
+                "foreignField": "id",
+                "as": "bout",
+            }
+        },
+        {"$unwind": "$bout"},
+        {
+            "$lookup": {
+                "from": "bout_details",
+                "localField": "bout_id",
+                "foreignField": "bout_id",
+                "as": "bout_detail",
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$bout_detail",
+                "preserveNullAndEmptyArrays": True,
+            }
+        },
+        {
+            "$match": {
+                "$or": [
+                    {
+                        "bout.result": {
+                            "$exists": True,
+                            "$nin": [None, {}],
+                        }
+                    },
+                    {
+                        "bout_detail.result": {
+                            "$exists": True,
+                            "$nin": [None, {}],
+                        }
+                    },
+                ]
+            }
+        },
     ]
 
     # Filtrar por año si se especificó
     if year:
+        year_start = datetime(year, 1, 1)
+        year_end = datetime(year + 1, 1, 1)
         pipeline.append({
             "$match": {
-                "event.event_date": {"$regex": f"^{year}"}
+                "$or": [
+                    {
+                        "event.date": {
+                            "$gte": year_start,
+                            "$lt": year_end,
+                        }
+                    },
+                    {"event.event_date": {"$regex": f"^{year}"}},
+                ]
             }
         })
 

@@ -2,8 +2,9 @@
 Controlador de Admin - Endpoints exclusivos para administradores
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request, status, UploadFile, File
 from pydantic import BaseModel
@@ -23,6 +24,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 class UpdateEventTimingRequest(BaseModel):
     """Datos para actualizar fecha/hora de un evento."""
+    card_start_time_utc: Optional[datetime] = None
+    picks_lock_time_utc: Optional[datetime] = None
+    # Legacy aliases kept while deployed frontends roll over.
     event_date: Optional[datetime] = None
     picks_lock_date: Optional[datetime] = None
 
@@ -154,6 +158,112 @@ async def delete_event_art(
 
 # Event timing endpoints
 
+
+def _naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _shift_section_times(
+    values: dict | None,
+    delta,
+) -> dict[str, datetime]:
+    return {
+        section: _naive_utc(value) + delta
+        for section, value in (values or {}).items()
+        if isinstance(value, datetime)
+    }
+
+
+def build_event_timing_updates(
+    event: dict,
+    card_start_time_utc: Optional[datetime],
+    picks_lock_time_utc: Optional[datetime],
+) -> dict:
+    """Shift section starts/locks while preserving their ESPN spacing."""
+    requested_start = (
+        _naive_utc(card_start_time_utc)
+        if card_start_time_utc is not None
+        else None
+    )
+    requested_lock = (
+        _naive_utc(picks_lock_time_utc)
+        if picks_lock_time_utc is not None
+        else None
+    )
+    section_starts = dict(event.get("section_start_times_utc") or {})
+    section_locks = dict(
+        event.get("section_lock_times_utc")
+        or section_starts
+    )
+    current_start = event.get("card_start_time_utc") or min(
+        (
+            value
+            for value in section_starts.values()
+            if isinstance(value, datetime)
+        ),
+        default=None,
+    )
+    current_lock = event.get("picks_lock_time_utc") or min(
+        (
+            value
+            for value in section_locks.values()
+            if isinstance(value, datetime)
+        ),
+        default=current_start,
+    )
+    updates: dict = {}
+
+    if requested_start is not None:
+        if isinstance(current_start, datetime):
+            start_delta = requested_start - _naive_utc(current_start)
+            section_starts = _shift_section_times(
+                section_starts,
+                start_delta,
+            )
+            section_locks = _shift_section_times(
+                section_locks,
+                start_delta,
+            )
+            if isinstance(current_lock, datetime):
+                current_lock = _naive_utc(current_lock) + start_delta
+        updates["card_start_time_utc"] = requested_start
+        updates["section_start_times_utc"] = section_starts
+        updates["section_lock_times_utc"] = section_locks
+        if isinstance(current_lock, datetime):
+            updates["picks_lock_time_utc"] = current_lock
+
+        et_start = requested_start.replace(
+            tzinfo=timezone.utc
+        ).astimezone(ZoneInfo("America/New_York"))
+        updates["date"] = datetime.combine(
+            et_start.date(),
+            datetime.min.time(),
+        )
+        updates["start_time_et"] = et_start.strftime("%H:%M")
+        updates["timezone"] = "ET"
+
+    if requested_lock is not None:
+        lock_base = (
+            updates.get("picks_lock_time_utc")
+            or current_lock
+            or requested_start
+        )
+        if isinstance(lock_base, datetime):
+            lock_delta = requested_lock - _naive_utc(lock_base)
+            section_locks = _shift_section_times(
+                updates.get("section_lock_times_utc", section_locks),
+                lock_delta,
+            )
+        updates["picks_lock_time_utc"] = requested_lock
+        updates["section_lock_times_utc"] = section_locks
+
+    if updates:
+        updates["timing_source"] = "admin"
+        updates["timing_updated_at"] = datetime.utcnow()
+    return updates
+
 @router.put("/events/{event_id}/timing")
 @limiter.limit("30/minute")
 async def update_event_timing(
@@ -175,12 +285,13 @@ async def update_event_timing(
             detail=f"Evento {event_id} no encontrado"
         )
 
-    # Construir update
-    update_data = {}
-    if body.event_date:
-        update_data["date"] = body.event_date
-    if body.picks_lock_date:
-        update_data["picks_lock_date"] = body.picks_lock_date
+    card_start = body.card_start_time_utc or body.event_date
+    picks_lock = body.picks_lock_time_utc or body.picks_lock_date
+    update_data = build_event_timing_updates(
+        event,
+        card_start,
+        picks_lock,
+    )
 
     if not update_data:
         raise HTTPException(
@@ -194,10 +305,25 @@ async def update_event_timing(
         {"$set": update_data}
     )
 
-    if result.modified_count == 0:
+    if result.matched_count == 0:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo actualizar el evento"
+        )
+
+    for section, lock_time in (
+        update_data.get("section_lock_times_utc") or {}
+    ).items():
+        await db["bouts"].update_many(
+            {
+                "event_id": event_id,
+                "card_section": section,
+            },
+            {
+                "$set": {
+                    "automatic_lock_time_utc": lock_time,
+                }
+            },
         )
 
     return {
@@ -510,7 +636,12 @@ async def lock_event_picks(
     # Update event picks_locked flag
     await db["events"].update_one(
         {"id": event_id},
-        {"$set": {"picks_locked": True}}
+        {
+            "$set": {
+                "picks_locked": True,
+                "picks_lock_override": "locked",
+            }
+        }
     )
 
     # Update all picks for this event to locked: True
@@ -550,12 +681,34 @@ async def unlock_event_picks(
     # Update event picks_locked flag
     await db["events"].update_one(
         {"id": event_id},
-        {"$set": {"picks_locked": False}}
+        {
+            "$set": {
+                "picks_locked": False,
+                "picks_lock_override": "unlocked",
+            }
+        }
     )
 
-    # Update all picks for this event to locked: False
+    # Preserve individually locked bouts when removing the full-event lock.
+    individually_locked_bout_ids = await db["bouts"].distinct(
+        "id",
+        {
+            "event_id": event_id,
+            "$or": [
+                {"picks_lock_override": "locked"},
+                {
+                    "picks_lock_override": {"$exists": False},
+                    "picks_locked": True,
+                },
+            ],
+        },
+    )
+    unlock_query = {"event_id": event_id, "locked": True}
+    if individually_locked_bout_ids:
+        unlock_query["bout_id"] = {"$nin": individually_locked_bout_ids}
+
     picks_result = await db["picks"].update_many(
-        {"event_id": event_id, "locked": True},
+        unlock_query,
         {"$set": {"locked": False}}
     )
 
@@ -622,7 +775,12 @@ async def lock_bout_picks(
     # Update bout picks_locked flag
     await db["bouts"].update_one(
         {"id": bout_id},
-        {"$set": {"picks_locked": True}}
+        {
+            "$set": {
+                "picks_locked": True,
+                "picks_lock_override": "locked",
+            }
+        }
     )
 
     # Update all picks for this bout to locked: True
@@ -662,7 +820,12 @@ async def unlock_bout_picks(
     # Update bout picks_locked flag
     await db["bouts"].update_one(
         {"id": bout_id},
-        {"$set": {"picks_locked": False}}
+        {
+            "$set": {
+                "picks_locked": False,
+                "picks_lock_override": "unlocked",
+            }
+        }
     )
 
     # Update all picks for this bout to locked: False

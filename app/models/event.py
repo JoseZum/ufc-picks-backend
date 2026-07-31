@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Event(BaseModel):
@@ -16,6 +16,7 @@ class Event(BaseModel):
     url: str  # Link al sitio de dónde lo sacamos
 
     date: date  # Cuándo es el evento
+    start_time_et: Optional[str] = None
     timezone: Optional[str] = None  # Zona horaria
 
     location: Optional[dict] = None  # {venue, city, country}
@@ -43,6 +44,14 @@ class Event(BaseModel):
     # event_art stored as binary in MongoDB, served via /events/{id}/event-art endpoint
 
     picks_locked: bool = False  # Admin puede lockear picks para este evento
+    picks_lock_override: Optional[str] = None  # locked | unlocked | None
+
+    # Canonical UTC schedule. Each card section closes independently.
+    card_start_time_utc: Optional[datetime] = None
+    picks_lock_time_utc: Optional[datetime] = None
+    section_start_times_utc: dict[str, datetime] = Field(default_factory=dict)
+    section_lock_times_utc: dict[str, datetime] = Field(default_factory=dict)
+    timing_source: Optional[str] = None  # espn | admin
 
     scraped_at: datetime  # Cuándo lo metimos a la BD
     last_updated: datetime  # Última actualización

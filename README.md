@@ -48,6 +48,18 @@ services coordinate domain operations, repositories encapsulate MongoDB access,
 and schemas define its request and response contracts. Optional S3 and
 CloudFront integration provides durable fighter and event media delivery.
 
+## Pick locking
+
+Early Prelims, Prelims, and the Main Card close independently at their stored
+UTC section start. Lock state is evaluated on every pick request, so it does
+not depend on a scheduler. Admins can lock or unlock a whole event or one bout;
+an event unlock preserves individual bout locks. A published result,
+cancellation, or completed event always remains immutable.
+
+Manual event timing edits shift the section schedule while preserving ESPN's
+spacing and set `timing_source=admin`, which prevents later scraper runs from
+overwriting those times.
+
 ## API reference
 
 When running locally:
