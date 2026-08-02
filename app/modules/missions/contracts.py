@@ -155,6 +155,12 @@ class SelectMissionRequest(MissionTransport):
     offer_id: str
     idempotency_key: str = Field(min_length=8, max_length=128)
     selection: dict[str, Any] | None = None
+    # A mission that binds a winner still has to write a COMPLETE canonical
+    # pick, and several missions leave the method or the round to the user.
+    # On a bout the user never picked there is nothing to inherit them from,
+    # so the client sends the missing fields here. Shapes are validated by
+    # `CanonicalPickPatch` in the domain, not restated.
+    pick_patches: list[dict[str, Any]] = Field(default_factory=list, max_length=6)
 
 
 class MissionErrorResponse(MissionTransport):

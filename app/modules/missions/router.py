@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 
 from fastapi import APIRouter, HTTPException, Response, status
+from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.dependencies import CurrentUser, Database
@@ -175,8 +176,19 @@ async def select_mission(
                 offer_id=request.offer_id,
                 idempotency_key=request.idempotency_key,
                 selection=selection,
+                pick_patches=tuple(request.pick_patches),
             ),
         )
+    except ValidationError as error:
+        # A malformed patch is the client's mistake, not a 500. The domain
+        # models are the only place patch shapes are defined.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "INVALID_SELECTION",
+                "message": "Pick completion fields are invalid",
+            },
+        ) from error
     except MissionSelectionError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
