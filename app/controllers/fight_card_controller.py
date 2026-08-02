@@ -7,9 +7,8 @@ from io import BytesIO
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from app.core.dependencies import Database, CurrentUser
+from app.core.dependencies import CurrentUser, Database
 from app.services.fight_card_image_service import generate_fight_card_png
-
 
 router = APIRouter(tags=["fight-card"])
 

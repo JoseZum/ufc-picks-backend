@@ -1,11 +1,12 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class Event(BaseModel):
     """Un evento UFC (UFC 300, UFC Fight Night, etc)"""
-    
+
     id: int  # ID único del evento
     source: str  # De dónde sacamos los datos (ej: "tapology")
     promotion: str  # "UFC", "Bellator", etc
@@ -62,7 +63,7 @@ class Event(BaseModel):
 
 class EventCardSlot(BaseModel):
     """La posición de una pelea dentro de la cartelera de un evento"""
-    
+
     id: str  # ID único: "event_id:bout_id"
 
     event_id: int

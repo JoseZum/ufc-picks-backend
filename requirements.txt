@@ -4,8 +4,7 @@ uvicorn==0.24.0
 slowapi==0.1.9
 
 # Base de datos
-motor==3.3.2
-pymongo==4.6.0
+pymongo==4.17.0
 
 # Validación y configuración
 pydantic==2.7.0
@@ -31,6 +30,8 @@ Pillow==11.1.0
 
 # Utilidades
 python-multipart==0.0.6
+# Windows does not ship the IANA time-zone database used by zoneinfo.
+tzdata==2026.3
 
 # Testing
 pytest==7.4.3

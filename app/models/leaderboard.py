@@ -1,10 +1,11 @@
 from typing import Optional
+
 from pydantic import BaseModel
 
 
 class LeaderboardEntry(BaseModel):
     """Entrada en una tabla de clasificación (resultado agregado)"""
-    
+
     user_id: str
     username: str
     avatar_url: Optional[str] = None

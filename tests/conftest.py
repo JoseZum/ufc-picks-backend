@@ -4,13 +4,37 @@ Pytest fixtures and configuration for all tests.
 
 import pytest
 import asyncio
+import os
 from typing import AsyncGenerator, Generator
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import ServerSelectionTimeoutError
 from datetime import datetime, timedelta, timezone
 
 # MongoDB test database
 TEST_DB_URI = "mongodb://localhost:27017"
 TEST_DB_NAME = "ufc_picks_test"
+
+# Safe defaults required while integration fixtures import the application.
+# ``setdefault`` preserves explicit CI or developer overrides and ensures tests
+# never need to read production credentials from a local .env file.
+TEST_ENV_DEFAULTS = {
+    "MONGODB_URI": TEST_DB_URI,
+    "MONGODB_DB_NAME": TEST_DB_NAME,
+    "JWT_SECRET": "local-test-secret-only-not-for-production",
+    "GOOGLE_CLIENT_ID": "local-test-google-client-id",
+    "APP_ENV": "test",
+    "DEBUG": "false",
+    "IMAGE_CACHE_STRATEGY": "MEMORY",
+    "IMAGE_SOURCE_MODE": "cache",
+    # The launch flag ships OFF (CAL-004). The suite exercises the feature,
+    # so it turns it on with no allowlist — the gate itself has dedicated
+    # coverage in tests/integration/test_mission_access.py.
+    "MISSIONS_ENABLED": "true",
+    "MISSIONS_ALLOWLIST": "",
+}
+for variable, value in TEST_ENV_DEFAULTS.items():
+    os.environ.setdefault(variable, value)
 
 
 @pytest.fixture(scope="session")
@@ -32,27 +56,53 @@ def event_loop() -> Generator:
     loop.close()
 
 
+@pytest.fixture(scope="session")
+async def test_mongo_client() -> AsyncGenerator[AsyncMongoClient, None]:
+    """Provide one verified local Mongo client per pytest worker."""
+    client = AsyncMongoClient(TEST_DB_URI, serverSelectionTimeoutMS=2_000)
+    try:
+        await client.admin.command("ping")
+    except ServerSelectionTimeoutError:
+        pytest.fail(
+            "Local MongoDB is unavailable at 127.0.0.1:27017. "
+            "Start it with: docker compose -f compose.test.yml up -d --wait",
+            pytrace=False,
+        )
+
+    hello = await client.admin.command("hello")
+    if hello.get("setName") != "rs0":
+        pytest.fail(
+            "Local MongoDB must run as replica set rs0 for mission tests. "
+            "Recreate compose.test.yml and run: "
+            ".venv\\Scripts\\python.exe scripts/ensure_test_mongo.py",
+            pytrace=False,
+        )
+
+    yield client
+    await client.close()
+
+
 @pytest.fixture(scope="function")
-async def test_db(worker_id) -> AsyncGenerator[AsyncIOMotorDatabase, None]:
+async def test_db(
+    worker_id,
+    test_mongo_client: AsyncMongoClient,
+) -> AsyncGenerator[AsyncDatabase, None]:
     """
     Provide a clean test database for each test.
-    
+
     Uses a separate database per worker when running with pytest-xdist.
     Automatically cleans up after each test.
     """
-    client = AsyncIOMotorClient(TEST_DB_URI)
     # Use different database per worker to avoid conflicts in parallel execution
     db_name = f"{TEST_DB_NAME}_{worker_id}" if worker_id != "master" else TEST_DB_NAME
-    db = client[db_name]
-    
+    db = test_mongo_client[db_name]
+
     yield db
-    
+
     # Cleanup: drop all collections after test
     collection_names = await db.list_collection_names()
     for collection_name in collection_names:
         await db[collection_name].drop()
-    
-    client.close()
 
 
 @pytest.fixture

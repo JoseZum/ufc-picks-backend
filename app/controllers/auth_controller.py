@@ -3,14 +3,15 @@ Controlador de autenticación - Rutas relacionadas con login y usuario
 """
 
 from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from app.core.dependencies import Database, CurrentUser
+from app.core.dependencies import CurrentUser, Database
 from app.core.rate_limit import limiter
-from app.services.auth_service import AuthService, AuthServiceError
-from app.repositories.user_repository import UserRepository
 from app.models.user import UserResponse
+from app.repositories.user_repository import UserRepository
+from app.services.auth_service import AuthService, AuthServiceError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

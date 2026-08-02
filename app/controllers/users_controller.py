@@ -2,13 +2,13 @@
 Controlador de usuarios - Endpoints públicos para ver perfiles y picks de usuarios
 """
 
+from datetime import datetime
 from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
-from datetime import datetime
 
 from app.core.dependencies import Database
-
 
 router = APIRouter(prefix="/users", tags=["users"])
 

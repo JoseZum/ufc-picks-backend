@@ -9,7 +9,7 @@ immutable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 
@@ -38,8 +38,8 @@ def as_utc_datetime(value: Any) -> Optional[datetime]:
     if not isinstance(value, datetime):
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def get_bout_automatic_lock_time(event: Any, bout: Any) -> Optional[datetime]:
@@ -71,7 +71,7 @@ def evaluate_bout_pick_lock(
 ) -> PickLockState:
     """Return the effective lock and the exact reason shown by the UI."""
     automatic_lock_time = get_bout_automatic_lock_time(event, bout)
-    current_time = as_utc_datetime(now or datetime.now(timezone.utc))
+    current_time = as_utc_datetime(now or datetime.now(UTC))
 
     if (
         _value(bout, "status") in {"completed", "cancelled"}

@@ -4,16 +4,15 @@ Controlador de picks - Endpoints para gestionar picks de usuarios
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.core.dependencies import Database, CurrentUser
-from app.services.pick_service import (
-    PickService,
-    PickLockedError,
-    EventNotFoundError,
-    BoutNotFoundError,
-    InvalidPickError
-)
+from app.core.dependencies import CurrentUser, Database
 from app.models.pick import PickCreate, PickResponse
-
+from app.services.pick_service import (
+    BoutNotFoundError,
+    EventNotFoundError,
+    InvalidPickError,
+    PickLockedError,
+    PickService,
+)
 
 router = APIRouter(prefix="/picks", tags=["picks"])
 

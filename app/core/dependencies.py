@@ -6,12 +6,12 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.security import decode_access_token
 from app.database import get_database
-from app.repositories.user_repository import UserRepository
 from app.models.user import User
+from app.repositories.user_repository import UserRepository
 
 # Esquema de seguridad: espera un header "Authorization: Bearer <token>"
 security = HTTPBearer()
@@ -19,7 +19,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+    db: Annotated[AsyncDatabase, Depends(get_database)]
 ) -> User:
     """
     Dependency que valida el JWT del usuario.
@@ -84,4 +84,4 @@ async def get_current_admin(
 # Alias de tipos para que se vea mas limpio en los endpoints
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
-Database = Annotated[AsyncIOMotorDatabase, Depends(get_database)]
+Database = Annotated[AsyncDatabase, Depends(get_database)]

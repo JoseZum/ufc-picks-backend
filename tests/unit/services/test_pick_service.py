@@ -214,6 +214,80 @@ class TestPickService:
         assert pick2.picked_method == "SUB"
         assert pick2.picked_round == 3
         assert pick2.updated_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cannot_change_a_mission_bound_pick_field(
+        self,
+        test_db,
+        sample_event_data,
+        sample_bout_data,
+        sample_pick_data,
+    ):
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+        service = PickService(test_db)
+        pick = await service.create_or_update_pick(
+            "user123",
+            PickCreate(**sample_pick_data),
+        )
+        await test_db["picks"].update_one(
+            {"_id": pick.id},
+            {
+                "$set": {
+                    "mission_field_locks": {
+                        "winner": ["assignment-one"],
+                        "method": ["assignment-one"],
+                    }
+                }
+            },
+        )
+
+        with pytest.raises(PickLockedError, match="winner, method"):
+            await service.create_or_update_pick(
+                "user123",
+                PickCreate(
+                    event_id=sample_pick_data["event_id"],
+                    bout_id=sample_pick_data["bout_id"],
+                    picked_fighter_name="Test Fighter 2",
+                    picked_method="SUB",
+                    picked_round=2,
+                ),
+            )
+
+    @pytest.mark.asyncio
+    async def test_can_change_unbound_pick_fields_after_mission_selection(
+        self,
+        test_db,
+        sample_event_data,
+        sample_bout_data,
+        sample_pick_data,
+    ):
+        await test_db["events"].insert_one(sample_event_data)
+        await test_db["bouts"].insert_one(sample_bout_data)
+        service = PickService(test_db)
+        pick = await service.create_or_update_pick(
+            "user123",
+            PickCreate(**sample_pick_data),
+        )
+        await test_db["picks"].update_one(
+            {"_id": pick.id},
+            {"$set": {"mission_field_locks": {"winner": ["assignment-one"]}}},
+        )
+
+        updated = await service.create_or_update_pick(
+            "user123",
+            PickCreate(
+                event_id=sample_pick_data["event_id"],
+                bout_id=sample_pick_data["bout_id"],
+                picked_fighter_name="Test Fighter 1",
+                picked_method="SUB",
+                picked_round=3,
+            ),
+        )
+
+        assert updated.picked_fighter_name == "Test Fighter 1"
+        assert updated.picked_method == "SUB"
+        assert updated.picked_round == 3
     
     @pytest.mark.asyncio
     async def test_admin_unlock_can_reopen_legacy_locked_pick(self, test_db, sample_event_data, sample_bout_data, sample_pick_data):

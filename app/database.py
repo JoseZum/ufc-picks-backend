@@ -4,7 +4,8 @@ Configuración de la conexión a MongoDB - el corazón de la BD
 
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import get_settings
 
@@ -14,8 +15,8 @@ settings = get_settings()
 class Database:
     """Singleton para la conexión a MongoDB con su pool de conexiones"""
 
-    client: Optional[AsyncIOMotorClient] = None
-    db: Optional[AsyncIOMotorDatabase] = None
+    client: Optional[AsyncMongoClient] = None
+    db: Optional[AsyncDatabase] = None
 
     @classmethod
     async def connect(cls):
@@ -23,7 +24,7 @@ class Database:
         if cls.client is None:
             # maxPoolSize y minPoolSize para evitar abrir demasiadas conexiones
             # serverSelectionTimeoutMS para evitar que el startup se cuelgue
-            cls.client = AsyncIOMotorClient(
+            cls.client = AsyncMongoClient(
                 settings.mongodb_uri,
                 maxPoolSize=10,
                 minPoolSize=2,
@@ -44,7 +45,7 @@ class Database:
     async def disconnect(cls):
         """Cierra la conexión cuando la app se apaga"""
         if cls.client is not None:
-            cls.client.close()
+            await cls.client.close()
             cls.client = None
             cls.db = None
             print("[OK] Desconectado de MongoDB")
@@ -56,14 +57,14 @@ class Database:
             await cls.connect()
 
     @classmethod
-    def get_db(cls) -> AsyncIOMotorDatabase:
+    def get_db(cls) -> AsyncDatabase:
         """Retorna la instancia de la BD (para usar en las repositories)"""
         if cls.db is None:
             raise RuntimeError("BD no conectada. Llama Database.connect() primero.")
         return cls.db
 
 
-async def get_database() -> AsyncIOMotorDatabase:
+async def get_database() -> AsyncDatabase:
     """Dependency para inyectar la BD en los endpoints"""
     return Database.get_db()
 
@@ -71,7 +72,7 @@ async def get_database() -> AsyncIOMotorDatabase:
 async def create_indexes():
     """
     Crea índices en las colecciones para optimizar queries
-    
+
     Esto se ejecuta una sola vez en el deployment/inicialización
     Los índices mejoran el performance de búsquedas sin cambiar el código
     """

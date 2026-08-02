@@ -1,0 +1,207 @@
+[
+  {
+    "mission_id": "MONTH-V2-001",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "WIN TARGET", "description": "Correctly predict at least N fight winners across all cards this month.", "progress_template": "{current} / {target} winners"},
+    "evaluation": {"metric": "monthly_correct_winner_count", "comparator": "GTE", "target_parameter": "winner_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 1},
+    "admin_parameters": [{"key": "winner_target", "label": "Winners required", "kind": "COUNT", "default": 15, "minimum": 5, "maximum": 60}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "winners"]
+  },
+  {
+    "mission_id": "MONTH-V2-003",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "PERFECT PICK TARGET", "description": "Score N perfect picks across all cards this month.", "progress_template": "{current} / {target} perfect picks"},
+    "evaluation": {"metric": "monthly_perfect_pick_count", "comparator": "GTE", "target_parameter": "perfect_pick_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 5, "min_events": 1},
+    "admin_parameters": [{"key": "perfect_pick_target", "label": "Perfect picks required", "kind": "COUNT", "default": 5, "minimum": 1, "maximum": 30}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "perfect-picks"]
+  },
+  {
+    "mission_id": "MONTH-V2-004",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "MONTHLY SHARPSHOOTER", "description": "Finish the month with at least the Admin-set winner accuracy across all cards.", "progress_template": "{correct} / {resolved} · {accuracy}%"},
+    "evaluation": {"metric": "monthly_winner_accuracy", "comparator": "RATIO_GTE", "target_parameter": "accuracy_target_pct", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 20, "min_events": 1},
+    "admin_parameters": [{"key": "accuracy_target_pct", "label": "Winner accuracy required", "kind": "PERCENT", "default": 65, "minimum": 50, "maximum": 90}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "accuracy"]
+  },
+  {
+    "mission_id": "MONTH-V2-006",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "MAIN EVENT ORACLE", "description": "Correctly predict at least N main-event winners across separate cards this month.", "progress_template": "{current} / {target} headliners"},
+    "evaluation": {"metric": "monthly_main_event_correct_count", "comparator": "GTE", "target_parameter": "main_event_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 3},
+    "admin_parameters": [{"key": "main_event_target", "label": "Main events required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 10}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "main-event"]
+  },
+  {
+    "mission_id": "MONTH-V2-007",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "TOP BILLING", "description": "Correctly predict both main and co-main winners on N separate cards this month.", "progress_template": "{current} / {target} events"},
+    "evaluation": {"metric": "monthly_top_two_event_count", "comparator": "GTE", "target_parameter": "event_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 2},
+    "admin_parameters": [{"key": "event_target", "label": "Cards required", "kind": "COUNT", "default": 2, "minimum": 1, "maximum": 10}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "main-event", "co-main"]
+  },
+  {
+    "mission_id": "MONTH-V2-008",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "METHOD MASTER", "description": "Get at least N picks worth 2 or more points across all cards this month.", "progress_template": "{current} / {target} method hits"},
+    "evaluation": {"metric": "monthly_two_plus_point_pick_count", "comparator": "GTE", "target_parameter": "method_hit_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 8, "min_events": 1},
+    "admin_parameters": [{"key": "method_hit_target", "label": "Method hits required", "kind": "COUNT", "default": 8, "minimum": 2, "maximum": 40}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "methods"]
+  },
+  {
+    "mission_id": "MONTH-V2-009",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "FINISH FORECAST", "description": "Correctly predict winner and finish method in at least N fights this month.", "progress_template": "{current} / {target} finish reads"},
+    "evaluation": {"metric": "monthly_correct_finish_method_count", "comparator": "GTE", "target_parameter": "finish_read_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 5, "min_events": 1},
+    "admin_parameters": [{"key": "finish_read_target", "label": "Finish reads required", "kind": "COUNT", "default": 5, "minimum": 1, "maximum": 25}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "methods", "finishes"]
+  },
+  {
+    "mission_id": "MONTH-V2-010",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "ROUND COLLECTOR", "description": "Correctly predict winner, method and round in at least N fights this month.", "progress_template": "{current} / {target} exact reads"},
+    "evaluation": {"metric": "monthly_perfect_pick_count", "comparator": "GTE", "target_parameter": "exact_pick_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 3, "min_events": 1},
+    "admin_parameters": [{"key": "exact_pick_target", "label": "Exact reads required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 15}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "perfect-picks", "rounds"]
+  },
+  {
+    "mission_id": "MONTH-V2-013",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "PERFECT NIGHTS", "description": "Score at least 1 perfect pick on N separate cards this month.", "progress_template": "{current} / {target} events"},
+    "evaluation": {"metric": "monthly_events_with_perfect_pick", "comparator": "GTE", "target_parameter": "event_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 3},
+    "admin_parameters": [{"key": "event_target", "label": "Cards required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 10}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "perfect-picks", "consistency"]
+  },
+  {
+    "mission_id": "MONTH-V2-014",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "MISSION SPECIALIST", "description": "Complete at least N card missions this month.", "progress_template": "{current} / {target} missions"},
+    "evaluation": {"metric": "monthly_card_mission_completion_count", "comparator": "GTE", "target_parameter": "mission_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 1},
+    "admin_parameters": [{"key": "mission_target", "label": "Card missions required", "kind": "COUNT", "default": 6, "minimum": 1, "maximum": 30}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "meta", "card-missions"]
+  },
+  {
+    "mission_id": "MONTH-V2-015",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "HARD MODE", "description": "Complete at least N hard card missions this month.", "progress_template": "{current} / {target} hard missions"},
+    "evaluation": {"metric": "monthly_hard_mission_completion_count", "comparator": "GTE", "target_parameter": "hard_mission_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 3},
+    "admin_parameters": [{"key": "hard_mission_target", "label": "Hard missions required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 15}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "meta", "hard-missions"]
+  },
+  {
+    "mission_id": "MONTH-V2-019",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "CLEAN CARD", "description": "Finish the required number of full cards with no more than the Admin-set number of wrong winner picks.", "progress_template": "{current} / {target} clean cards"},
+    "evaluation": {"metric": "monthly_event_one_blemish_count", "comparator": "GTE", "target_parameter": "card_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 8, "min_events": 1},
+    "admin_parameters": [
+      {"key": "card_target", "label": "Clean cards required", "kind": "COUNT", "default": 1, "minimum": 1, "maximum": 6},
+      {"key": "max_wrong", "label": "Wrong winners allowed per card", "kind": "COUNT", "default": 1, "minimum": 1, "maximum": 5}
+    ],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "accuracy", "miss-limit"]
+  },
+  {
+    "mission_id": "MONTH-V3-001",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "SUBMISSION SEASON", "description": "Correctly predict N fighters to win by submission this month.", "progress_template": "{current} / {target} SUB winners"},
+    "evaluation": {"metric": "monthly_correct_submission_win_count", "comparator": "GTE", "target_parameter": "submission_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 3, "min_events": 1},
+    "admin_parameters": [{"key": "submission_target", "label": "Submission winners required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 15}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "methods", "submission"]
+  },
+  {
+    "mission_id": "MONTH-V3-002",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "KO COLLECTOR", "description": "Correctly predict N fighters to win by KO/TKO this month.", "progress_template": "{current} / {target} KO winners"},
+    "evaluation": {"metric": "monthly_correct_ko_win_count", "comparator": "GTE", "target_parameter": "ko_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 6, "min_events": 1},
+    "admin_parameters": [{"key": "ko_target", "label": "KO winners required", "kind": "COUNT", "default": 6, "minimum": 1, "maximum": 30}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "methods", "ko"]
+  },
+  {
+    "mission_id": "MONTH-V3-003",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "DECISION DESK", "description": "Correctly predict N fighters to win by decision this month.", "progress_template": "{current} / {target} DEC winners"},
+    "evaluation": {"metric": "monthly_correct_decision_win_count", "comparator": "GTE", "target_parameter": "decision_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 8, "min_events": 1},
+    "admin_parameters": [{"key": "decision_target", "label": "Decision winners required", "kind": "COUNT", "default": 8, "minimum": 1, "maximum": 40}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "methods", "decision"]
+  },
+  {
+    "mission_id": "MONTH-V3-008",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "POINT TARGET", "description": "Earn at least N pick points across all cards this month.", "progress_template": "{current} / {target} points"},
+    "evaluation": {"metric": "monthly_pick_points", "comparator": "GTE", "target_parameter": "point_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 1},
+    "admin_parameters": [{"key": "point_target", "label": "Pick points required", "kind": "COUNT", "default": 40, "minimum": 10, "maximum": 200}],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "performance", "points"]
+  },
+  {
+    "mission_id": "MONTH-V3-009",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "MAIN CARD MASTER", "description": "Sweep every main-card winner on N separate events this month.", "progress_template": "{current} / {target} main-card sweeps"},
+    "evaluation": {"metric": "monthly_main_card_sweep_count", "comparator": "GTE", "target_parameter": "event_target", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 1, "min_events": 2},
+    "admin_parameters": [{"key": "event_target", "label": "Main-card sweeps required", "kind": "COUNT", "default": 2, "minimum": 1, "maximum": 8}],
+    "compatibility": "REQUIRES_DATA",
+    "overlap_tags": ["monthly", "main-card", "sweep"]
+  },
+  {
+    "mission_id": "MONTH-V3-010",
+    "catalog_version": "2026.08.01",
+    "xp": 15,
+    "ui": {"name": "METHOD TRIATHLON", "description": "Correctly predict the Admin-set targets for KO/TKO, submission and decision wins this month.", "progress_template": "KO {ko} / {ko_target} · SUB {sub} / {sub_target} · DEC {decision} / {decision_target}"},
+    "evaluation": {"metric": "monthly_method_triathlon", "comparator": "ALL", "evaluate_on": ["AFTER_EACH_RESULT", "CARD_FINALIZED"]},
+    "eligibility": {"min_resolved_picks": 8, "min_events": 1},
+    "admin_parameters": [
+      {"key": "ko_target", "label": "KO winners required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 15},
+      {"key": "sub_target", "label": "Submission winners required", "kind": "COUNT", "default": 2, "minimum": 1, "maximum": 10},
+      {"key": "decision_target", "label": "Decision winners required", "kind": "COUNT", "default": 3, "minimum": 1, "maximum": 15}
+    ],
+    "compatibility": "V1_READY",
+    "overlap_tags": ["monthly", "methods", "cycle"]
+  }
+]

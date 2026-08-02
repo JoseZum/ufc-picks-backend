@@ -10,14 +10,15 @@ Nota: Comparamos por NOMBRE del peleador, no por corner, para evitar
 problemas cuando los datos cambian en los scrapes.
 """
 
-from typing import Dict, Any
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Any
+
+from pymongo.asynchronous.database import AsyncDatabase
 
 
 class PointsService:
     """Calcula y asigna puntos, actualiza estadísticas de usuarios."""
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
     def normalize_method(self, method: str) -> str:
@@ -40,25 +41,43 @@ class PointsService:
             return ""
         return " ".join(name.lower().strip().split())
 
+    def winner_matches(
+        self,
+        pick: dict[str, Any],
+        winner_name: str,
+        winner_fighter_id: str | None = None,
+    ) -> bool:
+        """Did this pick name the winner? (B-009)
+
+        The stable fighter id is authoritative when BOTH sides carry one: names
+        drift across corrections and replacements, ids do not. When either side
+        lacks an id we fall back to the legacy name comparison, which is why the
+        fallback is only reached for picks written before the id existed.
+        """
+        picked_id = pick.get("picked_fighter_id")
+        if picked_id and winner_fighter_id:
+            return picked_id == winner_fighter_id
+        return self.normalize_name(
+            pick.get("picked_fighter_name", "")
+        ) == self.normalize_name(winner_name)
+
     async def calculate_points(
         self,
-        pick: Dict[str, Any],
+        pick: dict[str, Any],
         winner_name: str,
         result_method: str,
-        result_round: int = None
+        result_round: int = None,
+        winner_fighter_id: str | None = None,
     ) -> int:
         """Calcula los puntos para un pick basado en el resultado de la pelea."""
         points = 0
 
         # Sin ganador, sin puntos
-        if not winner_name:
+        if not winner_name and not winner_fighter_id:
             return 0
 
-        picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
-        winner_normalized = self.normalize_name(winner_name)
-
         # 1 punto por acertar el ganador
-        if picked_name == winner_normalized:
+        if self.winner_matches(pick, winner_name, winner_fighter_id):
             points += 1
 
             # +1 punto por acertar el método (si acertó el ganador)
@@ -78,8 +97,8 @@ class PointsService:
     async def calculate_and_assign_points(
         self,
         bout_id: int,
-        result: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        result: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Calcula y asigna puntos a todos los picks de una pelea.
         Luego actualiza las stats de usuarios afectados.
@@ -130,6 +149,10 @@ class PointsService:
 
         result_method = result.get("method", "")
         result_round = result.get("round")
+        # B-009: prefer the canonical winner identity when the bout carries one.
+        winner_fighter_id = (bout.get("card_data_v1") or {}).get("result", {}).get(
+            "winner_fighter_id"
+        ) if isinstance(bout.get("card_data_v1"), dict) else None
 
         picks_updated = 0
         total_points = 0
@@ -142,13 +165,17 @@ class PointsService:
                 is_correct = False
             else:
                 points = await self.calculate_points(
-                    pick, winner_name, result_method, result_round
+                    pick,
+                    winner_name,
+                    result_method,
+                    result_round,
+                    winner_fighter_id=winner_fighter_id,
                 )
 
                 # Determinar si el pick fue correcto
-                picked_name = self.normalize_name(pick.get("picked_fighter_name", ""))
-                winner_normalized = self.normalize_name(winner_name)
-                is_correct = picked_name == winner_normalized
+                is_correct = self.winner_matches(
+                    pick, winner_name, winner_fighter_id
+                )
 
             # Guardar puntos en el pick
             await self.db["picks"].update_one(

@@ -2,18 +2,17 @@
 Controlador de peleas - Endpoints relacionados con bouts
 """
 
+from datetime import datetime
 from typing import Optional
 from urllib.parse import urlparse
-from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.dependencies import Database
-from app.services.event_service import EventService, EventNotFoundError
-from app.services.s3_service import get_s3_service, S3NotConfiguredError
+from app.services.event_service import EventNotFoundError, EventService
 from app.services.pick_lock_service import evaluate_bout_pick_lock
-
+from app.services.s3_service import S3NotConfiguredError, get_s3_service
 
 router = APIRouter(tags=["bouts"])
 
@@ -130,7 +129,7 @@ def _process_fighters(fighters: dict) -> dict:
             processed_fighter["height_cm"] = processed_fighter["height"].get("cm")
         if not processed_fighter.get("reach_cm") and isinstance(processed_fighter.get("reach"), dict):
             processed_fighter["reach_cm"] = processed_fighter["reach"].get("cm")
-        
+
         # Ensure corner field is set
         if not processed_fighter.get("corner"):
             processed_fighter["corner"] = corner

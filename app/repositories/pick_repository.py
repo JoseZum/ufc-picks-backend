@@ -3,14 +3,14 @@
 from datetime import datetime
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.models.pick import Pick
 
 
 class PickRepository:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.collection = db["picks"]
 
@@ -87,14 +87,21 @@ class PickRepository:
         picked_fighter_name: str,
         picked_method: str,
         picked_round: Optional[int],
-        updated_at: datetime
+        updated_at: datetime,
+        picked_fighter_id: Optional[str] = None,
     ) -> Optional[Pick]:
-        """Update a pick's prediction."""
+        """Update a pick's prediction.
+
+        `picked_fighter_id` is written alongside the display name so the pair
+        always describes the same fighter. A legacy pick that cannot be resolved
+        keeps a null id rather than an id that might belong to the other corner.
+        """
         result = await self.collection.find_one_and_update(
             {"_id": pick_id},
             {
                 "$set": {
                     "picked_fighter_name": picked_fighter_name,
+                    "picked_fighter_id": picked_fighter_id,
                     "picked_method": picked_method,
                     "picked_round": picked_round,
                     "updated_at": updated_at

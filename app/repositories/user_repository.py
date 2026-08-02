@@ -1,15 +1,15 @@
 """Acceso a datos para la colección de usuarios."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.models.user import User, UserCreate
 
 
 class UserRepository:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.collection = db["users"]
 
@@ -29,7 +29,7 @@ class UserRepository:
 
     async def create(self, user_data: UserCreate) -> User:
         """Create a new user."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         user_doc = {
             "_id": user_data.google_id,
@@ -48,7 +48,7 @@ class UserRepository:
 
     async def update_last_login(self, user_id: str) -> Optional[User]:
         """Update user's last login timestamp."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         from pymongo import ReturnDocument
         result = await self.collection.find_one_and_update(

@@ -3,10 +3,9 @@ from typing import Optional
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.services.s3_service import get_s3_service, S3NotConfiguredError
-
+from app.services.s3_service import S3NotConfiguredError, get_s3_service
 
 # Constantes de layout
 CANVAS_WIDTH = 1200
@@ -37,7 +36,7 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont:
               "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]:
         try:
             return ImageFont.truetype(p, size)
-        except (OSError, IOError):
+        except OSError:
             continue
     return ImageFont.load_default()
 
@@ -47,7 +46,7 @@ def _load_font_bold(size: int) -> ImageFont.FreeTypeFont:
               "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
         try:
             return ImageFont.truetype(p, size)
-        except (OSError, IOError):
+        except OSError:
             continue
     return _load_font(size)
 
@@ -345,7 +344,7 @@ def _draw_rows(
 
 async def generate_fight_card_png(
     event: dict,
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     user_id: Optional[str] = None,
 ) -> bytes:
     # 1. Obtener peleas ordenadas por sección de cartelera.

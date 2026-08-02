@@ -6,9 +6,8 @@ Para mejor rendimiento en producción, considera precomputar estos valores.
 """
 
 from typing import Optional
-from collections import defaultdict
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.models.leaderboard import LeaderboardEntry
 
@@ -24,7 +23,7 @@ class LeaderboardNotFoundError(LeaderboardServiceError):
 
 
 class LeaderboardService:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.picks_collection = db["picks"]
         self.users_collection = db["users"]
@@ -170,10 +169,10 @@ class LeaderboardService:
         limit: int = 100
     ) -> list[LeaderboardEntry]:
         """Obtiene el ranking para un evento específico."""
-        
+
         # Obtener todos los IDs únicos de usuarios con picks en este evento
         user_ids = await self.picks_collection.distinct("user_id", {"event_id": event_id})
-        
+
         # Calcular estadísticas para cada usuario
         entries = []
         for user_id in user_ids:
@@ -184,10 +183,10 @@ class LeaderboardService:
                     scope=str(event_id),
                     **stats
                 ))
-        
+
         # Ordenar por puntos totales (descendente)
         entries.sort(key=lambda x: x.total_points, reverse=True)
-        
+
         return entries[:limit]
 
     async def get_category_leaderboard(
@@ -198,9 +197,9 @@ class LeaderboardService:
     ) -> list[LeaderboardEntry]:
         """
         Obtiene el ranking por categoría.
-        
+
         Categorías: global, main_events, main_card, prelims, early_prelims
-        
+
         Por ahora, devuelve el ranking global.
         TODO: Filtrar por card_position de la pelea cuando se implemente.
         """
@@ -215,12 +214,12 @@ class LeaderboardService:
     ) -> Optional[dict]:
         """
         Obtiene la posición del usuario en una categoría específica.
-        
+
         Devuelve un dict con la posición y los datos de entrada, o None si no existe.
         """
         # Obtener ranking completo
         leaderboard = await self.get_global_leaderboard(limit=1000)
-        
+
         # Encontrar la posición del usuario
         for idx, entry in enumerate(leaderboard):
             if entry.user_id == user_id:
@@ -228,7 +227,7 @@ class LeaderboardService:
                     "rank": idx + 1,
                     "entry": entry
                 }
-        
+
         # Usuario no encontrado en el ranking
         # Intentar obtener sus estadísticas de todas formas
         stats = await self._calculate_user_stats(user_id)
@@ -241,5 +240,5 @@ class LeaderboardService:
                     **stats
                 )
             }
-        
+
         return None

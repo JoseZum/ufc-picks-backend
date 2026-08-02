@@ -2,7 +2,7 @@
 Seguridad: Manejo de JWT y verificación de tokens de Google OAuth
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -30,17 +30,17 @@ class JWTError(Exception):
 async def verify_google_token(id_token: str) -> dict:
     """
     Verifica que el id_token de Google sea válido y retorna info del usuario
-    
+
     Lo que retorna: {sub, email, name, picture}
-    
+
     Lanza GoogleAuthError si algo está mal
     """
     import logging
     logger = logging.getLogger(__name__)
-    
+
     logger.info("Verificando Google token")
     logger.info("GOOGLE_CLIENT_ID configurado: %s", settings.google_client_id)
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             GOOGLE_TOKEN_INFO_URL,
@@ -68,7 +68,7 @@ async def verify_google_token(id_token: str) -> dict:
 
         # Verifico que el token no haya expirado
         exp = int(data.get("exp", 0))
-        if datetime.now(timezone.utc).timestamp() > exp:
+        if datetime.now(UTC).timestamp() > exp:
             error_msg = "Token expirado"
             logger.error(error_msg)
             raise GoogleAuthError(error_msg)
@@ -85,16 +85,16 @@ async def verify_google_token(id_token: str) -> dict:
 async def verify_google_access_token(access_token: str) -> dict:
     """
     Verifica un access_token de Google llamando al endpoint de userinfo.
-    
+
     Retorna: {sub, email, name, picture}
-    
+
     Lanza GoogleAuthError si algo está mal
     """
     import logging
     logger = logging.getLogger(__name__)
-    
+
     logger.info("Verificando Google access_token")
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             GOOGLE_USERINFO_URL,
@@ -125,16 +125,16 @@ async def verify_google_access_token(access_token: str) -> dict:
 def create_access_token(user_id: str, email: str) -> str:
     """
     Crea un JWT para que el usuario pueda hacer requests autenticados
-    
+
     El JWT contiene el user_id y expira en 7 días
     """
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
 
     payload = {
         "sub": user_id,      # Subject: el usuario
         "email": email,
         "exp": expire,       # Expiración
-        "iat": datetime.now(timezone.utc),  # Issued at (cuándo se creó)
+        "iat": datetime.now(UTC),  # Issued at (cuándo se creó)
     }
 
     # Firmo el token con nuestra clave secreta
@@ -144,7 +144,7 @@ def create_access_token(user_id: str, email: str) -> str:
 def decode_access_token(token: str) -> Optional[dict]:
     """
     Decodifica y valida un JWT
-    
+
     Retorna el payload si es válido, None si está expirado o corrupto
     """
     try:

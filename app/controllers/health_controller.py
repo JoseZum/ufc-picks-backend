@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from app.core.rate_limit import limiter
 from app.database import Database
 
-
 router = APIRouter(tags=["health"])
 
 

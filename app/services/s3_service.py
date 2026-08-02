@@ -12,8 +12,8 @@ CloudFront se encarga de servir las imágenes públicamente.
 
 import hashlib
 import re
-from typing import Literal, Optional
 from io import BytesIO
+from typing import Optional
 
 from app.core.config import get_settings
 

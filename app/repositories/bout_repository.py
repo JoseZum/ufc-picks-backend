@@ -2,14 +2,15 @@
 
 from datetime import datetime
 from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.models.bout import Bout, FighterSnapshot
+from app.models.bout import Bout
 
 
 class BoutRepository:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.collection = db["bouts"]
 
@@ -18,7 +19,7 @@ class BoutRepository:
     async def create(self, bout: Bout) -> Bout:
         """Inserta una nueva pelea"""
         bout_dict = bout.model_dump(by_alias=True)
-        
+
         try:
             result = await self.collection.insert_one(bout_dict)
             bout_dict["_id"] = result.inserted_id
@@ -43,17 +44,17 @@ class BoutRepository:
         return Bout(**doc) if doc else None
 
     async def get_by_event(
-        self, 
-        event_id: int, 
+        self,
+        event_id: int,
         status: Optional[str] = None
     ) -> list[Bout]:
         """
         Obtiene todas las peleas de un evento ordenadas correctamente:
         1. Main event primero
-        2. Co-main event segundo  
+        2. Co-main event segundo
         3. Resto de main card por card_order
         4. Prelims por card_order
-        
+
         Ejemplo: bouts = await repo.get_by_event(event_id=123, status="scheduled")
         """
         query = {"event_id": event_id}
@@ -67,7 +68,7 @@ class BoutRepository:
         # Usamos múltiples criterios de ordenamiento
         cursor = self.collection.find(query).sort([
             ("is_main_event", -1),      # Main event primero (True = -1)
-            ("is_co_main_event", -1),   # Co-main segundo  
+            ("is_co_main_event", -1),   # Co-main segundo
             ("card_section", 1),        # "main" antes que "prelim" alfabéticamente
             ("card_order", 1)           # Orden dentro de cada sección
         ])
@@ -84,10 +85,10 @@ class BoutRepository:
             "event_id": event_id,
             "is_main_event": True
         })
-        
+
         # Opción 2: Si lo tenés en Event.main_event_bout_id
         # Lo manejás desde EventRepository y luego llamás get_by_id()
-        
+
         return Bout(**doc) if doc else None
 
     async def search_by_fighter(self, fighter_name: str) -> list[Bout]:
@@ -104,7 +105,7 @@ class BoutRepository:
         return [Bout(**doc) for doc in docs]
 
     async def get_by_weight_class(
-        self, 
+        self,
         weight_class: str,
         gender: str = "male",
         limit: int = 20
@@ -121,7 +122,7 @@ class BoutRepository:
         return [Bout(**doc) for doc in docs]
 
     async def get_title_fights(
-        self, 
+        self,
         event_id: Optional[int] = None
     ) -> list[Bout]:
         """Obtiene peleas por el título"""
@@ -148,13 +149,13 @@ class BoutRepository:
         return Bout(**result) if result else None
 
     async def set_result(
-        self, 
-        bout_id: int, 
+        self,
+        bout_id: int,
         result: dict
     ) -> Optional[Bout]:
         """
         Actualiza el resultado de una pelea
-        
+
         result ejemplo:
         {
             "winner": "red",

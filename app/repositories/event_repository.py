@@ -1,15 +1,16 @@
 """Acceso a datos para eventos y slots de cartelera."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.models.event import Event, EventCardSlot
 
 
 class EventRepository:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.collection = db["events"]
         self.card_slots = db["event_card_slots"]
@@ -31,7 +32,7 @@ class EventRepository:
     async def create(self, event: Event) -> Event:
         """Crea un evento"""
         event_dict = event.model_dump(by_alias=True)
-        
+
         try:
             await self.collection.insert_one(event_dict)
             return event
@@ -41,7 +42,7 @@ class EventRepository:
     async def create_card_slot(self, slot: EventCardSlot) -> EventCardSlot:
         """Asigna una pelea a un slot de la cartelera"""
         slot_dict = slot.model_dump(by_alias=True)
-        
+
         try:
             await self.card_slots.insert_one(slot_dict)
             return slot
@@ -68,7 +69,7 @@ class EventRepository:
         }).sort("date", 1).limit(limit)
 
         docs = await cursor.to_list(length=limit)
-        
+
         return [Event(**self._normalize_document(doc)) for doc in docs]
 
     async def get_recent_completed(self, limit: int = 5) -> list[Event]:
@@ -99,7 +100,7 @@ class EventRepository:
         }).sort("date", 1)
 
         docs = await cursor.to_list(length=None)
-        
+
         return [Event(**self._normalize_document(doc)) for doc in docs]
 
     async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:

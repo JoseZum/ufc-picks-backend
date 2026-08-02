@@ -7,25 +7,25 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
-from starlette.middleware.base import BaseHTTPMiddleware
-
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.controllers.admin_controller import router as admin_router
+from app.controllers.auth_controller import router as auth_router
+from app.controllers.bouts_controller import router as bouts_router
+from app.controllers.events_controller import router as events_router
+from app.controllers.fight_card_controller import router as fight_card_router
+from app.controllers.health_controller import router as health_router
+from app.controllers.leaderboard_controller import router as leaderboard_router
+from app.controllers.picks_controller import router as picks_router
+from app.controllers.proxy_controller import router as proxy_router
+from app.controllers.users_controller import router as users_router
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.database import Database
-
-from app.controllers.auth_controller import router as auth_router
-from app.controllers.events_controller import router as events_router
-from app.controllers.bouts_controller import router as bouts_router
-from app.controllers.picks_controller import router as picks_router
-from app.controllers.leaderboard_controller import router as leaderboard_router
-from app.controllers.health_controller import router as health_router
-from app.controllers.proxy_controller import router as proxy_router
-from app.controllers.admin_controller import router as admin_router
-from app.controllers.users_controller import router as users_router
-from app.controllers.fight_card_controller import router as fight_card_router
+from app.modules.missions.admin_router import router as missions_admin_router
+from app.modules.missions.router import router as missions_router
 
 settings = get_settings()
 
@@ -119,6 +119,8 @@ app.include_router(proxy_router)
 app.include_router(admin_router)
 app.include_router(users_router)
 app.include_router(fight_card_router)
+app.include_router(missions_router)
+app.include_router(missions_admin_router)
 
 
 @app.get("/")

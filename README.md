@@ -102,8 +102,38 @@ CloudFront media delivery.
 
 ## Testing and quality
 
+The backend test baseline is Python 3.11 with the exact dependency graph in
+`requirements.test.lock.txt`, derived from `requirements.txt`. Use the
+repository-local environment so globally installed pytest plugins cannot change
+async fixture behavior:
+
+```powershell
+docker compose -f compose.test.yml up -d --wait
+python scripts/bootstrap_test_env.py
+.venv\Scripts\python.exe scripts/run_tests.py
+docker compose -f compose.test.yml down
+```
+
+On macOS/Linux, the second command is:
+
 ```bash
-pytest
+docker compose -f compose.test.yml up -d --wait
+python scripts/bootstrap_test_env.py
+.venv/bin/python scripts/run_tests.py
+docker compose -f compose.test.yml down
+```
+
+Arguments after `run_tests.py` are forwarded to pytest, for example
+`.venv\Scripts\python.exe scripts/run_tests.py tests/unit -q`. The runner fails
+fast if Python, pytest, or pytest-asyncio do not match the supported baseline.
+The test-only Mongo service binds to localhost, stores data in temporary memory,
+and is removed by `docker compose ... down`. Tests fail within two seconds with
+an actionable message when the service is missing; they never fall back to the
+application's `.env` or a remote database.
+
+Additional quality checks:
+
+```bash
 ruff check .
 mypy app
 bandit -r app

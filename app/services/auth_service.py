@@ -2,11 +2,16 @@
 AuthService - Lógica de autenticación con Google OAuth.
 """
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.core.security import verify_google_token, verify_google_access_token, create_access_token, GoogleAuthError
-from app.repositories.user_repository import UserRepository
+from app.core.security import (
+    GoogleAuthError,
+    create_access_token,
+    verify_google_access_token,
+    verify_google_token,
+)
 from app.models.user import User, UserCreate
+from app.repositories.user_repository import UserRepository
 
 
 class AuthServiceError(Exception):
@@ -15,7 +20,7 @@ class AuthServiceError(Exception):
 
 
 class AuthService:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.user_repo = UserRepository(db)
 
     async def authenticate_with_google(self, google_id_token: str) -> tuple[User, str]:

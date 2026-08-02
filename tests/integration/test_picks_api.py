@@ -144,7 +144,7 @@ class TestPicksEndpoints:
         # Assert
         assert response.status_code == 403  # PickLockedError returns 403 Forbidden
         detail = response.json()["detail"].lower()
-        assert "terminados" in detail or "cancelados" in detail
+        assert "terminadas" in detail or "canceladas" in detail
 
     @pytest.mark.asyncio
     async def test_cannot_create_pick_for_bout_with_registered_result(

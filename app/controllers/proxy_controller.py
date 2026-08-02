@@ -1,17 +1,14 @@
 """Proxy de imágenes de Tapology con caché en memoria o S3."""
 
-import httpx
-from fastapi import APIRouter, HTTPException, Response
 import hashlib
 import time
 from typing import Literal
 
+import httpx
+from fastapi import APIRouter, HTTPException, Response
+
 from app.core.config import get_settings
-from app.services.s3_service import (
-    get_s3_service,
-    S3NotConfiguredError,
-    S3WriteNotAllowedError
-)
+from app.services.s3_service import S3NotConfiguredError, S3WriteNotAllowedError, get_s3_service
 
 router = APIRouter(prefix="/proxy", tags=["proxy"])
 settings = get_settings()
@@ -318,7 +315,7 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
             # Modo cache: NO descargar ni subir, solo servir lo que existe
             raise HTTPException(
                 status_code=404,
-                detail=f"Image not found in S3 and write is disabled (mode: cache)"
+                detail="Image not found in S3 and write is disabled (mode: cache)"
             )
 
         # Paso 3: modo s3 - descargar desde Tapology y subir a S3

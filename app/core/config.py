@@ -5,6 +5,7 @@ Todo lo que varía entre desarrollo/producción va aquí
 """
 
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -21,6 +22,13 @@ class Settings(BaseSettings):
     # Google OAuth - para autenticación con Google
     google_client_id: str  # ID de la aplicación en Google Cloud Console
     google_client_secret: str | None = None  # Secret (solo necesario para server-side flows)
+
+    # Sistema de misiones (CAL-004)
+    # Interruptor general: en false nadie ve misiones, haya allowlist o no.
+    missions_enabled: bool = False
+    # Canary: mientras tenga valores, SOLO esos usuarios ven misiones.
+    # Acepta ids o emails separados por coma. Vaciarlo = disponibilidad general.
+    missions_allowlist: str = ""
 
     # App
     app_env: str = "development"  # o "production"
@@ -61,7 +69,7 @@ class Settings(BaseSettings):
         extra = "ignore"  # Ignora campos extras del .env que no estén en el modelo
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Retorna la instancia de configuración (cacheada para no releerla)"""
     return Settings()

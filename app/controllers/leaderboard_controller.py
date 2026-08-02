@@ -10,9 +10,8 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from app.core.dependencies import Database, CurrentUser
+from app.core.dependencies import CurrentUser, Database
 from app.services.leaderboard_service import LeaderboardService
-
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 

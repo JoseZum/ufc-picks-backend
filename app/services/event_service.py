@@ -1,12 +1,11 @@
 from typing import Optional
-from datetime import date
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.repositories.event_repository import EventRepository
-from app.repositories.bout_repository import BoutRepository
-from app.models.event import Event, EventCardSlot
 from app.models.bout import Bout
+from app.models.event import Event, EventCardSlot
+from app.repositories.bout_repository import BoutRepository
+from app.repositories.event_repository import EventRepository
 
 
 class EventServiceError(Exception):
@@ -18,7 +17,7 @@ class EventNotFoundError(EventServiceError):
 
 
 class EventService:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.event_repo = EventRepository(db)
         self.bout_repo = BoutRepository(db)
 

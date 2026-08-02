@@ -4,8 +4,6 @@ Fixtures for integration tests
 
 import pytest
 from httpx import AsyncClient
-from motor.motor_asyncio import AsyncIOMotorClient
-
 from app.main import app
 from app.database import Database
 

@@ -2,16 +2,15 @@
 Controlador de eventos - Endpoints relacionados con eventos
 """
 
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from datetime import date, datetime
 
 from app.core.dependencies import Database
-from app.services.event_service import EventService, EventNotFoundError
-
+from app.services.event_service import EventNotFoundError, EventService
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -65,7 +64,7 @@ async def get_events(
     events = await event_service.get_events_by_status(status, limit)
     # Get event IDs to check for event_art
     event_ids = [e.id for e in events]
-    
+
     # Check which events have event_art in MongoDB
     events_with_art = set()
     if event_ids:
@@ -143,7 +142,7 @@ async def get_event(
         getattr(event, 'poster_image_url', None),
         getattr(event, 'poster_image_source', None),
     )
-    
+
     # Check if event has event_art
     event_doc = await db["events"].find_one(
         {"id": event_id, "event_art": {"$exists": True, "$ne": None}},
@@ -192,7 +191,7 @@ async def get_event_art(
 ):
     """
     Obtener el event art (imagen) de un evento.
-    
+
     Devuelve los bytes de la imagen directamente desde MongoDB.
     El frontend puede usar esta URL como src de imagen.
     """
@@ -201,21 +200,21 @@ async def get_event_art(
         {"id": event_id},
         {"event_art": 1, "event_art_content_type": 1}
     )
-    
+
     if not event:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Event {event_id} not found"
         )
-    
+
     if "event_art" not in event or event["event_art"] is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Event {event_id} has no event art"
         )
-    
+
     content_type = event.get("event_art_content_type", "image/avif")
-    
+
     return Response(
         content=event["event_art"],
         media_type=content_type,

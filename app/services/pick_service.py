@@ -7,15 +7,15 @@ IMPORTANTE: Usamos picked_fighter_name (nombre del peleador) en lugar de
 picked_corner para evitar problemas cuando los corners cambian.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.repositories.pick_repository import PickRepository
-from app.repositories.event_repository import EventRepository
-from app.repositories.bout_repository import BoutRepository
 from app.models.pick import Pick, PickCreate
+from app.repositories.bout_repository import BoutRepository
+from app.repositories.event_repository import EventRepository
+from app.repositories.pick_repository import PickRepository
 from app.services.pick_lock_service import evaluate_bout_pick_lock
 
 
@@ -45,7 +45,7 @@ class InvalidPickError(PickServiceError):
 
 
 class PickService:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
         self.pick_repo = PickRepository(db)
         self.event_repo = EventRepository(db)
@@ -106,6 +106,9 @@ class PickService:
         ]
 
         picked_normalized = self._normalize_name(pick_data.picked_fighter_name)
+        picked_fighter_id = await self._resolve_fighter_id(
+            pick_data.bout_id, picked_normalized
+        )
         if picked_normalized not in valid_fighters:
             raise InvalidPickError(
                 f"Peleador '{pick_data.picked_fighter_name}' no está en esta pelea. "
@@ -118,7 +121,10 @@ class PickService:
         if pick_data.picked_method == "DEC" and pick_data.picked_round is not None:
             raise InvalidPickError("No se puede especificar round para decisión")
 
-        now = datetime.now(timezone.utc)
+        if existing_pick:
+            self._ensure_mission_bound_fields_unchanged(existing_pick, pick_data)
+
+        now = datetime.now(UTC)
         pick_id = f"{user_id}:{pick_data.bout_id}"
 
         if existing_pick:
@@ -126,6 +132,7 @@ class PickService:
             return await self.pick_repo.update_pick(
                 pick_id=pick_id,
                 picked_fighter_name=pick_data.picked_fighter_name,
+                picked_fighter_id=picked_fighter_id,
                 picked_method=pick_data.picked_method,
                 picked_round=pick_data.picked_round,
                 updated_at=now
@@ -138,6 +145,7 @@ class PickService:
                 event_id=pick_data.event_id,
                 bout_id=pick_data.bout_id,
                 picked_fighter_name=pick_data.picked_fighter_name,
+                picked_fighter_id=picked_fighter_id,
                 picked_method=pick_data.picked_method,
                 picked_round=pick_data.picked_round,
                 is_correct=None,
@@ -147,6 +155,53 @@ class PickService:
                 updated_at=None
             )
             return await self.pick_repo.create(pick)
+
+    def _ensure_mission_bound_fields_unchanged(
+        self,
+        existing_pick: Pick,
+        pick_data: PickCreate,
+    ) -> None:
+        locks = existing_pick.mission_field_locks
+        changed_fields = []
+        if locks.get("winner") and self._normalize_name(
+            existing_pick.picked_fighter_name
+        ) != self._normalize_name(pick_data.picked_fighter_name):
+            changed_fields.append("winner")
+        if locks.get("method") and existing_pick.picked_method != pick_data.picked_method:
+            changed_fields.append("method")
+        if locks.get("round") and existing_pick.picked_round != pick_data.picked_round:
+            changed_fields.append("round")
+        if changed_fields:
+            raise PickLockedError(
+                "Mission-bound pick fields cannot be changed: "
+                + ", ".join(changed_fields)
+            )
+
+    async def _resolve_fighter_id(
+        self,
+        bout_id: int,
+        picked_normalized: str,
+    ) -> Optional[str]:
+        """Resolve the stable fighter id for a pick (B-009).
+
+        Reads the raw bout document because `card_data_v1` is a canonical sidecar
+        that the `Bout` model deliberately does not expose. Returns None when the
+        bout has not been through the CardData boundary yet, or when the name is
+        ambiguous: a wrong id is far worse than no id, because scoring trusts the
+        id ahead of the name.
+        """
+        document = await self.db["bouts"].find_one(
+            {"id": bout_id}, {"card_data_v1.fighters": 1}
+        )
+        fighters = ((document or {}).get("card_data_v1") or {}).get("fighters") or []
+        resolved = [
+            fighter.get("fighter_id")
+            for fighter in fighters
+            if isinstance(fighter, dict)
+            and fighter.get("fighter_id")
+            and self._normalize_name(fighter.get("display_name", "")) == picked_normalized
+        ]
+        return resolved[0] if len(resolved) == 1 else None
 
     def _normalize_name(self, name: str) -> str:
         """Normaliza nombres para comparación (lowercase, sin espacios extras)."""

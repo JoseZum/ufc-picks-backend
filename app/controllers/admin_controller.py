@@ -2,19 +2,72 @@
 Controlador de Admin - Endpoints exclusivos para administradores
 """
 
-from datetime import datetime, timezone
+import logging
+import os
+from datetime import UTC, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException, Request, status, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
-
-import os
 
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
+from app.modules.missions.application.orchestration import (
+    MissionTriggerService,
+    project_admin_result_to_canonical,
+)
+from app.services.admin_card_commands import (
+    forget_admin_command,
+    lifecycle_values,
+    record_admin_command,
+    result_values,
+    structure_values,
+    title_values,
+)
+from app.services.canonical_authority import record_admin_field_overrides
 from app.services.points_service import PointsService
-from app.services.s3_service import get_s3_service, S3WriteNotAllowedError, S3ServiceError
+from app.services.s3_service import S3ServiceError, S3WriteNotAllowedError, get_s3_service
+
+logger = logging.getLogger(__name__)
+
+
+async def _run_mission_triggers(
+    db,
+    *,
+    event_id: int,
+    bout_id: int,
+    canonical_fields: dict | None,
+) -> dict:
+    """Drive mission evaluation from a registered result, and never break it.
+
+    Points and result registration are the product's core loop; missions are an
+    additive layer on top. Any failure here is logged and reported in the
+    response, but it must never turn a successful result write into a 500.
+    """
+    if not canonical_fields:
+        return {
+            "triggered": False,
+            "reason": "bout has no canonical CardData projection",
+        }
+    try:
+        outcome = await MissionTriggerService(db).on_bout_result(
+            event_id=event_id,
+            bout_id=bout_id,
+            result_revision=int(canonical_fields["card_data_v1.result_revision"]),
+        )
+    except Exception:  # noqa: BLE001 - missions must not break result writing
+        logger.exception(
+            "Mission evaluation failed for bout %s on event %s", bout_id, event_id
+        )
+        return {"triggered": False, "reason": "mission evaluation raised"}
+    return {
+        "triggered": True,
+        "evaluated_assignments": outcome.evaluated_assignments,
+        "card_finalized": outcome.card_finalized,
+        "monthly_updates": outcome.monthly_updates,
+        "errors": list(outcome.errors),
+    }
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -162,7 +215,7 @@ async def delete_event_art(
 def _naive_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
-    return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 def _shift_section_times(
@@ -235,7 +288,7 @@ def build_event_timing_updates(
             updates["picks_lock_time_utc"] = current_lock
 
         et_start = requested_start.replace(
-            tzinfo=timezone.utc
+            tzinfo=UTC
         ).astimezone(ZoneInfo("America/New_York"))
         updates["date"] = datetime.combine(
             et_start.date(),
@@ -481,13 +534,17 @@ async def update_bout_result(
         "time": body.time
     }
 
-    # Actualizar bout
+    # Actualizar bout. La proyeccion canonica se escribe junto al campo legacy:
+    # el sidecar `card_data_v1` es lo que el motor de misiones lee, mientras el
+    # `result` de nivel superior sigue sirviendo a la API/UI actual sin cambios.
+    canonical_fields = project_admin_result_to_canonical(bout, result_data)
     update_result = await db["bouts"].update_one(
         {"id": bout_id},
         {
             "$set": {
                 "result": result_data,
-                "status": "completed"
+                "status": "completed",
+                **(canonical_fields or {}),
             }
         }
     )
@@ -498,12 +555,39 @@ async def update_bout_result(
             detail="No se pudo actualizar el resultado del bout"
         )
 
+    # B-011: la proyeccion canonica de arriba la recalcula el reconciler en la
+    # siguiente pasada. El comando persistido es lo que hace que el resultado
+    # registrado por Admin sea la autoridad de forma duradera (D-DATA-002).
+    actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
+    canonical_result = (canonical_fields or {}).get("card_data_v1.result") or {}
+    if canonical_result.get("outcome"):
+        await record_admin_command(
+            db,
+            kind="result",
+            event_id=int(bout.get("event_id") or 0),
+            bout_id=bout_id,
+            actor_id=actor_id,
+            reason="Admin registered the bout result",
+            values=result_values(
+                outcome=canonical_result["outcome"],
+                winner_fighter_id=canonical_result.get("winner_fighter_id"),
+                method_detail=result_data.get("method"),
+                ending_round=result_data.get("round"),
+            ),
+        )
+
     # Calcular y asignar puntos
     points_service = PointsService(db)
     points_result = await points_service.calculate_and_assign_points(bout_id, result_data)
     event_completed = await _complete_event_when_all_results_exist(
         db,
         int(bout["event_id"]),
+    )
+    missions_result = await _run_mission_triggers(
+        db,
+        event_id=int(bout["event_id"]),
+        bout_id=bout_id,
+        canonical_fields=canonical_fields,
     )
 
     return {
@@ -512,6 +596,7 @@ async def update_bout_result(
         "result": result_data,
         "points_assigned": points_result,
         "event_completed": event_completed,
+        "missions": missions_result,
     }
 
 
@@ -560,6 +645,25 @@ async def delete_bout_result(
     await db["events"].update_one(
         {"id": int(bout["event_id"]), "status": "completed"},
         {"$set": {"status": "scheduled"}},
+    )
+
+    # B-011: retirar el comando permanente. Si no, la frontera seguiria
+    # reaplicando para siempre un resultado que Admin acaba de borrar.
+    actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
+    await forget_admin_command(
+        db,
+        kind="result",
+        event_id=int(bout["event_id"]),
+        bout_id=bout_id,
+        actor_id=actor_id,
+    )
+    await record_admin_command(
+        db,
+        kind="clear_result",
+        event_id=int(bout["event_id"]),
+        bout_id=bout_id,
+        actor_id=actor_id,
+        reason="Admin deleted the bout result",
     )
 
     return {
@@ -891,6 +995,17 @@ async def cancel_bout(
         {"id": bout_id},
         {"$set": {"status": "cancelled"}}
     )
+    # B-011: sin comando, la siguiente pasada de ESPN vuelve a listar el bout y
+    # el `status` canonico se recalcula como programado.
+    await record_admin_command(
+        db,
+        kind="bout_lifecycle",
+        event_id=int(bout["event_id"]),
+        bout_id=bout_id,
+        actor_id=str(getattr(admin, "id", "") or getattr(admin, "google_id", "")),
+        reason="Admin cancelled the bout",
+        values=lifecycle_values("cancelled"),
+    )
 
     # Recalculate stats for all affected users
     points_service = PointsService(db)
@@ -1137,6 +1252,37 @@ async def update_bout_details(
         if result.modified_count > 0:
             updated_fields.extend(list(bout_update.keys()))
 
+        # D-DATA-010: Admin es la unica autoridad sobre los campos de titulo y
+        # tanto `true` como `false` son decisiones duraderas.
+        #
+        # Se registran dos cosas distintas a proposito. La evidencia en el
+        # sidecar protege frente a los writers legacy de Tapology, que leen el
+        # documento del bout. El comando persistido protege frente a la frontera
+        # canonica, que reconstruye el snapshot desde observaciones y no mira ese
+        # sidecar: sin el, la siguiente pasada de ESPN revierte la decision.
+        actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
+        await record_admin_field_overrides(
+            db, bout_id=bout_id, fields=bout_update, actor_id=actor_id
+        )
+        if "is_title_fight" in bout_update or "is_bmf_title_fight" in bout_update:
+            current = await db["bouts"].find_one({"id": bout_id}, {"event_id": 1})
+            await record_admin_command(
+                db,
+                kind="title",
+                event_id=int((current or {}).get("event_id") or 0),
+                bout_id=bout_id,
+                actor_id=actor_id,
+                reason="Admin title decision",
+                values=title_values(
+                    is_title_fight=bool(
+                        bout_update.get("is_title_fight", bout.get("is_title_fight"))
+                    ),
+                    is_bmf_title_fight=bout_update.get(
+                        "is_bmf_title_fight", bout.get("is_bmf_title_fight")
+                    ),
+                ),
+            )
+
     # Actualizar campos del card_slot
     if slot_update:
         result = await db["event_card_slots"].update_one(
@@ -1145,6 +1291,20 @@ async def update_bout_details(
         )
         if result.modified_count > 0:
             updated_fields.extend(list(slot_update.keys()))
+
+        # B-011 SIGUE ABIERTO para la estructura de la card, deliberadamente.
+        #
+        # `event_card_slots` es propiedad exclusiva del reconciler, asi que este
+        # `$set` se recalcula en la siguiente pasada. Emitir un comando
+        # `bout_structure` NO lo arregla hoy: a diferencia de las senales de
+        # titulo (que ESPN manda a `title_suggestions` como advisory), ESPN
+        # emite `card_section` como hecho, de modo que el override de Admin lo
+        # contradice en cada pasada y el plan sale con `safe_to_apply=false` y
+        # cuarentenas, sin converger nunca en el replay.
+        #
+        # Conectar el comando aqui cambiaria un fallo silencioso por uno ruidoso
+        # que ademas bloquea la card entera. Requiere una decision sobre la
+        # convergencia Admin-vs-ESPN en la frontera antes de habilitarse.
 
     return {
         "success": True,

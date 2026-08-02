@@ -44,6 +44,7 @@ coverage.xml
 
 # Environment
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
@@ -168,6 +169,15 @@ app/repositories/__pycache__/
 app/models/__pycache__/
 app/core/__pycache__/
 
+# Archivos generados por el backend
+app/__pycache__/
+app/**/__pycache__/
+app/controllers/__pycache__/
+app/services/__pycache__/
+app/repositories/__pycache__/
+app/models/__pycache__/
+app/core/__pycache__/
+
 # Uploads locales (si existen)
 uploads/
 media/
@@ -176,3 +186,9 @@ app/tests/README.md
 
 nginx/
 docker/
+
+# Dev / test only — no van a producción
+compose.test.yml
+requirements.test.lock.txt
+scripts/
+mission-planning/
