@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class FighterSnapshot(BaseModel):
@@ -99,6 +99,32 @@ class Bout(BaseModel):
 
     scraped_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None
+
+    @field_validator(
+        "is_title_fight",
+        "is_bmf_title_fight",
+        "is_main_event",
+        "is_co_main_event",
+        "picks_locked",
+        "status",
+        mode="before",
+    )
+    @classmethod
+    def _null_reads_as_default(cls, value, info):
+        """A stored `null` reads as the field's default.
+
+        A Pydantic default only applies when the KEY IS ABSENT. When the
+        scraper leaves the key present with `null`, validation runs and
+        raises — and because the whole card is parsed in one list
+        comprehension, one null flag on one fight answered the entire
+        `/events/{id}/bouts` request with a 500.
+
+        Defaulting is the honest reading, not a paper-over: "we do not know
+        whether this is a title fight" and "it is not one" already mean the
+        same thing to every consumer, all of which type the field as a plain
+        bool.
+        """
+        return cls.model_fields[info.field_name].default if value is None else value
 
     class Config:
         populate_by_name = True
