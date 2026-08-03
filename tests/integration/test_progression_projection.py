@@ -94,3 +94,57 @@ async def test_cache_rebuild_ignores_stale_values_and_projects_compensations(
     assert rebuilt.title == ProgressionTitle.BUM
     assert document["revision"] == 2
     assert document["ledger_entry_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_a_first_level_up_does_not_claim_a_new_title(
+    progression_services, test_db
+):
+    """Level 2 is still BUM. Only levels 5/10/15/20/30/50 change the title.
+
+    A user with no cached progression looked like they had no title at all, so
+    the first level-up compared BUM against None and reported a change. The
+    surface renders that flag as "NEW TITLE UNLOCKED", which announced a title
+    the user already had.
+    """
+    ledger, progression = progression_services
+    # 5 XP buys level 2 (D-PROD-007); the title boundary is level 5.
+    await ledger.award(user_id="climber", command=award("level-two-key", "assignment-1", 6))
+
+    projection = await progression.sync("climber")
+
+    assert projection.level == 2
+    assert projection.title == ProgressionTitle.BUM
+
+    celebrations = await test_db["mission_celebrations"].find(
+        {"user_id": "climber"}
+    ).to_list(length=10)
+    kinds = {c["kind"] for c in celebrations}
+    assert "LEVEL_UP" in kinds
+    assert "TITLE_UNLOCKED" not in kinds, "no title boundary was crossed"
+
+    level_up = next(c for c in celebrations if c["kind"] == "LEVEL_UP")
+    assert level_up["metadata"]["title_changed"] is False
+
+
+@pytest.mark.asyncio
+async def test_crossing_a_title_boundary_does_announce_the_new_title(
+    progression_services, test_db
+):
+    ledger, progression = progression_services
+    # Level 5 is PROSPECT: 5+7+9+11 = 32 XP to leave level 1 behind.
+    await ledger.award(user_id="riser", command=award("level-five-key", "assignment-2", 40))
+
+    projection = await progression.sync("riser")
+
+    assert projection.level >= 5
+    assert projection.title == ProgressionTitle.PROSPECT
+
+    celebrations = await test_db["mission_celebrations"].find(
+        {"user_id": "riser"}
+    ).to_list(length=10)
+    kinds = {c["kind"] for c in celebrations}
+    assert kinds == {"LEVEL_UP", "TITLE_UNLOCKED"}
+
+    level_up = next(c for c in celebrations if c["kind"] == "LEVEL_UP")
+    assert level_up["metadata"]["title_changed"] is True

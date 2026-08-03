@@ -242,3 +242,29 @@ async def test_every_card_action_is_audited_with_actor_and_reason(
     for row in rows:
         assert row["actor_id"] == ADMIN_ID
         assert row["payload"]["reason"]
+
+
+async def test_the_card_reports_how_many_missions_users_hold(
+    client, admin_headers, test_db, card
+):
+    """The number an operator reads before pressing VOID.
+
+    The panel used to hard-code zero here, which told whoever was about to
+    void a card that nobody would be affected.
+    """
+    empty = await client.get(
+        f"/admin/missions/cards/{EVENT_ID}", headers=admin_headers
+    )
+    assert empty.json()["selected_assignments"] == 0
+
+    await assignment(test_db, "count-active", "ACTIVE", slot=1)
+    await assignment(test_db, "count-settled", "COMPLETED", slot=2)
+
+    response = await client.get(
+        f"/admin/missions/cards/{EVENT_ID}", headers=admin_headers
+    )
+
+    assert response.status_code == 200, response.text
+    # Settled missions count too: they are users who committed to this card.
+    assert response.json()["selected_assignments"] == 2
+    assert response.json()["voided_assignments"] == 0, "nothing was voided yet"

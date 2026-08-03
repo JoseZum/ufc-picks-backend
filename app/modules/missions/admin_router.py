@@ -270,7 +270,7 @@ def _actor(admin) -> str:
     return str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
 
 
-def _card_view(state) -> CardControlView:
+def _card_view(state, selected: int = 0) -> CardControlView:
     return CardControlView(
         event_id=state.event_id,
         state=state.state.value,
@@ -278,8 +278,14 @@ def _card_view(state) -> CardControlView:
         actor_id=state.actor_id,
         updated_at=state.updated_at,
         voided_assignments=state.voided_assignments,
+        selected_assignments=selected,
         revision=state.revision,
     )
+
+
+async def _selected_on_card(db, event_id: int) -> int:
+    """How many missions users hold on this card, whatever their outcome."""
+    return await db["mission_assignments"].count_documents({"event_id": event_id})
 
 
 def _card_fail(error: CardControlError) -> HTTPException:
@@ -297,7 +303,10 @@ async def get_card_control(
     _admin: CurrentAdmin,
     db: Database,
 ) -> CardControlView:
-    return _card_view(await CardControlService(db).state_for(event_id))
+    return _card_view(
+        await CardControlService(db).state_for(event_id),
+        await _selected_on_card(db, event_id),
+    )
 
 
 @router.post("/cards/{event_id}/{action}", response_model=CardControlView)
@@ -348,7 +357,7 @@ async def act_on_card(
             "voided_assignments": state.voided_assignments,
         },
     )
-    return _card_view(state)
+    return _card_view(state, await _selected_on_card(db, event_id))
 
 
 # ------------------------------------------------------------- reconciliation

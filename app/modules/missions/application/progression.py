@@ -20,6 +20,7 @@ from app.modules.missions.domain.celebrations import (
 from app.modules.missions.domain.progression import (
     ProgressionProjection,
     project_progression,
+    title_for_level,
 )
 
 Clock = Callable[[], datetime]
@@ -51,7 +52,13 @@ class ProgressionService:
         # yet is compared against 1 rather than skipped — otherwise the very
         # first level-up would be the one nobody ever gets told about.
         previous_level = int((previous or {}).get("level", 1))
-        previous_title = (previous or {}).get("title")
+        # Same reasoning for the title: a user with no cache was at level 1, and
+        # level 1 already has a title. Leaving this None made every first
+        # level-up claim a new title had been unlocked — the celebration read
+        # "NEW TITLE UNLOCKED / BUM" while the title had not moved at all.
+        previous_title = (previous or {}).get("title") or title_for_level(
+            previous_level
+        )[1].value
         if projection.level <= previous_level:
             return projection
 
@@ -67,7 +74,7 @@ class ProgressionService:
                 "title_changed": projection.title.value != previous_title,
             },
         )
-        if previous_title is not None and projection.title.value != previous_title:
+        if projection.title.value != previous_title:
             await self._celebrate(
                 user_id,
                 key=f"title-unlocked:{user_id}:{projection.title.value}",

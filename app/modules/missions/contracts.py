@@ -211,6 +211,9 @@ class CardControlView(MissionTransport):
     updated_at: datetime | None = None
     #: How many ACTIVE assignments a VOID settled. 0 for close/reopen.
     voided_assignments: int = 0
+    #: Missions users have chosen on this card. An operator needs this BEFORE
+    #: pressing VOID, because VOID settles every one of them.
+    selected_assignments: int = 0
     revision: int = 0
 
 
