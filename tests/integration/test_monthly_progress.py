@@ -276,3 +276,99 @@ async def test_two_users_progress_independently(active_month, test_db):
     assert (
         await test_db["mission_xp_ledger"].count_documents({"user_id": "chris"}) == 0
     )
+
+
+# --------------------------------------------- activating a month part-way
+
+
+async def test_a_card_that_ran_before_activation_does_not_count(
+    active_month, test_db
+):
+    """Activating August on the 14th must not retroactively score the 2nd.
+
+    Jose's case exactly: the month was opened late, and the cards that already
+    ran that month were played by people who had never been told the month
+    existed. Counting them would hand out progress nobody competed for.
+    """
+    _, progress = active_month(INSIDE)
+    early_event = 70801
+    await test_db["events"].delete_many({"id": early_event})
+    await test_db["events"].insert_one({
+        "id": early_event,
+        "name": "UFC Fight Night: Before The Month Opened",
+        # Two days into August, twelve days before activation.
+        "date": datetime(2026, 8, 2, 23, tzinfo=UTC),
+    })
+
+    result = await progress.record_event_summary(
+        user_id=USER, summary=summary(early_event, 4)
+    )
+
+    assert result is None, "an event from before activation contributes nothing"
+    assert await progress.get(user_id=USER, month_key="2026-08") is None
+
+
+async def test_a_card_after_activation_counts_normally(active_month, test_db):
+    _, progress = active_month(INSIDE)
+    late_event = 70802
+    await test_db["events"].delete_many({"id": late_event})
+    await test_db["events"].insert_one({
+        "id": late_event,
+        "name": "UFC Fight Night: After The Month Opened",
+        "date": datetime(2026, 8, 20, 23, tzinfo=UTC),
+    })
+
+    result = await progress.record_event_summary(
+        user_id=USER, summary=summary(late_event, 3)
+    )
+
+    assert result is not None
+    assert result.status == MonthlyProgressStatus.ACTIVE
+    stored = await progress.get(user_id=USER, month_key="2026-08")
+    assert str(late_event) in stored["event_summaries"]
+
+
+async def test_correcting_an_old_result_cannot_smuggle_the_card_back_in(
+    active_month, test_db
+):
+    """The failure this really guards against.
+
+    A card from before activation is ignored today because it settled while the
+    month was still DRAFT. But an Admin correcting one of its results months
+    later re-fires the trigger with the month now ACTIVE — without an explicit
+    rule, that stale card would fold in at that moment.
+    """
+    _, progress = active_month(INSIDE)
+    old_event = 70803
+    await test_db["events"].delete_many({"id": old_event})
+    await test_db["events"].insert_one({
+        "id": old_event,
+        "name": "UFC Fight Night: Corrected Later",
+        "date": datetime(2026, 8, 1, 23, tzinfo=UTC),
+    })
+
+    first = await progress.record_event_summary(
+        user_id=USER, summary=summary(old_event, 2)
+    )
+    corrected = await progress.record_event_summary(
+        user_id=USER, summary=summary(old_event, 5, revision=2)
+    )
+
+    assert first is None
+    assert corrected is None, "a correction must not open a door the card lost"
+
+
+async def test_an_event_with_no_resolvable_date_still_counts(
+    active_month, test_db
+):
+    """Losing someone's month over missing card metadata is the worse failure."""
+    _, progress = active_month(INSIDE)
+    undated = 70804
+    await test_db["events"].delete_many({"id": undated})
+    await test_db["events"].insert_one({"id": undated, "name": "No Date"})
+
+    result = await progress.record_event_summary(
+        user_id=USER, summary=summary(undated, 2)
+    )
+
+    assert result is not None

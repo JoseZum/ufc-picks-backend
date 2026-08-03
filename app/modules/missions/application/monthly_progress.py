@@ -141,6 +141,24 @@ class MonthlyProgressService:
             moment = moment.replace(tzinfo=UTC)
         return month_key_for(moment)
 
+    async def event_moment(self, event_id: int) -> datetime | None:
+        """When an event happened, by the same rule that assigns it a month."""
+        event = await self.db["events"].find_one(
+            {"id": event_id},
+            {"card_data_v1": 1, "date": 1, "event_date": 1},
+        )
+        if not event:
+            return None
+        official = (event.get("card_data_v1") or {}).get("official_date")
+        moment = official or event.get("date") or event.get("event_date")
+        if moment is None:
+            return None
+        if isinstance(moment, str):
+            moment = datetime.fromisoformat(moment.replace("Z", "+00:00"))
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=UTC)
+        return moment
+
     # --------------------------------------------------------------- progress
 
     async def record_event_summary(
@@ -157,6 +175,14 @@ class MonthlyProgressService:
         """
         config = await self.config_service.get(summary.month_key)
         if config is None or config.state == MonthlyConfigState.DRAFT:
+            return None
+
+        # A month activated part-way through only counts what happens after it
+        # opens. Without this, activating August late would retroactively fold
+        # in cards that ran while nobody had been told the month existed — and
+        # a result correction on one of those old cards would quietly do the
+        # same thing months later.
+        if not await self._is_within_activation(config, summary.event_id):
             return None
 
         definition = self._definition(config)
@@ -188,6 +214,20 @@ class MonthlyProgressService:
             session=session,
             replayed=False,
         )
+
+    async def _is_within_activation(self, config, event_id: int) -> bool:
+        """Whether this event happened once the month was already open.
+
+        An event with no resolvable date is counted rather than dropped: losing
+        a user's month over missing card metadata is the worse failure.
+        """
+        activated_at = getattr(config, "activated_at", None)
+        if activated_at is None:
+            return True
+        moment = await self.event_moment(event_id)
+        if moment is None:
+            return True
+        return moment >= activated_at
 
     async def close_month(
         self,
