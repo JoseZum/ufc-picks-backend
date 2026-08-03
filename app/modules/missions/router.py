@@ -24,6 +24,7 @@ from app.modules.missions.contracts import (
     HomeMissionsResponse,
     MissionCapabilitiesResponse,
     ProfileMissionsResponse,
+    PublicMissionProfileResponse,
     SelectedMissionView,
     SelectMissionRequest,
 )
@@ -94,6 +95,51 @@ async def get_profile_missions(
 
     service = MissionReadService(db, offer_secret=_offer_secret())
     return await service.profile(user_id=_user_id(current_user))
+
+
+@router.get("/users/{user_id}", response_model=PublicMissionProfileResponse)
+async def public_mission_profile(
+    user_id: str,
+    current_user: CurrentUser,
+    db: Database,
+) -> PublicMissionProfileResponse:
+    """Another user's mission standing, for the profile card.
+
+    Requires a session — this is a logged-in social surface, not an open API —
+    and answers 404 for an unknown user rather than an empty record, so the
+    endpoint cannot be used to enumerate who exists.
+    """
+
+    _require_access(current_user)
+
+    owner = await db["users"].find_one(
+        {"$or": [{"_id": user_id}, {"google_id": user_id}]}, {"_id": 1}
+    )
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "USER_NOT_FOUND", "message": "No such user"},
+        )
+
+    service = MissionReadService(db, offer_secret=_offer_secret())
+    full = await service.profile(user_id=user_id)
+
+    settled = [row for row in full.history]
+    completed = [row for row in settled if row.status == "COMPLETED"]
+    return PublicMissionProfileResponse(
+        user_id=user_id,
+        lifetime_xp=full.lifetime_xp,
+        level=full.level,
+        title=full.title,
+        xp_into_level=full.xp_into_level,
+        xp_for_next_level=full.xp_for_next_level,
+        level_progress_pct=full.level_progress_pct,
+        current_streak=full.current_streak,
+        best_streak=full.best_streak,
+        missions_completed=len(completed),
+        missions_settled=len(settled),
+        recent=tuple(completed[:8]),
+    )
 
 
 @router.post(

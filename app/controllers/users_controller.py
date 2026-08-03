@@ -343,7 +343,9 @@ async def get_user_picks_stats(
         }
     ])
 
-    cursor = db["picks"].aggregate(pipeline)
+    # PyMongo Async returns a coroutine here; Motor returned the cursor
+    # directly. Without the await this raised on the next line.
+    cursor = await db["picks"].aggregate(pipeline)
     results = await cursor.to_list(length=1)
 
     if not results:

@@ -205,7 +205,7 @@ class BoutRepository:
             {"$sort": {"total_bouts": -1}}
         ]
 
-        cursor = self.collection.aggregate(pipeline)
+        cursor = await self.collection.aggregate(pipeline)
         return await cursor.to_list(length=None)
 
     async def get_fighter_record(self, fighter_name: str) -> dict:
@@ -259,7 +259,7 @@ class BoutRepository:
             }
         ]
 
-        cursor = self.collection.aggregate(pipeline)
+        cursor = await self.collection.aggregate(pipeline)
         results = await cursor.to_list(length=1)
 
         if not results:

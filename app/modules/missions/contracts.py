@@ -149,6 +149,31 @@ class ProfileMissionsResponse(MissionTransport):
     celebrations: tuple[CelebrationView, ...] = ()
 
 
+class PublicMissionProfileResponse(MissionTransport):
+    """What one user may see about ANOTHER user's mission record.
+
+    Deliberately a subset of `ProfileMissionsResponse`: no celebrations (they
+    are unacknowledged notifications addressed to their owner) and no active
+    missions (an in-flight selection is a bet nobody else has a right to read
+    before the card settles). Everything here is already-public standing —
+    level, title, XP and the missions the user finished.
+    """
+
+    user_id: str
+    lifetime_xp: int
+    level: int
+    title: str
+    xp_into_level: int
+    xp_for_next_level: int
+    level_progress_pct: int
+    current_streak: int
+    best_streak: int
+    missions_completed: int
+    missions_settled: int
+    #: Most recently finished missions, newest first.
+    recent: tuple[SelectedMissionView, ...] = ()
+
+
 class SelectMissionRequest(MissionTransport):
     event_id: int = Field(gt=0)
     slot: Literal[1, 2, 3]
