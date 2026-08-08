@@ -291,6 +291,7 @@ class MissionEvaluationContextBuilder:
         bout_snapshots = tuple(
             self._bout_snapshot(bout, slots_by_bout.get(bout.get("id")))
             for bout in sorted(bouts, key=lambda value: value.get("id", 0))
+            if self._belongs_to_the_card(bout, slots_by_bout)
         )
         by_id = {bout.bout_id: bout for bout in bout_snapshots}
         name_maps = {
@@ -298,6 +299,7 @@ class MissionEvaluationContextBuilder:
                 _canonical_fighters(bout.get("card_data_v1") or {})[1]
             )
             for bout in bouts
+            if self._belongs_to_the_card(bout, slots_by_bout)
         }
 
         eligibility = assignment.get("eligibility_snapshot") or {}
@@ -351,6 +353,27 @@ class MissionEvaluationContextBuilder:
                 BoutEvaluationErrorCode.INVALID_CARD_DATA,
                 f"Invalid evaluation context for {assignment['_id']}: {exc}",
             ) from exc
+
+    @staticmethod
+    def _belongs_to_the_card(
+        bout: Mapping, slots_by_bout: Mapping[int, Mapping]
+    ) -> bool:
+        """¿Este bout forma parte de la estructura canónica de la card?
+
+        La estructura la definen los slots, que son propiedad del reconciliador.
+        Un bout sin slot Y sin sidecar `card_data_v1` nunca cruzó la frontera
+        CardData: es un resto legacy o creado a mano, y no pertenece a la card.
+        Incluirlo reventaba la evaluación de TODA la card por un bout que a nadie
+        le importa -- ocurrió en producción con el `1143866` (cancelado, sin
+        slot y sin sidecar) el día de Gamrot vs Salkilld.
+
+        Un bout que SÍ tiene sidecar pero perdió su slot es otra cosa: eso es
+        corrupción de la estructura y debe seguir gritando, no silenciarse.
+        """
+        bout_id = bout.get("id")
+        if isinstance(bout_id, int) and bout_id in slots_by_bout:
+            return True
+        return bool(bout.get("card_data_v1"))
 
     @staticmethod
     def _bout_snapshot(bout: Mapping, slot: Mapping | None) -> BoutEvaluationSnapshot:

@@ -430,6 +430,12 @@ class MissionTriggerService:
                 slots_by_bout[slot["bout_id"]] = slot
         snapshots = {}
         for bout in bouts:
+            # Igual que en la evaluación y la finalización: lo que no pertenece
+            # a la card canónica no entra ni la rompe.
+            if not MissionEvaluationContextBuilder._belongs_to_the_card(
+                bout, slots_by_bout
+            ):
+                continue
             snapshot = MissionEvaluationContextBuilder._bout_snapshot(
                 bout, slots_by_bout.get(bout.get("id"))
             )

@@ -323,3 +323,55 @@ async def test_the_endpoint_runs_with_the_service_token(
     assert good.json()["triggered"] == 1
 
     get_settings.cache_clear()
+
+
+async def test_a_legacy_bout_outside_the_card_does_not_block_the_evaluation(
+    test_db, card, sample_user_data
+):
+    """El incidente de Gamrot vs Salkilld (2026-08-08).
+
+    El evento arrastraba `1143866`: cancelado, sin slot y sin sidecar canónico,
+    o sea nunca cruzó la frontera CardData. El constructor del contexto exigía
+    slot para TODO bout del evento, así que ese resto tumbaba la evaluación de
+    la card entera con `has no canonical card slot`.
+    """
+    await test_db["bouts"].insert_one(
+        {
+            "_id": "bout-legacy-ghost",
+            "id": 1143866,
+            "event_id": EVENT_ID,
+            "status": "cancelled",
+            "fighters": {
+                "red": {"fighter_name": "Legacy Red"},
+                "blue": {"fighter_name": "Legacy Blue"},
+            },
+            # sin `card_data_v1` y sin fila en `event_card_slots`
+        }
+    )
+    assignment_id = await _select_auto(test_db, sample_user_data["google_id"])
+    await scraper_writes_result(test_db, BOUT_IDS[0])
+
+    report = await MissionResultReconciler(test_db).reconcile(event_id=EVENT_ID)
+
+    assert report.errors == [], "un bout fuera de la card volvio a bloquearlo todo"
+    assert report.triggered == 1
+    moved = await test_db["mission_assignments"].find_one({"_id": assignment_id})
+    assert moved["progress"]
+
+
+async def test_a_canonical_bout_that_lost_its_slot_still_raises(
+    test_db, card, sample_user_data
+):
+    """La red de seguridad que NO hay que silenciar.
+
+    Un bout con sidecar canonico pero sin slot es corrupcion de la estructura,
+    no un resto legacy. Ese caso debe seguir fallando ruidosamente.
+    """
+    await _select_auto(test_db, sample_user_data["google_id"])
+    await scraper_writes_result(test_db, BOUT_IDS[0])
+    await test_db["event_card_slots"].delete_one({"bout_id": BOUT_IDS[1]})
+
+    report = await MissionResultReconciler(test_db).reconcile(event_id=EVENT_ID)
+
+    assert report.errors, "la corrupcion de estructura paso en silencio"
+    assert "no canonical card slot" in report.errors[0]

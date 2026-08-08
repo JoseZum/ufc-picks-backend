@@ -153,6 +153,12 @@ class CardMissionFinalizer:
         for bout in bouts:
             bout_id = bout.get("id")
             slot = slots_by_bout.get(bout_id)
+            # Un resto legacy fuera de la card canónica no puede impedir que la
+            # card se finalice; ver `_belongs_to_the_card`.
+            if not MissionEvaluationContextBuilder._belongs_to_the_card(
+                bout, slots_by_bout
+            ):
+                continue
             snapshot = MissionEvaluationContextBuilder._bout_snapshot(bout, slot)
             snapshots[snapshot.bout_id] = snapshot
             if snapshot.is_current and snapshot.lifecycle.value not in {
