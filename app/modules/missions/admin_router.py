@@ -8,10 +8,16 @@ these decisions change what every user is asked to do.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from hmac import compare_digest
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 
+from app.core.config import get_settings
 from app.core.dependencies import CurrentAdmin, Database
+from app.modules.missions.application.result_reconciliation import (
+    MissionResultReconciler,
+)
 from app.modules.missions.application.card_control import (
     CardControlError,
     CardControlService,
@@ -452,3 +458,51 @@ async def apply_reconciliation(
         "skipped": outcome.skipped,
         "converged": outcome.converged,
     }
+
+
+@router.post("/evaluation/reconcile")
+async def reconcile_result_evaluation(
+    db: Database,
+    x_mission_reconcile_token: Annotated[str | None, Header()] = None,
+    event_id: int | None = None,
+    window_days: int | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """Evalúa las misiones de los resultados que ya están escritos.
+
+    Lo llama el job `ESPN Results ETL` justo después de registrar resultados: el
+    scraper escribe en Mongo sin pasar por `PUT /admin/bouts/{id}/result`, que
+    era el único camino que disparaba el motor de misiones.
+
+    Va con token de servicio y no con `CurrentAdmin` a propósito: el scraper
+    corre en GitHub Actions y no tiene sesión de usuario. Darle un JWT de admin
+    le concedería todo el panel para hacer una sola cosa.
+    """
+    settings = get_settings()
+    expected = settings.mission_reconcile_token
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "RECONCILE_TOKEN_UNSET",
+                "message": "MISSION_RECONCILE_TOKEN is not configured",
+            },
+        )
+    if not x_mission_reconcile_token or not compare_digest(
+        x_mission_reconcile_token, expected
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_RECONCILE_TOKEN", "message": "Invalid token"},
+        )
+
+    report = await MissionResultReconciler(db).reconcile(
+        event_id=event_id,
+        window_days=(
+            settings.mission_reconcile_window_days
+            if window_days is None
+            else window_days
+        ),
+        dry_run=dry_run,
+    )
+    return report.as_dict()

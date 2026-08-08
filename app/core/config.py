@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # Acepta ids o emails separados por coma. Vaciarlo = disponibilidad general.
     missions_allowlist: str = ""
 
+    # Token de servicio con el que el scraper dispara la evaluación de misiones
+    # tras registrar resultados. Vacío = el endpoint responde 503 y nadie puede
+    # llamarlo; un token ausente nunca debe degradar en "acceso libre".
+    mission_reconcile_token: str = ""
+    # Ventana por defecto del barrido, en días. Deliberadamente corta: hay 277
+    # resultados históricos sin evaluar y un barrido sin límite pagaría XP y
+    # movería rachas de eventos de hace dos años.
+    mission_reconcile_window_days: int = 3
+
     # App
     app_env: str = "development"  # o "production"
     debug: bool = False
