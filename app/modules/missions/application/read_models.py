@@ -23,6 +23,7 @@ from app.modules.missions.contracts import (
     MonthlyMissionView,
     ProfileMissionsResponse,
     SelectedMissionView,
+    SelectionPartView,
     StreakCardView,
 )
 from app.modules.missions.domain.definitions import CardCapability
@@ -58,6 +59,25 @@ def _is_title(bout: dict) -> bool:
     if "is_title_fight" in sidecar:
         return bool(sidecar["is_title_fight"])
     return bool(bout.get("is_title_fight"))
+
+
+_METHOD_DISPLAY = {
+    "KO_TKO": "KO/TKO",
+    "SUBMISSION": "Submission",
+    "DECISION": "Decision",
+}
+
+
+def _display_method(value: object) -> str:
+    """Ortografía de pantalla para un método; cualquier otra cosa pasa igual.
+
+    El enum interno se escribe `KO_TKO`, y esa cadena estaba llegando tal cual
+    a la tarjeta de misión. Es el mismo par de vocabularios que el frontend ya
+    resuelve para los pickers, aplicado aquí porque esta frase la construye el
+    backend entera.
+    """
+    text = str(value)
+    return _METHOD_DISPLAY.get(text.upper(), text)
 
 
 def _milestone_label(current: int) -> str:
@@ -401,6 +421,7 @@ class MissionReadService:
             progress_text=rendered.get("text") or "",
             progress_percent=int(rendered.get("percent") or 0),
             selection_summary=self._selection_summary(definition, assignment),
+            selection_parts=self._selection_parts(assignment),
             selection=assignment.get("selection") or None,
             # Two writers, two shapes: the evaluator records the reason inside
             # the resolved observation, while an Admin VOID stamps it flat on
@@ -413,25 +434,41 @@ class MissionReadService:
 
     def _selection_summary(self, definition, assignment: dict) -> str | None:
         """A short human line describing what the user actually locked in."""
+        parts = self._selection_parts(assignment)
+        if not parts:
+            return None
+        return " · ".join(
+            f"{part.value} {part.detail}".strip() if part.detail else part.value
+            for part in parts
+        )
+
+    def _selection_parts(self, assignment: dict) -> tuple[SelectionPartView, ...]:
+        """Lo elegido, partido en piezas que la UI puede estilizar por separado.
+
+        El método sale con la ortografía de display (`KO/TKO`), no con la del
+        enum interno: la frase la lee un usuario, no otro servicio.
+        """
         selection = assignment.get("selection") or {}
         legs = selection.get("legs") or ()
-        parts: list[str] = []
+        parts: list[SelectionPartView] = []
         for leg in legs:
-            label = leg.get("fighter_name") or leg.get("fighter_id") or leg.get("key")
+            value = leg.get("fighter_name") or leg.get("fighter_id") or leg.get("key")
             detail = " ".join(
-                str(value)
-                for value in (leg.get("method"), leg.get("outcome"))
-                if value
+                _display_method(value_)
+                for value_ in (leg.get("method"), leg.get("outcome"))
+                if value_
             )
             round_ = leg.get("round")
             if round_:
                 detail = f"{detail} R{round_}".strip()
-            parts.append(f"{label} {detail}".strip() if detail else str(label))
+            parts.append(
+                SelectionPartView(value=str(value), detail=detail or None)
+            )
         if choice := selection.get("card_prop_choice"):
-            parts.append(str(choice))
+            parts.append(SelectionPartView(value=str(choice)))
         if (count := selection.get("card_prop_exact_count")) is not None:
-            parts.append(f"exactly {count}")
-        return " · ".join(parts) if parts else None
+            parts.append(SelectionPartView(value=f"exactly {count}"))
+        return tuple(parts)
 
     async def _monthly_view_for_now(self, user_id: str) -> MonthlyMissionView | None:
         return await self._monthly_for_month(user_id, month_key_for(self.clock()))

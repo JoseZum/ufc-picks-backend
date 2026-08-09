@@ -49,6 +49,21 @@ class MissionOfferView(MissionTransport):
     selection_spec: dict[str, Any] | None = None
 
 
+class SelectionPartView(MissionTransport):
+    """Una pieza de lo que el usuario eligió, ya lista para pintar.
+
+    Se manda partida porque la UI estiliza cada rol por separado: el peleador
+    destaca y el método lo acompaña discreto. Mientras solo viajaba la frase
+    plana, la superficie tenía que partirla por puntuación o mostrarlo todo con
+    el mismo peso, y el método salía además con la ortografía interna
+    (`KO_TKO` en vez de `KO/TKO`).
+    """
+
+    label: str | None = None
+    value: str
+    detail: str | None = None
+
+
 class SelectedMissionView(MissionTransport):
     """An irreversible selection and its resolved progress."""
 
@@ -68,6 +83,7 @@ class SelectedMissionView(MissionTransport):
     progress_text: str = ""
     progress_percent: int = Field(default=0, ge=0, le=100)
     selection_summary: str | None = None
+    selection_parts: tuple["SelectionPartView", ...] = ()
     selection: dict[str, Any] | None = None
     void_reason: str | None = None
 
