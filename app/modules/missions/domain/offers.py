@@ -56,6 +56,10 @@ class GeneratedMissionOfferSet:
     user_id: str
     event_id: int
     card_revision: int
+    # The eligibility fingerprint this draw belongs to. `card_revision` is kept
+    # alongside it only to record which revision happened to be current when
+    # the set was first drawn; it never addresses the set.
+    facts_fingerprint: str
     catalog_version: str
     slots: tuple[MissionOfferSlot, MissionOfferSlot, MissionOfferSlot]
 
@@ -83,6 +87,7 @@ def generated_offer_set_document(
         "user_id": offer_set.user_id,
         "event_id": offer_set.event_id,
         "card_revision": offer_set.card_revision,
+        "facts_fingerprint": offer_set.facts_fingerprint,
         "catalog_version": offer_set.catalog_version,
         "slots": [
             {
@@ -183,12 +188,14 @@ def generate_mission_offers(
                 f"{difficulty.value} missions; {OFFER_SLOT_COUNT} are required"
             )
 
+    # Seeded on the eligibility fingerprint, not the card revision: a reorder
+    # that leaves the eligible pool identical must reproduce the same draw.
     context: tuple[object, ...] = (
         "mission-offers-v1",
         catalog.version,
         user_id,
         card.event_id,
-        card.card_revision,
+        card.offer_fingerprint,
     )
     used_ids: set[str] = set()
     slots: list[MissionOfferSlot] = []
@@ -225,6 +232,7 @@ def generate_mission_offers(
         user_id=user_id,
         event_id=card.event_id,
         card_revision=card.card_revision,
+        facts_fingerprint=card.offer_fingerprint,
         catalog_version=catalog.version,
         slots=slot_tuple,
     )

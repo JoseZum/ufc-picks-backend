@@ -28,6 +28,7 @@ from app.modules.missions.domain.definitions import (
     WinMethod,
     WinnerBinding,
 )
+from app.modules.missions.domain.eligibility import canonical_eligible_bout_count
 from app.modules.missions.domain.enums import MissionAssignmentStatus, StringEnum
 from app.modules.missions.domain.selections import (
     AutoMissionSelection,
@@ -717,24 +718,13 @@ class MissionSelectionService:
 
     @staticmethod
     def _eligible_bout_count(event: dict, bouts_by_id: dict[int, dict]) -> int:
-        sidecar = event.get("card_data_v1") or {}
-        eligibility = sidecar.get("current_eligibility") or {}
-        value = eligibility.get(
-            "denominator",
-            sidecar.get("mission_eligible_bout_count"),
-        )
-        if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
-            return value
-        fallback = sum(
-            bout.get("status") not in {"cancelled", "postponed", "replaced"}
-            for bout in bouts_by_id.values()
-        )
-        if fallback < 1:
+        count = canonical_eligible_bout_count(event, bouts_by_id.values())
+        if count is None:
             raise MissionSelectionError(
                 MissionSelectionErrorCode.INVALID_SELECTION,
                 "Card has no canonical eligible bout count",
             )
-        return fallback
+        return count
 
     @staticmethod
     def _freeze_eligibility(event: dict, bouts_by_id: dict[int, dict]) -> dict:

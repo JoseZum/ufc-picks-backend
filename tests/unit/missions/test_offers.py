@@ -68,11 +68,11 @@ def catalog(per_difficulty=6, *, include_ineligible=False):
     return load_mission_catalog(values, expected_version="2026.08.01")
 
 
-def card(revision=7):
+def card(revision=7, eligible_bouts=12):
     return FrozenCardFacts(
         event_id=142997,
         card_revision=revision,
-        eligible_bouts=12,
+        eligible_bouts=eligible_bouts,
         main_card_bouts=6,
         prelim_bouts=6,
         title_bouts=0,
@@ -113,20 +113,38 @@ def test_offer_generation_is_retry_stable_and_structurally_complete():
         ]
 
 
-def test_offer_identity_is_personalized_and_revision_bound():
+def test_offer_identity_is_personalized_and_eligibility_bound():
+    """A reorder must not redraw; a genuinely different card must.
+
+    `card_revision` advances on any structural edit, including two prelims
+    swapping places, so binding the draw to it rerolled nine missions for
+    changes that leave every eligibility input untouched.
+    """
     jose = generate_mission_offers(
         catalog=catalog(), card=card(), user_id="jose", secret=SECRET
     )
     chris = generate_mission_offers(
         catalog=catalog(), card=card(), user_id="chris", secret=SECRET
     )
-    revised = generate_mission_offers(
+    reordered = generate_mission_offers(
         catalog=catalog(), card=card(revision=8), user_id="jose", secret=SECRET
+    )
+    resized = generate_mission_offers(
+        catalog=catalog(),
+        card=card(revision=8, eligible_bouts=8),
+        user_id="jose",
+        secret=SECRET,
     )
 
     assert jose.offer_set_id != chris.offer_set_id
-    assert jose.offer_set_id != revised.offer_set_id
     assert jose.slots != chris.slots
+
+    assert reordered.offer_set_id == jose.offer_set_id
+    assert reordered.slots == jose.slots
+    assert reordered.facts_fingerprint == jose.facts_fingerprint
+
+    assert resized.offer_set_id != jose.offer_set_id
+    assert resized.facts_fingerprint != jose.facts_fingerprint
 
 
 def test_generated_alternatives_respect_overlap_policy():

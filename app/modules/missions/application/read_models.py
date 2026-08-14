@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from math import ceil
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -26,9 +27,19 @@ from app.modules.missions.contracts import (
     SelectionPartView,
     StreakCardView,
 )
-from app.modules.missions.domain.definitions import CardCapability
-from app.modules.missions.domain.eligibility import FrozenCardFacts
-from app.modules.missions.domain.enums import MonthlyConfigState
+from app.modules.missions.domain.definitions import (
+    CardCapability,
+    CardPropTargetSource,
+)
+from app.modules.missions.domain.eligibility import (
+    FrozenCardFacts,
+    canonical_eligible_bout_count,
+    eligible_definitions,
+)
+from app.modules.missions.domain.enums import (
+    MissionInteractionType,
+    MonthlyConfigState,
+)
 from app.modules.missions.domain.monthly import month_key_for
 from app.modules.missions.domain.monthly_metrics import (
     MonthlyEvaluationContext,
@@ -43,6 +54,17 @@ from app.modules.missions.domain.offers import (
 from app.modules.missions.domain.streak import next_milestone
 
 Clock = Callable[[], datetime]
+
+#: What an exact-count stepper is counting, keyed by the metric that settles it.
+#: Without this the picker can only say "ON THIS CARD", which never told the
+#: user whether they were choosing finishes or decisions.
+_CARD_PROP_COUNT_UNITS = {
+    "card_finish_count": "FINISHES",
+    "card_decision_count": "DECISIONS",
+    "card_round_finish_count": "R1 FINISHES",
+    "card_submission_count": "SUBMISSIONS",
+    "main_card_finish_count": "MAIN-CARD FINISHES",
+}
 
 
 def _utc_now() -> datetime:
@@ -173,7 +195,8 @@ class MissionReadService:
                         ()
                         if assignment
                         else tuple(
-                            self._offer_view(offer) for offer in slot["offers"]
+                            self._offer_view(offer, event=event, bouts=live)
+                            for offer in slot["offers"]
                         )
                     ),
                 )
@@ -311,16 +334,28 @@ class MissionReadService:
         )
 
     async def _offer_set(self, user_id: str, facts: FrozenCardFacts) -> dict | None:
-        """Draw once and persist, so a refresh can never reroll (D-PROD-003)."""
+        """Draw once and persist, so a refresh can never reroll (D-PROD-003).
+
+        Addressed by the eligibility fingerprint rather than `card_revision`.
+        The revision advances on every structural edit — a reordered prelim is
+        enough — so keying on it redrew the whole set for changes that leave
+        the offerable catalog identical. One card reached revision 14 in six
+        days and redrew nine missions each time.
+        """
+        fingerprint = facts.offer_fingerprint
         existing = await self.db["mission_offer_sets"].find_one(
             {
                 "user_id": user_id,
                 "event_id": facts.event_id,
-                "card_revision": facts.card_revision,
+                "facts_fingerprint": fingerprint,
             }
         )
         if existing:
             return existing
+
+        adopted = await self._adopt_legacy_offer_set(user_id, facts, fingerprint)
+        if adopted:
+            return adopted
 
         try:
             generated = generate_mission_offers(
@@ -339,7 +374,70 @@ class MissionReadService:
         )
         return await self.db["mission_offer_sets"].find_one({"_id": document["_id"]})
 
-    def _offer_view(self, offer: dict) -> MissionOfferView:
+    async def _adopt_legacy_offer_set(
+        self, user_id: str, facts: FrozenCardFacts, fingerprint: str
+    ) -> dict | None:
+        """Re-home a pre-fingerprint draw instead of redrawing it.
+
+        Every set written before this keying existed carries no fingerprint. If
+        those were left behind, the switch itself would reroll every user once —
+        the exact harm it removes. The newest such draw is adopted, but only
+        when all nine of its missions are still eligible against the current
+        facts; otherwise the card really did change and a fresh draw is right.
+        """
+        already_migrated = await self.db["mission_offer_sets"].find_one(
+            {
+                "user_id": user_id,
+                "event_id": facts.event_id,
+                "facts_fingerprint": {"$exists": True},
+            },
+            {"_id": 1},
+        )
+        if already_migrated:
+            # This card has drawn under the new keying before, so a missing
+            # fingerprint match means the facts genuinely moved. Redraw.
+            return None
+
+        legacy = await (
+            self.db["mission_offer_sets"]
+            .find(
+                {
+                    "user_id": user_id,
+                    "event_id": facts.event_id,
+                    "facts_fingerprint": {"$exists": False},
+                }
+            )
+            .sort([("card_revision", -1)])
+            .to_list(length=1)
+        )
+        if not legacy:
+            return None
+
+        candidate = legacy[0]
+        offered = {
+            offer.get("mission_id")
+            for slot in candidate.get("slots") or []
+            for offer in slot.get("offers") or []
+        }
+        if not offered:
+            return None
+        still_eligible = {
+            definition.mission_id
+            for definition in eligible_definitions(tuple(self.catalog), facts)
+        }
+        if not offered <= still_eligible:
+            return None
+
+        await self.db["mission_offer_sets"].update_one(
+            {"_id": candidate["_id"]},
+            {"$set": {"facts_fingerprint": fingerprint}},
+        )
+        candidate["facts_fingerprint"] = fingerprint
+        return candidate
+
+    def _offer_view(
+        self, offer: dict, *, event: dict | None = None, bouts: list[dict] | None = None
+    ) -> MissionOfferView:
         definition = self.catalog.get(offer["mission_id"])
         return MissionOfferView(
             offer_id=offer["offer_id"],
@@ -351,12 +449,48 @@ class MissionReadService:
             interaction=definition.interaction.value,
             pick_effect=definition.pick_effect.value,
             selection_prompt=definition.ui.selection_prompt,
-            selection_spec=(
-                definition.selection.model_dump(mode="json")
-                if definition.selection is not None
-                else None
-            ),
+            selection_spec=self._selection_spec(definition, event, bouts),
         )
+
+    def _selection_spec(
+        self, definition, event: dict | None, bouts: list[dict] | None
+    ) -> dict | None:
+        """The offer's selection spec, with card-prop numbers already resolved.
+
+        A prop whose target depends on card size used to ship only its raw
+        inputs (`target_source`, `frozen_ratio`), so "DISPLAYED FINISH LINE"
+        reached the drawer with no line to display and the exact-count stepper
+        had no idea what it was counting. Resolving them here — never in the
+        client — keeps the arithmetic on the side that owns it, and uses the
+        same denominator selection freezes, so the number shown is the number
+        stored.
+        """
+        if definition.selection is None:
+            return None
+
+        spec = definition.selection.model_dump(mode="json")
+        if definition.interaction is not MissionInteractionType.CARD_PROP:
+            return spec
+        if event is None:
+            return spec
+
+        eligible = canonical_eligible_bout_count(event, bouts or ())
+        if eligible is None:
+            return spec
+
+        target_source = spec.get("target_source")
+        if target_source == CardPropTargetSource.FROZEN_ELIGIBLE_RATIO.value:
+            ratio = definition.selection.frozen_ratio
+            if ratio is not None:
+                spec["displayed_target"] = ceil(eligible * ratio)
+        elif target_source == CardPropTargetSource.SELECTED_EXACT_COUNT.value:
+            # The stepper's ceiling is the same count selection will freeze.
+            spec["max_count"] = eligible
+
+        unit = _CARD_PROP_COUNT_UNITS.get(definition.evaluation.metric)
+        if unit:
+            spec["count_unit"] = unit
+        return spec
 
     @staticmethod
     def _empty_monthly_progress(definition, config):

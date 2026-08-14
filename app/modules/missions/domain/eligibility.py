@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.modules.missions.domain.definitions import (
@@ -45,6 +47,57 @@ class FrozenCardFacts:
             raise ValueError("prelim bouts cannot exceed eligible bouts")
         if self.title_bouts > self.eligible_bouts:
             raise ValueError("title bouts cannot exceed eligible bouts")
+
+    @property
+    def offer_fingerprint(self) -> str:
+        """Everything that decides *which* missions this card can offer.
+
+        `card_revision` is deliberately excluded. It advances on any structural
+        change at all — ESPN reordering two prelims moves `order_overall` and
+        bumps it — while none of that changes which missions are eligible.
+        Keying offers on the revision therefore redrew a user's missions for
+        purely cosmetic edits, which is the opposite of what INT-001 promises
+        ("offers persist so refresh never rerolls"). These counts and
+        capabilities are the real inputs to `eligible_definitions`, so two
+        revisions that agree here must keep the same draw.
+        """
+        payload = "\x1f".join(
+            (
+                str(self.event_id),
+                str(self.eligible_bouts),
+                str(self.main_card_bouts),
+                str(self.prelim_bouts),
+                str(self.title_bouts),
+                ",".join(sorted(capability.value for capability in self.capabilities)),
+            )
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
+def canonical_eligible_bout_count(
+    event: dict, bouts: "Iterable[dict]"
+) -> int | None:
+    """The denominator every card-prop target is measured against.
+
+    Selection freezes a prop's target from this number, and the offer has to
+    display the same one — a card prop that advertises "≥5 finishes" and then
+    stores a target of 6 is a broken promise, so both paths read it here rather
+    than each counting bouts their own way. `None` means the card has no
+    canonical count yet; callers decide whether that is fatal.
+    """
+    sidecar = event.get("card_data_v1") or {}
+    eligibility = sidecar.get("current_eligibility") or {}
+    value = eligibility.get(
+        "denominator",
+        sidecar.get("mission_eligible_bout_count"),
+    )
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
+        return value
+    fallback = sum(
+        bout.get("status") not in {"cancelled", "postponed", "replaced"}
+        for bout in bouts
+    )
+    return fallback if fallback >= 1 else None
 
 
 @dataclass(frozen=True)
