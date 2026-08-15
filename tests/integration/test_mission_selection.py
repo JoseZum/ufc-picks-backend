@@ -11,6 +11,7 @@ from app.modules.missions.application import (
 )
 from app.modules.missions.catalog import load_card_catalog
 from app.modules.missions.domain import SelectMissionCommand, load_mission_catalog
+from app.modules.missions.domain.eligibility import frozen_card_facts
 from app.modules.missions.indexes import apply_mission_indexes
 
 NOW = datetime(2026, 8, 1, 12, tzinfo=UTC)
@@ -935,3 +936,68 @@ async def test_offer_ownership_and_one_selection_per_slot_are_enforced(mission_d
             ),
         )
     assert raised.value.code == MissionSelectionErrorCode.ALREADY_SELECTED
+
+
+@pytest.mark.asyncio
+async def test_reordered_card_still_accepts_its_offers(mission_db):
+    """A bumped revision alone must not strand a user's offers.
+
+    Offer sets are addressed by eligibility fingerprint and deliberately span
+    revisions, so the staleness guard has to ask the same question. While it
+    still compared `card_revision`, every set drawn before the latest reorder
+    answered "changed" and the user could not confirm anything.
+    """
+    offer_id = "offer_5555555555555555"
+    bouts = await mission_db["bouts"].find({"event_id": EVENT_ID}).to_list(length=None)
+    event = await mission_db["events"].find_one({"id": EVENT_ID})
+    fingerprint = frozen_card_facts(event, bouts).offer_fingerprint
+
+    document = offer_set_document((offer_id, "CARD-V2-E-001"))
+    document["facts_fingerprint"] = fingerprint
+    await mission_db["mission_offer_sets"].insert_one(document)
+
+    # A reorder: the revision advances, every eligibility input is untouched.
+    await mission_db["events"].update_one(
+        {"id": EVENT_ID},
+        {"$set": {"card_data_v1.card_revision": 8}},
+    )
+
+    result = await service(mission_db).select(
+        user_id="jose",
+        command=command(
+            offer_id,
+            {"kind": "TARGET_FIGHTER", "bout_id": 101, "corner": "red"},
+            patches=({"bout_id": 101, "method": "DECISION"},),
+        ),
+    )
+    assert result.mission_id == "CARD-V2-E-001"
+    assert result.status == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_genuinely_changed_card_still_rejects_its_offers(mission_db):
+    """The guard must keep firing when the card really moves."""
+    offer_id = "offer_6666666666666666"
+    bouts = await mission_db["bouts"].find({"event_id": EVENT_ID}).to_list(length=None)
+    event = await mission_db["events"].find_one({"id": EVENT_ID})
+
+    document = offer_set_document((offer_id, "CARD-V2-E-001"))
+    document["facts_fingerprint"] = frozen_card_facts(event, bouts).offer_fingerprint
+    await mission_db["mission_offer_sets"].insert_one(document)
+
+    # A cancelled bout changes the eligible count, not just the ordering.
+    await mission_db["bouts"].update_one(
+        {"id": 103},
+        {"$set": {"status": "cancelled"}},
+    )
+
+    with pytest.raises(MissionSelectionError) as raised:
+        await service(mission_db).select(
+            user_id="jose",
+            command=command(
+                offer_id,
+                {"kind": "TARGET_FIGHTER", "bout_id": 101, "corner": "red"},
+                patches=({"bout_id": 101, "method": "DECISION"},),
+            ),
+        )
+    assert raised.value.code == MissionSelectionErrorCode.STALE_CARD

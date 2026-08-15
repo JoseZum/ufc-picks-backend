@@ -33,8 +33,10 @@ from app.modules.missions.domain.definitions import (
 )
 from app.modules.missions.domain.eligibility import (
     FrozenCardFacts,
+    bout_is_live,
     canonical_eligible_bout_count,
     eligible_definitions,
+    frozen_card_facts,
 )
 from app.modules.missions.domain.enums import (
     MissionInteractionType,
@@ -71,16 +73,6 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _section(bout: dict) -> str:
-    sidecar = bout.get("card_data_v1") or {}
-    return str(sidecar.get("section") or bout.get("section") or "PRELIM").upper()
-
-
-def _is_title(bout: dict) -> bool:
-    sidecar = bout.get("card_data_v1") or {}
-    if "is_title_fight" in sidecar:
-        return bool(sidecar["is_title_fight"])
-    return bool(bout.get("is_title_fight"))
 
 
 _METHOD_DISPLAY = {
@@ -106,18 +98,6 @@ def _milestone_label(current: int) -> str:
     """The finished copy the Profile renders, e.g. "5 → +3 XP"."""
     length, bonus = next_milestone(current)
     return f"{length} → +{bonus} XP"
-
-
-def _is_live(bout: dict) -> bool:
-    sidecar = bout.get("card_data_v1") or {}
-    lifecycle = str(sidecar.get("lifecycle") or "").upper()
-    if lifecycle:
-        return lifecycle in {"SCHEDULED", "COMPLETED"}
-    return str(bout.get("status") or "scheduled").lower() not in {
-        "cancelled",
-        "postponed",
-        "replaced",
-    }
 
 
 class MissionReadService:
@@ -154,7 +134,7 @@ class MissionReadService:
             )
 
         bouts = await self.db["bouts"].find({"event_id": event_id}).to_list(length=None)
-        live = [bout for bout in bouts if _is_live(bout)]
+        live = [bout for bout in bouts if bout_is_live(bout)]
         facts = self._card_facts(event, live)
         control = await self.db["mission_card_controls"].find_one({"event_id": event_id})
         card_state = str((control or {}).get("state") or "OPEN").upper()
@@ -298,40 +278,7 @@ class MissionReadService:
     # ---------------------------------------------------------------- helpers
 
     def _card_facts(self, event: dict, bouts: list[dict]) -> FrozenCardFacts:
-        sidecar = event.get("card_data_v1") or {}
-        revision = int(
-            sidecar.get(
-                "card_revision",
-                sidecar.get("structure_revision", event.get("card_revision", 1)),
-            )
-        )
-        sections = [_section(bout) for bout in bouts]
-        main = sum(1 for section in sections if section == "MAIN")
-        prelim = sum(1 for section in sections if section in {"PRELIM", "EARLY_PRELIM"})
-        titles = sum(1 for bout in bouts if _is_title(bout))
-
-        capabilities = {CardCapability.CANONICAL_CARD, CardCapability.PICK_POINTS}
-        if main or prelim:
-            capabilities.add(CardCapability.SECTION_ORDER)
-        if bouts:
-            capabilities.add(CardCapability.MAIN_EVENT)
-        if len(bouts) > 1:
-            capabilities.add(CardCapability.CO_MAIN)
-        if titles:
-            capabilities.add(CardCapability.TITLE_BOUTS)
-        capabilities.add(CardCapability.RESULT_METHOD)
-        capabilities.add(CardCapability.RESULT_ROUND)
-        capabilities.add(CardCapability.LEADERBOARD)
-
-        return FrozenCardFacts(
-            event_id=int(event["id"]),
-            card_revision=revision,
-            eligible_bouts=len(bouts),
-            main_card_bouts=main,
-            prelim_bouts=prelim,
-            title_bouts=titles,
-            capabilities=frozenset(capabilities),
-        )
+        return frozen_card_facts(event, bouts)
 
     async def _offer_set(self, user_id: str, facts: FrozenCardFacts) -> dict | None:
         """Draw once and persist, so a refresh can never reroll (D-PROD-003).

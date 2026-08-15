@@ -74,6 +74,80 @@ class FrozenCardFacts:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
+def bout_is_live(bout: dict) -> bool:
+    """A bout the card still counts: not cancelled, postponed or replaced."""
+    sidecar = bout.get("card_data_v1") or {}
+    lifecycle = str(sidecar.get("lifecycle") or "").upper()
+    if lifecycle:
+        return lifecycle in {"SCHEDULED", "COMPLETED"}
+    return str(bout.get("status") or "scheduled").lower() not in {
+        "cancelled",
+        "postponed",
+        "replaced",
+    }
+
+
+def bout_section(bout: dict) -> str:
+    sidecar = bout.get("card_data_v1") or {}
+    return str(sidecar.get("section") or bout.get("section") or "PRELIM").upper()
+
+
+def bout_is_title(bout: dict) -> bool:
+    sidecar = bout.get("card_data_v1") or {}
+    if "is_title_fight" in sidecar:
+        return bool(sidecar["is_title_fight"])
+    return bool(bout.get("is_title_fight"))
+
+
+def card_revision_of(event: dict) -> int:
+    """Legacy events carry no revision at all; 1 keeps every caller in step."""
+    sidecar = event.get("card_data_v1") or {}
+    return int(
+        sidecar.get(
+            "card_revision",
+            sidecar.get("structure_revision", event.get("card_revision", 1)),
+        )
+    )
+
+
+def frozen_card_facts(event: dict, bouts: "Iterable[dict]") -> "FrozenCardFacts":
+    """The card as the offer layer sees it.
+
+    Shared rather than duplicated because two callers derive it: the read model
+    draws offers from these facts, and selection re-derives them to check the
+    offer is still valid. When selection counted differently the two disagreed,
+    and a user was told their card had changed when it had not.
+    """
+    live = [bout for bout in bouts if bout_is_live(bout)]
+    sections = [bout_section(bout) for bout in live]
+    main = sum(1 for section in sections if section == "MAIN")
+    prelim = sum(1 for section in sections if section in {"PRELIM", "EARLY_PRELIM"})
+    titles = sum(1 for bout in live if bout_is_title(bout))
+
+    capabilities = {CardCapability.CANONICAL_CARD, CardCapability.PICK_POINTS}
+    if main or prelim:
+        capabilities.add(CardCapability.SECTION_ORDER)
+    if live:
+        capabilities.add(CardCapability.MAIN_EVENT)
+    if len(live) > 1:
+        capabilities.add(CardCapability.CO_MAIN)
+    if titles:
+        capabilities.add(CardCapability.TITLE_BOUTS)
+    capabilities.add(CardCapability.RESULT_METHOD)
+    capabilities.add(CardCapability.RESULT_ROUND)
+    capabilities.add(CardCapability.LEADERBOARD)
+
+    return FrozenCardFacts(
+        event_id=int(event["id"]),
+        card_revision=card_revision_of(event),
+        eligible_bouts=len(live),
+        main_card_bouts=main,
+        prelim_bouts=prelim,
+        title_bouts=titles,
+        capabilities=frozenset(capabilities),
+    )
+
+
 def canonical_eligible_bout_count(
     event: dict, bouts: "Iterable[dict]"
 ) -> int | None:

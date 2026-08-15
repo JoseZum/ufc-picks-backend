@@ -28,7 +28,11 @@ from app.modules.missions.domain.definitions import (
     WinMethod,
     WinnerBinding,
 )
-from app.modules.missions.domain.eligibility import canonical_eligible_bout_count
+from app.modules.missions.domain.eligibility import (
+    canonical_eligible_bout_count,
+    card_revision_of,
+    frozen_card_facts,
+)
 from app.modules.missions.domain.enums import MissionAssignmentStatus, StringEnum
 from app.modules.missions.domain.selections import (
     AutoMissionSelection,
@@ -401,15 +405,22 @@ class MissionSelectionService:
         offer_set: dict,
         control: dict | None,
     ) -> None:
-        sidecar = event.get("card_data_v1") or {}
-        # Legacy events carry no card_revision at all. Defaulting to 1 keeps this
-        # in step with MissionReadService._card_facts; leaving it None made every
-        # selection on such an event fail as STALE_CARD.
-        current_revision = sidecar.get(
-            "card_revision",
-            sidecar.get("structure_revision", event.get("card_revision", 1)),
-        )
-        if current_revision != offer_set.get("card_revision"):
+        # Staleness is measured against the eligibility fingerprint, the same
+        # thing the offer set is addressed by. Comparing `card_revision` here
+        # rejected offers that were still perfectly valid: the revision advances
+        # on any structural edit, so once a set was allowed to span revisions,
+        # every user holding one drawn before the latest reorder was told their
+        # card had changed and could not confirm anything.
+        stored_fingerprint = offer_set.get("facts_fingerprint")
+        if stored_fingerprint:
+            if frozen_card_facts(event, bouts).offer_fingerprint != stored_fingerprint:
+                raise MissionSelectionError(
+                    MissionSelectionErrorCode.STALE_CARD,
+                    "Card changed after these offers were generated",
+                )
+        elif card_revision_of(event) != offer_set.get("card_revision"):
+            # Pre-fingerprint sets keep the original check; they were drawn when
+            # the revision was the identity, so it is still the right question.
             raise MissionSelectionError(
                 MissionSelectionErrorCode.STALE_CARD,
                 "Card revision changed after these offers were generated",
