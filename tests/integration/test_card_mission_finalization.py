@@ -10,6 +10,10 @@ from app.modules.missions.application import (
     CardMissionFinalizer,
     FinalizeCardMissionsCommand,
 )
+from app.modules.missions.application.bout_evaluation import (
+    BoutResultMissionEvaluator,
+    EvaluateBoutResultCommand,
+)
 from app.modules.missions.catalog import load_card_catalog
 from app.modules.missions.indexes import apply_mission_indexes
 
@@ -213,3 +217,37 @@ async def test_finalization_refuses_an_unresolved_current_bout(finalization_db):
     )
     assert stored["status"] == "ACTIVE"
     assert await finalization_db["mission_evaluation_runs"].count_documents({}) == 0
+
+
+@pytest.mark.asyncio
+async def test_replayed_result_after_finalization_keeps_terminal_missions_settled(
+    finalization_db,
+):
+    """A re-scraped result must not un-finish a settled card.
+
+    The daily scrape replays every result through `BoutResultMissionEvaluator`.
+    That path used to build its context with `card_finalized=False`, so an
+    ALL-comparator mission that had already completed dropped back to PENDING —
+    and because finalization is idempotent per input set, nothing ever put it
+    back. Three users sat on missions they had genuinely won.
+    """
+    finalizer = CardMissionFinalizer(finalization_db)
+    await finalizer.finalize(FinalizeCardMissionsCommand(EVENT_ID, 1))
+
+    settled = await finalization_db["mission_assignments"].find_one(
+        {"_id": "assignment-card-champion"}
+    )
+    assert settled["status"] == "COMPLETED"
+
+    evaluator = BoutResultMissionEvaluator(finalization_db)
+    await evaluator.evaluate(
+        EvaluateBoutResultCommand(event_id=EVENT_ID, bout_id=201, result_revision=1)
+    )
+
+    after = await finalization_db["mission_assignments"].find_one(
+        {"_id": "assignment-card-champion"}
+    )
+    assert after["status"] == "COMPLETED"
+    assert after["progress"]["observation"]["terminal"] is True
+    # The XP paid at finalization is not paid twice by the replay.
+    assert await finalization_db["mission_xp_ledger"].count_documents({}) == 1

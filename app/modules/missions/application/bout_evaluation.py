@@ -569,29 +569,43 @@ class BoutResultMissionEvaluator:
 
     async def evaluate(self, command: EvaluateBoutResultCommand) -> BoutEvaluationResult:
         await self._validate_trigger(command)
+        # A card that has already been finalized stays finalized. Without this
+        # the daily re-scrape replayed each result as if the night were still
+        # running and undid finished missions, and finalization is idempotent
+        # per input set so it never ran again to put them back.
+        already_final = await self.db["mission_card_finalization_runs"].find_one(
+            {"event_id": command.event_id}
+        )
         trigger = AssignmentEvaluationTrigger(
             event_id=command.event_id,
             trigger_type="BOUT_RESULT",
             trigger_id=command.bout_id,
             trigger_revision=command.result_revision,
+            card_finalized=already_final is not None,
             bout_id=command.bout_id,
             result_revision=command.result_revision,
         )
+        # Carried with the finalized flag, never apart from it: a leaderboard
+        # mission evaluated as terminal without its frozen standings has no
+        # rank to read and voids itself.
+        frozen_leaderboard = self._frozen_leaderboard(already_final)
         cursor = self.db["mission_assignments"].find(
             {
                 "event_id": command.event_id,
                 "status": {"$ne": MissionAssignmentStatus.VOID.value},
             }
         )
-        assignment_ids = [value["_id"] for value in await cursor.to_list(length=None)]
+        assignments = await cursor.to_list(length=None)
         results = []
         failures = []
-        for assignment_id in assignment_ids:
+        for value in assignments:
+            assignment_id = value["_id"]
             try:
                 results.append(
                     await self.evaluate_assignment(
                         assignment_id,
                         trigger=trigger,
+                        leaderboard=frozen_leaderboard.get(value["user_id"]),
                     )
                 )
             except (BoutEvaluationError, KeyError, ValueError) as exc:
@@ -610,6 +624,19 @@ class BoutResultMissionEvaluator:
             assignments=tuple(results),
             failures=tuple(failures),
         )
+
+    @staticmethod
+    def _frozen_leaderboard(
+        finalization_run: Mapping | None,
+    ) -> dict[str, LeaderboardEvaluationSnapshot]:
+        """Rehydrate the standings finalization already froze for this card."""
+        if not finalization_run:
+            return {}
+        stored = finalization_run.get("leaderboard") or {}
+        return {
+            user_id: LeaderboardEvaluationSnapshot(**entry)
+            for user_id, entry in stored.items()
+        }
 
     async def _validate_trigger(self, command: EvaluateBoutResultCommand) -> None:
         event = await self.db["events"].find_one({"id": command.event_id})
@@ -658,9 +685,13 @@ class BoutResultMissionEvaluator:
             previous_status = MissionAssignmentStatus(assignment["status"])
             await self._validate_trigger_in_session(trigger, session)
             definition = validate_mission_definition(assignment["definition_snapshot"])
+            # Which moment this is comes from what fired, not from whether the
+            # card happens to be final. The two used to share one flag, so a
+            # re-scraped result after finalization re-entered as a non-final
+            # evaluation and sent every ALL-comparator mission back to PENDING.
             evaluation_moment = (
                 EvaluationMoment.CARD_FINALIZED
-                if trigger.card_finalized
+                if trigger.trigger_type == "CARD_FINALIZED"
                 else EvaluationMoment.AFTER_EACH_RESULT
             )
             if evaluation_moment not in definition.evaluation.evaluate_on:
