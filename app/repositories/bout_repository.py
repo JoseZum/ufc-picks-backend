@@ -61,8 +61,9 @@ class BoutRepository:
         if status:
             query["status"] = status
         else:
-            # Removed/cancelled matchups must not remain on the public card.
-            query["status"] = {"$ne": "cancelled"}
+            # Terminal/non-current matchups remain in canonical history, but
+            # must not remain on the public fight card.
+            query["status"] = {"$nin": ["cancelled", "postponed", "replaced"]}
 
         # Orden correcto: main event -> co-main -> main card -> prelims
         # Usamos múltiples criterios de ordenamiento

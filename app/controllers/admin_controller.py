@@ -995,16 +995,45 @@ async def cancel_bout(
         {"id": bout_id},
         {"$set": {"status": "cancelled"}}
     )
+    # El motor de misiones lee `card_data_v1.status`, no el `status` legacy
+    # (`bout_evaluation._bout_snapshot` prefiere el sidecar). Sin esto el bout
+    # sigue contando como `surviving` y `_finalize_if_complete` ve una pelea sin
+    # resultado, asi que la card no finaliza y las misiones nunca pagan XP hasta
+    # que el reconciliador converja en la siguiente pasada.
+    #
+    # El filtro por `$exists` no es opcional: crear el sidecar aqui haria que un
+    # bout legacy pase a "pertenecer a la card" (`_belongs_to_the_card`) con una
+    # proyeccion invalida, y eso revienta la evaluacion de la card entera.
+    await db["bouts"].update_one(
+        {"id": bout_id, "card_data_v1": {"$exists": True}},
+        {"$set": {"card_data_v1.status": "cancelled"}}
+    )
+    await db["event_card_slots"].update_one(
+        {"bout_id": bout_id},
+        {"$set": {"is_current": False}}
+    )
     # B-011: sin comando, la siguiente pasada de ESPN vuelve a listar el bout y
     # el `status` canonico se recalcula como programado.
+    actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
     await record_admin_command(
         db,
         kind="bout_lifecycle",
         event_id=int(bout["event_id"]),
         bout_id=bout_id,
-        actor_id=str(getattr(admin, "id", "") or getattr(admin, "google_id", "")),
+        actor_id=actor_id,
         reason="Admin cancelled the bout",
         values=lifecycle_values("cancelled"),
+    )
+    # El slot es propiedad exclusiva del reconciliador: sin comando, la proxima
+    # pasada lo vuelve a marcar `is_current` y el bout reaparece en la card.
+    await record_admin_command(
+        db,
+        kind="bout_structure",
+        event_id=int(bout["event_id"]),
+        bout_id=bout_id,
+        actor_id=actor_id,
+        reason="Admin cancelled the bout",
+        values=structure_values(is_current=False),
     )
 
     # Recalculate stats for all affected users

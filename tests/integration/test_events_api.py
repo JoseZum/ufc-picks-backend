@@ -87,6 +87,25 @@ class TestEventsEndpoints:
         assert data[0]["event_id"] == sample_event_data["id"]
 
     @pytest.mark.asyncio
+    async def test_public_card_excludes_cancelled_postponed_and_replaced_bouts(
+        self, client, test_db, sample_event_data, sample_bout_data
+    ):
+        await test_db["events"].insert_one(sample_event_data)
+        bouts = []
+        for offset, bout_status in enumerate(
+            ("scheduled", "cancelled", "postponed", "replaced")
+        ):
+            bout = {**sample_bout_data, "id": sample_bout_data["id"] + offset}
+            bout["status"] = bout_status
+            bouts.append(bout)
+        await test_db["bouts"].insert_many(bouts)
+
+        response = await client.get(f"/events/{sample_event_data['id']}/bouts")
+
+        assert response.status_code == 200
+        assert [bout["id"] for bout in response.json()] == [sample_bout_data["id"]]
+
+    @pytest.mark.asyncio
     async def test_bout_response_exposes_section_lock_state(
         self,
         client,

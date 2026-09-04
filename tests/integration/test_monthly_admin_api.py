@@ -1,12 +1,16 @@
-"""Slice 2: Admin picks August's monthly mission and it shows up for users."""
+"""Slice 2: Admin picks a future monthly mission and it shows up for users."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.modules.missions.indexes import apply_mission_indexes
 
-MONTH = "2026-08"
+NEXT_MONTH_START = (
+    datetime.now(UTC).replace(day=28, hour=0, minute=0, second=0, microsecond=0)
+    + timedelta(days=4)
+).replace(day=1)
+MONTH = NEXT_MONTH_START.strftime("%Y-%m")
 
 
 ADMIN_ID = "mission-admin-user"
@@ -77,7 +81,7 @@ async def test_admin_sees_the_eighteen_reviewed_templates(
             assert parameter["minimum"] <= parameter["default"] <= parameter["maximum"]
 
 
-async def test_admin_configures_august_with_reviewed_defaults(
+async def test_admin_configures_a_future_month_with_reviewed_defaults(
     client, admin_headers, clean
 ):
     response = await client.put(
@@ -241,7 +245,7 @@ async def test_an_active_month_reaches_the_user_home(
             "name": "UFC 404: Monthly",
             "slug": "ufc-404-monthly",
             "status": "scheduled",
-            "date": datetime(2026, 8, 20, tzinfo=UTC),
+                "date": NEXT_MONTH_START.replace(day=20),
         }
     )
     await client.put(
