@@ -5,7 +5,7 @@ one player can look at another, which makes every field a deliberate decision
 about what is public. Celebrations and in-flight missions are not.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -78,6 +78,35 @@ async def test_an_in_flight_mission_is_not_visible_to_anyone_else(
 
     assert "SECRET IN-FLIGHT PICK" not in response_text(body)
     assert all(row["status"] == "COMPLETED" for row in body["recent"])
+    assert {row["assignment_id"] for row in body["history"]} == {"pub-done", "pub-failed"}
+
+
+@pytest.mark.asyncio
+async def test_history_includes_all_settled_statuses_and_more_than_eight_rows(
+    client, auth_headers, other_user, test_db
+):
+    original = await test_db["mission_assignments"].find_one({"_id": "pub-done"})
+    now = datetime.now(UTC)
+    await test_db["events"].insert_one({"id": 91234, "name": "UFC Test Card"})
+    await test_db["mission_assignments"].insert_many([
+        {**original, "_id": f"pub-extra-{i}", "event_id": 91300 + i,
+         "created_at": now + timedelta(seconds=i)}
+        for i in range(9)
+    ] + [{**original, "_id": "pub-void", "event_id": 91400, "status": "VOID",
+          "created_at": now + timedelta(seconds=10)}])
+
+    response = await fetch(client, auth_headers, OTHER)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["history"]) == 12
+    assert len(body["recent"]) == 8
+    assert body["history"][0]["assignment_id"] == "pub-void"
+    assert {row["status"] for row in body["history"]} == {"COMPLETED", "FAILED", "VOID"}
+    completed = next(row for row in body["history"] if row["assignment_id"] == "pub-done")
+    assert completed["description"]
+    assert completed["event_label"] == "UFC Test Card"
+    assert all(row["xp_earned"] == 0 for row in body["history"] if row["status"] != "COMPLETED")
+    assert "pub-active" not in response_text(body)
 
 
 def response_text(body) -> str:

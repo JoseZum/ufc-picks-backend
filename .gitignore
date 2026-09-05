@@ -190,5 +190,6 @@ docker/
 # Dev / test only — no van a producción
 compose.test.yml
 requirements.test.lock.txt
-scripts/
+scripts/*
+!scripts/repair_paris_result_methods.py
 mission-planning/

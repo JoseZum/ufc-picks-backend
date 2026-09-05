@@ -1,0 +1,33 @@
+{
+  "event_id": 144513,
+  "plan_id": "f4fd70a99abd5589f0d1da20b46fdf3db08af683343bcb304d050a16d4e11422",
+  "corrected_methods_verified": true,
+  "predictions_unchanged": true,
+  "mission_selections_unchanged": true,
+  "changed_pick_scores": 1,
+  "new_xp_ledger_entries": 1,
+  "xp_delta": -6,
+  "progression_matches_ledger": true,
+  "pending_erroneous_celebrations": 0,
+  "stored_missions": [
+    {
+      "mission": "SCORE SIXTEEN",
+      "status": "ACTIVE",
+      "progress": "5 / 16 points",
+      "award_link_present": false
+    },
+    {
+      "mission": "FINISH DOUBLE",
+      "status": "ACTIVE",
+      "progress": "0 / 2 finish legs",
+      "award_link_present": false
+    },
+    {
+      "mission": "SUBMISSION TRIO ON THE CARD",
+      "status": "ACTIVE",
+      "progress": "1 / 3 submissions",
+      "award_link_present": false
+    }
+  ],
+  "durable_result_overrides": 2
+}

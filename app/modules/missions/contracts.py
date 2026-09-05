@@ -186,7 +186,9 @@ class PublicMissionProfileResponse(MissionTransport):
     best_streak: int
     missions_completed: int
     missions_settled: int
-    #: Most recently finished missions, newest first.
+    #: Settled missions, newest first, with the same bounded history as Profile.
+    history: tuple[SelectedMissionView, ...] = ()
+    #: Latest eight completed missions, retained for older clients.
     recent: tuple[SelectedMissionView, ...] = ()
 
 

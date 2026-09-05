@@ -138,6 +138,7 @@ async def public_mission_profile(
         best_streak=full.best_streak,
         missions_completed=len(completed),
         missions_settled=len(settled),
+        history=tuple(settled),
         recent=tuple(completed[:8]),
     )
 
