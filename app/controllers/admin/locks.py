@@ -1,6 +1,7 @@
 """Bloqueo de picks y cierre de eventos."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Request
 
@@ -92,7 +93,7 @@ async def unlock_event_picks(
             ],
         },
     )
-    unlock_query = {"event_id": event_id, "locked": True}
+    unlock_query: dict[str, Any] = {"event_id": event_id, "locked": True}
     if individually_locked_bout_ids:
         unlock_query["bout_id"] = {"$nin": individually_locked_bout_ids}
 

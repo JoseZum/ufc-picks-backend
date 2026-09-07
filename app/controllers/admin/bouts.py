@@ -1,6 +1,7 @@
 """Cancelación, borrado y edición de peleas."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -210,8 +211,8 @@ async def update_bout_details(
     bout = await get_bout_or_404(db, bout_id)
 
     # Separar campos del bout y del card_slot
-    bout_update = {}
-    slot_update = {}
+    bout_update: dict[str, Any] = {}
+    slot_update: dict[str, Any] = {}
 
     if body.rounds_scheduled is not None:
         if body.rounds_scheduled not in [3, 5]:

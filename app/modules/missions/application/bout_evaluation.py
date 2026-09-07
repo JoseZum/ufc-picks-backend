@@ -516,7 +516,7 @@ class MissionEvaluationContextBuilder:
             )
         if isinstance(definition, ComboBuilderMissionDefinition):
             stored_legs = {leg["key"]: leg for leg in stored.get("legs") or ()}
-            legs = []
+            legs: list[FighterMetricLeg | FightMetricLeg] = []
             for spec in definition.selection.legs:
                 selected = stored_legs[spec.key]
                 bout_id = int(selected["bout_id"])

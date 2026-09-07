@@ -3,6 +3,7 @@ Controlador de usuarios - Endpoints públicos para ver perfiles y picks de usuar
 """
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
@@ -124,7 +125,7 @@ async def get_user_picks(
             },
         )
     )
-    query = {
+    query: dict[str, Any] = {
         "user_id": user_id,
         "bout_id": {"$in": list(resulted_bout_ids)},
     }

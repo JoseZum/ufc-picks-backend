@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from app.modules.missions.domain.enums import (
     CardMissionState,
@@ -227,7 +228,7 @@ def _ensure_transition(
     current: Enum,
     target: Enum,
     reason: MissionTransitionReason,
-    rules: Mapping[Enum, tuple[TransitionRule, ...]],
+    rules: Mapping[Any, tuple[TransitionRule, ...]],
 ) -> None:
     if current == target:
         return
