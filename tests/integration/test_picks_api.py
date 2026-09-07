@@ -7,7 +7,7 @@ import pytest
 
 class TestPicksEndpoints:
     """Test suite for /picks endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_create_pick_authenticated(
         self,
@@ -22,27 +22,27 @@ class TestPicksEndpoints:
         # Setup
         await test_db["events"].insert_one(sample_event_data)
         await test_db["bouts"].insert_one(sample_bout_data)
-        
+
         # Act
         response = await client.post(
             "/picks",
             json=sample_pick_data,
             headers=auth_headers
         )
-        
+
         # Assert
         assert response.status_code == 201
         data = response.json()
         assert data["bout_id"] == sample_pick_data["bout_id"]
         assert data["picked_fighter_name"] == sample_pick_data["picked_fighter_name"]
         assert data["picked_method"] == sample_pick_data["picked_method"]
-    
+
     @pytest.mark.asyncio
     async def test_create_pick_unauthenticated(self, client, sample_pick_data):
         """Test POST /picks without authentication"""
         response = await client.post("/picks", json=sample_pick_data)
         assert response.status_code == 403  # FastAPI HTTPBearer returns 403 when no token
-    
+
     @pytest.mark.asyncio
     async def test_get_user_picks_for_event(
         self,
@@ -58,26 +58,26 @@ class TestPicksEndpoints:
         # Setup
         await test_db["events"].insert_one(sample_event_data)
         await test_db["bouts"].insert_one(sample_bout_data)
-        
+
         # Create pick first
         await client.post(
             "/picks",
             json=sample_pick_data,
             headers=auth_headers
         )
-        
+
         # Act
         response = await client.get(
             f"/picks/me?event_id={sample_event_data['id']}",
             headers=auth_headers
         )
-        
+
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 1
         assert data[0]["event_id"] == sample_event_data["id"]
-    
+
     @pytest.mark.asyncio
     async def test_update_existing_pick(
         self,
@@ -92,7 +92,7 @@ class TestPicksEndpoints:
         # Setup
         await test_db["events"].insert_one(sample_event_data)
         await test_db["bouts"].insert_one(sample_bout_data)
-        
+
         # Create initial pick
         response1 = await client.post(
             "/picks",
@@ -100,7 +100,7 @@ class TestPicksEndpoints:
             headers=auth_headers
         )
         assert response1.status_code == 201
-        
+
         # Update pick
         updated_pick = sample_pick_data.copy()
         updated_pick["picked_fighter_name"] = "Test Fighter 2"
@@ -117,7 +117,7 @@ class TestPicksEndpoints:
         data = response2.json()
         assert data["picked_fighter_name"] == "Test Fighter 2"
         assert data["picked_method"] == "SUB"
-    
+
     @pytest.mark.asyncio
     async def test_cannot_create_pick_for_completed_event(
         self,
@@ -133,14 +133,14 @@ class TestPicksEndpoints:
         sample_event_data["status"] = "completed"
         await test_db["events"].insert_one(sample_event_data)
         await test_db["bouts"].insert_one(sample_bout_data)
-        
+
         # Act
         response = await client.post(
             "/picks",
             json=sample_pick_data,
             headers=auth_headers
         )
-        
+
         # Assert
         assert response.status_code == 403  # PickLockedError returns 403 Forbidden
         detail = response.json()["detail"].lower()

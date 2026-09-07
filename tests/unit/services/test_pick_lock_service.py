@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from app.services.pick_lock_service import (
     as_utc_datetime,
@@ -6,8 +6,7 @@ from app.services.pick_lock_service import (
     get_bout_automatic_lock_time,
 )
 
-
-NOW = datetime(2026, 8, 15, 22, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 15, 22, 0, tzinfo=UTC)
 
 
 def event(**updates):
@@ -49,7 +48,7 @@ def test_each_section_locks_at_its_own_start():
 
 
 def test_section_locks_at_exact_boundary():
-    boundary = datetime(2026, 8, 15, 23, 0, tzinfo=timezone.utc)
+    boundary = datetime(2026, 8, 15, 23, 0, tzinfo=UTC)
     state = evaluate_bout_pick_lock(event(), bout("prelim"), boundary)
     assert state.locked is True
     assert state.reason == "section_time"
@@ -126,9 +125,9 @@ def test_direct_bout_lock_time_has_priority_over_section():
 
 def test_naive_mongo_datetime_is_treated_as_utc():
     value = as_utc_datetime(datetime(2026, 8, 15, 21, 0))
-    assert value == datetime(2026, 8, 15, 21, 0, tzinfo=timezone.utc)
+    assert value == datetime(2026, 8, 15, 21, 0, tzinfo=UTC)
 
 
 def test_iso_z_datetime_is_supported():
     value = as_utc_datetime("2026-08-15T21:00:00Z")
-    assert value == datetime(2026, 8, 15, 21, 0, tzinfo=timezone.utc)
+    assert value == datetime(2026, 8, 15, 21, 0, tzinfo=UTC)

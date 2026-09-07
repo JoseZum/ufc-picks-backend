@@ -3,7 +3,6 @@ Modelo de Usuario - autenticacion con Google OAuth
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,10 +14,10 @@ class User(BaseModel):
     google_id: str  # ID unico de Google
     email: str
     name: str
-    profile_picture: Optional[str] = None
+    profile_picture: str | None = None
 
     created_at: datetime  # Cuando se registro
-    last_login_at: Optional[datetime] = None  # Ultima vez que entro
+    last_login_at: datetime | None = None  # Ultima vez que entro
 
     is_active: bool = True  # Podemos deshabilitar cuentas
     is_admin: bool = False  # Para administradores de la plataforma
@@ -40,7 +39,7 @@ class UserCreate(BaseModel):
     google_id: str
     email: str
     name: str
-    profile_picture: Optional[str] = None
+    profile_picture: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -49,7 +48,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: str
-    profile_picture: Optional[str] = None
+    profile_picture: str | None = None
     created_at: datetime
     is_admin: bool = False
 

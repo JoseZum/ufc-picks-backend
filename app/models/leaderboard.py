@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -8,7 +7,7 @@ class LeaderboardEntry(BaseModel):
 
     user_id: str
     username: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
 
     total_points: int
     accuracy: float

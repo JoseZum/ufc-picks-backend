@@ -5,8 +5,10 @@ Valida que la configuración se cargue correctamente desde variables de entorno
 y que los valores por defecto sean apropiados.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from app.core.config import Settings
 
 

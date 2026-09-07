@@ -2,7 +2,6 @@
 Configuración de la conexión a MongoDB - el corazón de la BD
 """
 
-from typing import Optional
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -15,8 +14,8 @@ settings = get_settings()
 class Database:
     """Singleton para la conexión a MongoDB con su pool de conexiones"""
 
-    client: Optional[AsyncMongoClient] = None
-    db: Optional[AsyncDatabase] = None
+    client: AsyncMongoClient | None = None
+    db: AsyncDatabase | None = None
 
     @classmethod
     async def connect(cls):

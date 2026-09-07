@@ -3,11 +3,18 @@ from datetime import UTC, datetime
 
 import pytest
 
-from scripts import repair_paris_result_methods as repair
-from app.modules.missions.application.bout_evaluation import BoutResultMissionEvaluator, EvaluateBoutResultCommand
+from app.modules.missions.application.bout_evaluation import (
+    BoutResultMissionEvaluator,
+    EvaluateBoutResultCommand,
+)
 from app.modules.missions.catalog import load_card_catalog
 from app.modules.missions.indexes import apply_mission_indexes
-from tests.integration.test_bout_mission_evaluation import canonical_bout, canonical_slot, assignment
+from scripts import repair_paris_result_methods as repair
+from tests.integration.test_bout_mission_evaluation import (
+    assignment,
+    canonical_bout,
+    canonical_slot,
+)
 
 
 @pytest.mark.asyncio

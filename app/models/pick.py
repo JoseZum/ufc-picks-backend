@@ -7,7 +7,7 @@ y los corners (red/blue) cambian.
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,12 +28,12 @@ class Pick(BaseModel):
     # B-009: identidad estable resuelta desde `bout.card_data_v1.fighters`.
     # Nullable porque los picks legacy sólo guardaron el nombre; la evaluación
     # prefiere el ID y usa el nombre sólo como compatibilidad fail-closed.
-    picked_fighter_id: Optional[str] = None
+    picked_fighter_id: str | None = None
 
     picked_method: VictoryMethod
-    picked_round: Optional[int] = None  # 1-5, only if method != DEC
+    picked_round: int | None = None  # 1-5, only if method != DEC
 
-    is_correct: Optional[bool] = None
+    is_correct: bool | None = None
     points_awarded: int = 0
 
     locked: bool = False
@@ -41,7 +41,7 @@ class Pick(BaseModel):
     mission_field_locks: dict[str, list[str]] = Field(default_factory=dict)
 
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     class Config:
         populate_by_name = True
@@ -54,7 +54,7 @@ class PickCreate(BaseModel):
     bout_id: int
     picked_fighter_name: str  # Nombre del peleador, NO corner
     picked_method: VictoryMethod
-    picked_round: Optional[int] = Field(None, ge=1, le=5)
+    picked_round: int | None = Field(None, ge=1, le=5)
 
 
 class PickResponse(BaseModel):
@@ -64,10 +64,10 @@ class PickResponse(BaseModel):
     bout_id: int
     event_id: int
     picked_fighter_name: str  # Nombre del peleador
-    picked_fighter_id: Optional[str] = None
+    picked_fighter_id: str | None = None
     picked_method: VictoryMethod
-    picked_round: Optional[int] = None
-    is_correct: Optional[bool] = None
+    picked_round: int | None = None
+    is_correct: bool | None = None
     points_awarded: int = 0
     locked: bool = False
     created_at: datetime

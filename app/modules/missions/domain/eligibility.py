@@ -110,7 +110,7 @@ def card_revision_of(event: dict) -> int:
     )
 
 
-def frozen_card_facts(event: dict, bouts: "Iterable[dict]") -> "FrozenCardFacts":
+def frozen_card_facts(event: dict, bouts: Iterable[dict]) -> FrozenCardFacts:
     """The card as the offer layer sees it.
 
     Shared rather than duplicated because two callers derive it: the read model
@@ -149,7 +149,7 @@ def frozen_card_facts(event: dict, bouts: "Iterable[dict]") -> "FrozenCardFacts"
 
 
 def canonical_eligible_bout_count(
-    event: dict, bouts: "Iterable[dict]"
+    event: dict, bouts: Iterable[dict]
 ) -> int | None:
     """The denominator every card-prop target is measured against.
 

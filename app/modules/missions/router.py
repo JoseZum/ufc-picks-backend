@@ -124,7 +124,7 @@ async def public_mission_profile(
     service = MissionReadService(db, offer_secret=_offer_secret())
     full = await service.profile(user_id=user_id)
 
-    settled = [row for row in full.history]
+    settled = list(full.history)
     completed = [row for row in settled if row.status == "COMPLETED"]
     return PublicMissionProfileResponse(
         user_id=user_id,

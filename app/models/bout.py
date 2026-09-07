@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -8,53 +7,53 @@ class FighterSnapshot(BaseModel):
     """Snapshot histórico del estado del peleador en una pelea específica"""
 
     fighter_name: str
-    corner: Optional[str] = None  # red | blue
+    corner: str | None = None  # red | blue
 
     # Rankings
-    ranking: Optional[dict] = None
-    ufc_ranking: Optional[dict] = None  # {"position": 1, "division": "Featherweight"}
+    ranking: dict | None = None
+    ufc_ranking: dict | None = None  # {"position": 1, "division": "Featherweight"}
 
     # Records
-    record_at_fight: Optional[dict] = None  # wins / losses / draws
+    record_at_fight: dict | None = None  # wins / losses / draws
     last_fights: list[str] = []
-    last_5_fights: Optional[list[str]] = None  # ["W", "L", "W", "W", "W"]
+    last_5_fights: list[str] | None = None  # ["W", "L", "W", "W", "W"]
 
     # Betting information
-    betting_odds: Optional[dict] = None  # {"line": "-160", "description": "Slight Favorite"}
-    title_status: Optional[str] = None  # "Champion" | "Challenger"
+    betting_odds: dict | None = None  # {"line": "-160", "description": "Slight Favorite"}
+    title_status: str | None = None  # "Champion" | "Challenger"
 
     # Personal information
-    nationality: Optional[str] = None
-    fighting_out_of: Optional[str] = None
-    nickname: Optional[str] = None
+    nationality: str | None = None
+    fighting_out_of: str | None = None
+    nickname: str | None = None
 
     # Physical stats
-    age_at_fight_years: Optional[int] = None
-    age_at_fight: Optional[dict] = None  # {"years": 37, "months": 4, "days": 2}
-    height_cm: Optional[int] = None
-    height: Optional[dict] = None  # {"feet": 5, "inches": 6, "cm": 168}
-    reach_cm: Optional[int] = None
-    reach: Optional[dict] = None  # {"inches": 71.5, "cm": 182}
-    latest_weight: Optional[dict] = None  # {"lbs": 145.0, "kgs": 65.8}
+    age_at_fight_years: int | None = None
+    age_at_fight: dict | None = None  # {"years": 37, "months": 4, "days": 2}
+    height_cm: int | None = None
+    height: dict | None = None  # {"feet": 5, "inches": 6, "cm": 168}
+    reach_cm: int | None = None
+    reach: dict | None = None  # {"inches": 71.5, "cm": 182}
+    latest_weight: dict | None = None  # {"lbs": 145.0, "kgs": 65.8}
 
     # Training
-    gym: Optional[dict] = None  # {"primary": "Tiger Muay Thai", "other": ["Freestyle Fighting Gym"]}
+    gym: dict | None = None  # {"primary": "Tiger Muay Thai", "other": ["Freestyle Fighting Gym"]}
 
     # ESPN enrichment
-    espn_id: Optional[str] = None
-    espn_url: Optional[str] = None
-    espn_headshot_url: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    stance: Optional[str] = None
-    weight_class: Optional[str] = None
-    career_stats: Optional[dict] = None
-    image_source: Optional[str] = None
+    espn_id: str | None = None
+    espn_url: str | None = None
+    espn_headshot_url: str | None = None
+    date_of_birth: date | None = None
+    stance: str | None = None
+    weight_class: str | None = None
+    career_stats: dict | None = None
+    image_source: str | None = None
 
     # Tapology data for images
-    tapology_id: Optional[str] = None
-    tapology_url: Optional[str] = None
-    profile_image_url: Optional[str] = None  # /proxy/tapology/... path for nginx
-    image_key: Optional[str] = None  # S3 key for fighter image (e.g., "fighters/12345.jpg")
+    tapology_id: str | None = None
+    tapology_url: str | None = None
+    profile_image_url: str | None = None  # /proxy/tapology/... path for nginx
+    image_key: str | None = None  # S3 key for fighter image (e.g., "fighters/12345.jpg")
 
     class Config:
         populate_by_name = True
@@ -67,38 +66,38 @@ class Bout(BaseModel):
     event_id: int
 
     # These fields are Optional to handle legacy documents that may not have them
-    source: Optional[str] = None
-    url: Optional[str] = None
-    slug: Optional[str] = None
-    espn_competition_id: Optional[str] = None
-    espn_match_number: Optional[int] = None
-    espn_card_segment: Optional[str] = None
+    source: str | None = None
+    url: str | None = None
+    slug: str | None = None
+    espn_competition_id: str | None = None
+    espn_match_number: int | None = None
+    espn_card_segment: str | None = None
 
-    weight_class: Optional[str] = None
-    gender: Optional[str] = "male"
+    weight_class: str | None = None
+    gender: str | None = "male"
 
-    rounds_scheduled: Optional[int] = 3
+    rounds_scheduled: int | None = 3
     is_title_fight: bool = False
     is_bmf_title_fight: bool = False  # Pelea por el cinturón BMF (tratamiento plateado)
     is_main_event: bool = False  # La pelea principal del evento (5 rounds)
     is_co_main_event: bool = False
-    card_section: Optional[str] = None
-    card_order: Optional[int] = None
-    order_overall: Optional[int] = None
-    order_section: Optional[int] = None
+    card_section: str | None = None
+    card_order: int | None = None
+    order_overall: int | None = None
+    order_section: int | None = None
 
     status: str = "scheduled"  # scheduled | completed
 
     fighters: dict[str, FighterSnapshot] = {}  # {"red": ..., "blue": ...}
 
-    result: Optional[dict] = None
+    result: dict | None = None
 
     picks_locked: bool = False  # Admin puede lockear picks para esta pelea
-    picks_lock_override: Optional[str] = None  # locked | unlocked | None
-    automatic_lock_time_utc: Optional[datetime] = None
+    picks_lock_override: str | None = None  # locked | unlocked | None
+    automatic_lock_time_utc: datetime | None = None
 
-    scraped_at: Optional[datetime] = None
-    last_updated: Optional[datetime] = None
+    scraped_at: datetime | None = None
+    last_updated: datetime | None = None
 
     @field_validator(
         "is_title_fight",

@@ -28,7 +28,6 @@ from app.modules.missions.contracts import (
     StreakCardView,
 )
 from app.modules.missions.domain.definitions import (
-    CardCapability,
     CardPropTargetSource,
 )
 from app.modules.missions.domain.eligibility import (

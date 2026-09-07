@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pytest
 
@@ -15,7 +15,7 @@ async def test_locked_pick_stays_private_until_result(
         {
             "_id": user_id,
             "name": "Public User",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
     )
     await test_db["events"].insert_one(sample_event_data)
@@ -32,7 +32,7 @@ async def test_locked_pick_stays_private_until_result(
             "is_correct": None,
             "points_awarded": 0,
             "locked": True,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
     )
 

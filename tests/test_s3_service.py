@@ -7,9 +7,11 @@ Estos tests validan que el servicio S3 funcione correctamente:
 - Manejo de modos (s3 vs cache)
 """
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from app.services.s3_service import S3Service, S3NotConfiguredError, S3WriteNotAllowedError
+
+from app.services.s3_service import S3NotConfiguredError, S3Service, S3WriteNotAllowedError
 
 
 class TestS3Service:

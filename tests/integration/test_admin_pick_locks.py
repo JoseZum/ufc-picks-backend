@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pytest
 
@@ -14,8 +14,8 @@ async def admin_headers(test_db) -> dict[str, str]:
             "google_id": user_id,
             "email": email,
             "name": "Admin",
-            "created_at": datetime.now(timezone.utc),
-            "last_login_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "last_login_at": datetime.now(UTC),
             "is_active": True,
             "is_admin": True,
         }
@@ -96,7 +96,7 @@ async def test_full_event_unlock_preserves_individual_bout_lock(
             "picked_fighter_name": "Test Fighter 1",
             "picked_method": "DEC",
             "locked": True,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
     )
 

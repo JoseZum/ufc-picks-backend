@@ -2,14 +2,15 @@
 Pytest fixtures and configuration for all tests.
 """
 
-import pytest
 import asyncio
 import os
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
+from datetime import UTC, datetime, timedelta, timezone
+
+import pytest
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ServerSelectionTimeoutError
-from datetime import datetime, timedelta, timezone
 
 # MongoDB test database
 TEST_DB_URI = "mongodb://localhost:27017"
@@ -119,11 +120,11 @@ def sample_user_data():
 @pytest.fixture
 def sample_event_data():
     """Sample event data for testing."""
-    future_event_day = (datetime.now(timezone.utc) + timedelta(days=14)).date()
+    future_event_day = (datetime.now(UTC) + timedelta(days=14)).date()
     future_event_date = datetime.combine(
         future_event_day,
         datetime.min.time(),
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     return {
@@ -149,8 +150,8 @@ def sample_event_data():
         "poster_image_source": "wikipedia_source",
         "hero_image_url": "https://ufc.com/images/styles/background_image_xl_2x/s3/event-art.jpg",
         "hero_image_source": "ufc_official_xl_2x",
-        "scraped_at": datetime.now(timezone.utc),
-        "last_updated": datetime.now(timezone.utc)
+        "scraped_at": datetime.now(UTC),
+        "last_updated": datetime.now(UTC)
     }
 
 
@@ -195,8 +196,8 @@ def sample_bout_data():
             }
         },
         "result": None,
-        "scraped_at": datetime.now(timezone.utc),
-        "last_updated": datetime.now(timezone.utc)
+        "scraped_at": datetime.now(UTC),
+        "last_updated": datetime.now(UTC)
     }
 
 
