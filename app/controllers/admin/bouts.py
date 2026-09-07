@@ -33,18 +33,10 @@ async def cancel_bout(
     admin: CurrentAdmin,
     db: Database
 ):
-    """
-    Cancel a bout and delete all associated picks.
-
-    This:
-    1. Marks the bout as cancelled
-    2. Reverts any points already assigned
-    3. Deletes all picks for this bout
-    4. Recalculates stats for affected users
+    """Cancela una pelea: revierte puntos, borra sus picks y recalcula stats.
 
     Solo administradores.
     """
-    # Verify bout exists
     bout = await get_bout_or_404(db, bout_id)
 
     # Get affected users before deleting picks
@@ -66,15 +58,10 @@ async def cancel_bout(
         {"id": bout_id},
         {"$set": {"status": "cancelled"}}
     )
-    # El motor de misiones lee `card_data_v1.status`, no el `status` legacy
-    # (`bout_evaluation._bout_snapshot` prefiere el sidecar). Sin esto el bout
-    # sigue contando como `surviving` y `_finalize_if_complete` ve una pelea sin
-    # resultado, asi que la card no finaliza y las misiones nunca pagan XP hasta
-    # que el reconciliador converja en la siguiente pasada.
-    #
-    # El filtro por `$exists` no es opcional: crear el sidecar aqui haria que un
-    # bout legacy pase a "pertenecer a la card" (`_belongs_to_the_card`) con una
-    # proyeccion invalida, y eso revienta la evaluacion de la card entera.
+    # El motor lee `card_data_v1.status`, no el `status` legacy: sin esto la
+    # pelea sigue contando como viva y la card nunca finaliza ni paga XP.
+    # El `$exists` es obligatorio: crear el sidecar aqui metería un bout legacy
+    # en la card con una proyección inválida y rompería su evaluación entera.
     await db["bouts"].update_one(
         {"id": bout_id, "card_data_v1": {"$exists": True}},
         {"$set": {"card_data_v1.status": "cancelled"}}
@@ -131,20 +118,11 @@ async def delete_bout(
     admin: CurrentAdmin,
     db: Database
 ):
-    """
-    Eliminar una pelea por completo de la base de datos.
-
-    A diferencia de cancel, esto:
-    1. Revierte puntos si la pelea tenía resultado
-    2. Elimina todos los picks asociados
-    3. Elimina el event_card_slot correspondiente
-    4. Elimina el bout de la colección
-    5. Actualiza el total_bouts del evento
-    6. Recalcula stats de usuarios afectados
+    """Borra la pelea de verdad, no la cancela: se van también sus picks, su
+    slot y su cuenta en el evento, y se recalculan las stats afectadas.
 
     Solo administradores.
     """
-    # Verificar que el bout existe
     bout = await get_bout_or_404(db, bout_id)
 
     event_id = bout.get("event_id")
@@ -268,14 +246,12 @@ async def update_bout_details(
         if result.modified_count > 0:
             updated_fields.extend(list(bout_update.keys()))
 
-        # D-DATA-010: Admin es la unica autoridad sobre los campos de titulo y
-        # tanto `true` como `false` son decisiones duraderas.
-        #
-        # Se registran dos cosas distintas a proposito. La evidencia en el
-        # sidecar protege frente a los writers legacy de Tapology, que leen el
-        # documento del bout. El comando persistido protege frente a la frontera
-        # canonica, que reconstruye el snapshot desde observaciones y no mira ese
-        # sidecar: sin el, la siguiente pasada de ESPN revierte la decision.
+        # D-DATA-010: Admin manda sobre los campos de título, y tanto `true`
+        # como `false` son decisiones duraderas. Se guardan dos cosas a
+        # propósito: la evidencia del sidecar frena a los writers legacy de
+        # Tapology, y el comando persistido frena a la frontera canónica, que
+        # reconstruye desde observaciones y si no revertiría en la pasada
+        # siguiente de ESPN.
         actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
         await record_admin_field_overrides(
             db, bout_id=bout_id, fields=bout_update, actor_id=actor_id
@@ -308,19 +284,13 @@ async def update_bout_details(
         if result.modified_count > 0:
             updated_fields.extend(list(slot_update.keys()))
 
-        # B-011 SIGUE ABIERTO para la estructura de la card, deliberadamente.
-        #
-        # `event_card_slots` es propiedad exclusiva del reconciler, asi que este
-        # `$set` se recalcula en la siguiente pasada. Emitir un comando
-        # `bout_structure` NO lo arregla hoy: a diferencia de las senales de
-        # titulo (que ESPN manda a `title_suggestions` como advisory), ESPN
-        # emite `card_section` como hecho, de modo que el override de Admin lo
-        # contradice en cada pasada y el plan sale con `safe_to_apply=false` y
-        # cuarentenas, sin converger nunca en el replay.
-        #
-        # Conectar el comando aqui cambiaria un fallo silencioso por uno ruidoso
-        # que ademas bloquea la card entera. Requiere una decision sobre la
-        # convergencia Admin-vs-ESPN en la frontera antes de habilitarse.
+        # B-011 queda abierto a propósito para la estructura de la card. Este
+        # `$set` lo pisa el reconciler, dueño de `event_card_slots`. Emitir un
+        # comando `bout_structure` no lo arregla: ESPN manda `card_section`
+        # como hecho (no advisory como el título), así el override contradice
+        # cada pasada y el plan sale con `safe_to_apply=false` sin converger.
+        # Cambiaría un fallo silencioso por uno que bloquea la card entera:
+        # antes hay que decidir cómo convergen Admin y ESPN en la frontera.
 
     return {
         "success": True,

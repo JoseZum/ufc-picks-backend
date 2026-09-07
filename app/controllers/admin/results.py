@@ -87,17 +87,10 @@ async def update_bout_result(
     admin: CurrentAdmin,
     db: Database
 ):
-    """
-    Registrar resultado de pelea y calcular puntos automáticamente.
-    Solo administradores.
+    """Registra el resultado y reparte puntos a todos los picks de la pelea.
 
-    Esto:
-    1. Actualiza el resultado del bout
-    2. Marca el bout como completado
-    3. Calcula y asigna puntos a todos los usuarios con picks
-    4. Actualiza leaderboards automáticamente
+    Solo administradores.
     """
-    # Verificar que el bout existe
     bout = await get_bout_or_404(db, bout_id)
 
     # Validar winner
@@ -258,14 +251,9 @@ async def recalculate_all_user_stats(
     admin: CurrentAdmin,
     db: Database
 ):
+    """Recalcula las stats de todos los usuarios. Tarda, úsalo solo para
+    reparar inconsistencias. Solo administradores.
     """
-    Recalcular las estadísticas de TODOS los usuarios.
-    Útil para migración inicial o cuando se detectan inconsistencias.
-
-    ADVERTENCIA: Este endpoint puede tardar en ejecutarse si hay muchos usuarios.
-    Solo administradores.
-    """
-    # Obtener todos los usuarios
     users_cursor = db["users"].find({})
     users = await users_cursor.to_list(length=None)
 
