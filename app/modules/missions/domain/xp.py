@@ -1,4 +1,4 @@
-"""Append-only XP ledger command and entry values."""
+"""Comandos y entradas del ledger de XP, que es append only."""
 
 from __future__ import annotations
 

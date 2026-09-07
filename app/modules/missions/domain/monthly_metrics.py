@@ -1,8 +1,8 @@
-"""Month-scoped metrics over per-event summaries.
+"""Métricas mensuales sobre resúmenes por evento.
 
-A month is evaluated from one immutable summary per event that finished inside it.
-Keeping the summary as the unit means a correction re-summarizes a single event and
-the month recomputes deterministically, instead of replaying every pick again.
+Un mes se evalúa a partir de un resumen inmutable por evento terminado. Con
+esa unidad, una corrección solo re-resume un evento y el mes recalcula
+determinista, sin tener que repasar cada pick de nuevo.
 """
 
 from __future__ import annotations
@@ -41,11 +41,11 @@ class MonthlyMetricModel(BaseModel):
 
 
 class MonthlyEventSummary(MonthlyMetricModel):
-    """What one finished event contributed to one user's month."""
+    """Lo que un evento terminado aportó al mes de un usuario."""
 
     event_id: int = Field(gt=0)
     month_key: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
-    #: Bumped whenever the event is re-summarized after a result correction.
+    #: Sube cada vez que el evento se re-resume tras una corrección de resultado.
     summary_revision: int = Field(default=1, ge=1)
 
     resolved_bouts: int = Field(default=0, ge=0)
@@ -85,7 +85,7 @@ class MonthlyEvaluationContext(MonthlyMetricModel):
     user_id: str = Field(min_length=1)
     parameters: dict[str, int]
     events: tuple[MonthlyEventSummary, ...] = ()
-    #: A month only settles when its configuration closes.
+    #: El mes solo liquida cuando su configuración cierra.
     month_closed: bool = False
 
     @model_validator(mode="after")
@@ -275,13 +275,13 @@ def effective_target(
     definition: MonthlyMissionDefinition,
     parameters: Mapping[str, int],
 ) -> float | None:
-    """The numeric threshold the comparator uses, in the comparator's own units."""
+    """El umbral numérico que usa el comparador, en sus propias unidades."""
     key = definition.evaluation.target_parameter
     if key is None:
         return None
     value = parameters[key]
     if definition.parameter(key).kind == MonthlyParameterKind.PERCENT:
-        # RATIO_GTE compares a 0..1 ratio; the Admin types a percentage.
+        # RATIO_GTE compara un ratio 0..1; el Admin escribe un porcentaje.
         return value / 100
     return value
 
@@ -315,7 +315,7 @@ def resolve_monthly_observation(
     observation: MetricObservation,
     parameters: Mapping[str, int],
 ) -> MetricResolution:
-    """Assess a monthly observation and render its reviewed progress copy."""
+    """Evalúa una observación mensual y arma su texto de progreso revisado."""
     target = effective_target(definition, parameters)
     spec = MissionEvaluationSpec(
         metric=definition.evaluation.metric,
@@ -329,8 +329,8 @@ def resolve_monthly_observation(
         status = MetricResolutionStatus.COMPLETED
         reason = MetricResolutionReason.TERMINAL_MATCH
     elif assessment.matched and definition.evaluation.comparator == MetricComparator.GTE:
-        # A cumulative count can never fall back below its threshold on its own,
-        # so a reached target settles immediately instead of waiting for month end.
+        # Un conteo acumulado nunca baja solo del umbral, así que al alcanzarlo
+        # liquida de inmediato en vez de esperar a que cierre el mes.
         status = MetricResolutionStatus.COMPLETED
         reason = MetricResolutionReason.THRESHOLD_REACHED
     elif observation.terminal:

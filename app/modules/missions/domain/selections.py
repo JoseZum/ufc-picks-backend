@@ -1,4 +1,4 @@
-"""Mission-selection command payloads."""
+"""Payloads del comando de selección de misión."""
 
 from __future__ import annotations
 

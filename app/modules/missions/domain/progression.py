@@ -1,4 +1,4 @@
-"""Selected XP curve and visual title projection."""
+"""Curva de XP elegida y proyección del título visual."""
 
 from __future__ import annotations
 

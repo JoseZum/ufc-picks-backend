@@ -1,4 +1,4 @@
-"""Pure metric registry over normalized mission-evaluation snapshots."""
+"""Registro puro de métricas sobre snapshots normalizados de evaluación."""
 
 from __future__ import annotations
 
@@ -1147,9 +1147,8 @@ def _wrong_winner_count(request, context):
     pairs = _pick_pairs(context, bouts)
     wrong = sum(not _winner_correct(bout, pick) for bout, pick in pairs)
     if _bool_parameter(request, "require_full_card", default=False):
-        # A bout the user never picked counts as a miss, but only once it has
-        # actually produced a winner. Counting still-scheduled bouts here would
-        # make a full-card mission look irreversibly failed before the card runs.
+        # Un bout nunca pickeado cuenta como fallo, pero solo si ya tiene
+        # ganador; si no, una misión de card completa parecería fallida antes de correr.
         picked = {pick.bout_id for _, pick in pairs}
         decided = {
             bout.bout_id

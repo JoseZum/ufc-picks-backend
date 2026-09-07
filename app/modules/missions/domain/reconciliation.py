@@ -1,8 +1,8 @@
-"""Pure, content-addressed reconciliation previews for mission state.
+"""Previews de reconciliación puros y direccionados por contenido.
 
-This module deliberately has no persistence adapter. Evaluators provide desired
-state, the planner compares only explicitly owned fields, and later Admin/API
-tasks may decide whether and how a reviewed plan can be applied.
+Sin adaptador de persistencia a propósito: los evaluadores dan el estado
+deseado, el planner solo compara campos explícitamente propios, y Admin/API
+deciden después si y cómo aplicar un plan ya revisado.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ MISSING_VALUE = {"$mission_missing": True}
 
 
 class ReconciliationInputError(ValueError):
-    """Raised when a preview could silently own or remove the wrong state."""
+    """Se lanza si un preview pudiera adueñarse o borrar el estado equivocado."""
 
 
 class ReconciliationEntityType(StringEnum):
@@ -204,7 +204,7 @@ def build_reconciliation_preview(
     candidates: Sequence[ReconciliationCandidate],
     blockers: Sequence[ReconciliationBlocker] = (),
 ) -> MissionReconciliationPreview:
-    """Build a deterministic no-write plan over explicitly owned fields."""
+    """Arma un plan determinista, sin escritura, sobre campos propios explícitos."""
 
     keys = [
         _entity_key(candidate.entity_type, candidate.entity_id)

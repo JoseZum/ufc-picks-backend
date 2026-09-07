@@ -1,4 +1,4 @@
-"""Frozen-card eligibility and offer-overlap policies."""
+"""Elegibilidad de la card congelada y políticas de solapamiento de ofertas."""
 
 from __future__ import annotations
 
@@ -50,16 +50,10 @@ class FrozenCardFacts:
 
     @property
     def offer_fingerprint(self) -> str:
-        """Everything that decides *which* missions this card can offer.
+        """Todo lo que decide QUÉ misiones puede ofrecer esta card.
 
-        `card_revision` is deliberately excluded. It advances on any structural
-        change at all, ESPN reordering two prelims moves `order_overall` and
-        bumps it, while none of that changes which missions are eligible.
-        Keying offers on the revision therefore redrew a user's missions for
-        purely cosmetic edits, which is the opposite of what INT-001 promises
-        ("offers persist so refresh never rerolls"). These counts and
-        capabilities are the real inputs to `eligible_definitions`, so two
-        revisions that agree here must keep the same draw.
+        Excluye `card_revision` a propósito: usarla como key redibujaría
+        las misiones por un cambio cosmético, rompiendo INT-001.
         """
         payload = "\x1f".join(
             (
@@ -75,7 +69,7 @@ class FrozenCardFacts:
 
 
 def bout_is_live(bout: dict) -> bool:
-    """A bout the card still counts: not cancelled, postponed or replaced."""
+    """Un bout que la card sigue contando: no cancelado, pospuesto ni reemplazado."""
     sidecar = bout.get("card_data_v1") or {}
     lifecycle = str(sidecar.get("lifecycle") or "").upper()
     if lifecycle:
@@ -100,7 +94,7 @@ def bout_is_title(bout: dict) -> bool:
 
 
 def card_revision_of(event: dict) -> int:
-    """Legacy events carry no revision at all; 1 keeps every caller in step."""
+    """Los eventos legacy no traen revisión; 1 mantiene a todos sincronizados."""
     sidecar = event.get("card_data_v1") or {}
     return int(
         sidecar.get(
@@ -111,12 +105,10 @@ def card_revision_of(event: dict) -> int:
 
 
 def frozen_card_facts(event: dict, bouts: Iterable[dict]) -> FrozenCardFacts:
-    """The card as the offer layer sees it.
+    """La card tal como la ve la capa de ofertas.
 
-    Shared rather than duplicated because two callers derive it: the read model
-    draws offers from these facts, and selection re-derives them to check the
-    offer is still valid. When selection counted differently the two disagreed,
-    and a user was told their card had changed when it had not.
+    Compartida y no duplicada: el read model y selección la derivan igual,
+    si contaran distinto se le decía al usuario que su card cambió sin ser cierto.
     """
     live = [bout for bout in bouts if bout_is_live(bout)]
     sections = [bout_section(bout) for bout in live]
@@ -151,13 +143,10 @@ def frozen_card_facts(event: dict, bouts: Iterable[dict]) -> FrozenCardFacts:
 def canonical_eligible_bout_count(
     event: dict, bouts: Iterable[dict]
 ) -> int | None:
-    """The denominator every card-prop target is measured against.
+    """El denominador contra el que se mide todo target de card prop.
 
-    Selection freezes a prop's target from this number, and the offer has to
-    display the same one, a card prop that advertises "≥5 finishes" and then
-    stores a target of 6 is a broken promise, so both paths read it here rather
-    than each counting bouts their own way. `None` means the card has no
-    canonical count yet; callers decide whether that is fatal.
+    Selección y oferta lo leen del mismo lugar para no prometer un número
+    distinto del guardado. `None` si la card aún no tiene conteo canónico.
     """
     sidecar = event.get("card_data_v1") or {}
     eligibility = sidecar.get("current_eligibility") or {}
@@ -203,7 +192,7 @@ class OverlapDecision:
 
 @dataclass(frozen=True)
 class MissionOverlapPolicy:
-    """Two offers conflict when they share more than the allowed tag budget."""
+    """Dos ofertas chocan si comparten más tags de los que el presupuesto permite."""
 
     max_shared_tags: int = 1
 

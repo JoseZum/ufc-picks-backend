@@ -1,4 +1,4 @@
-"""Pure mission domain types and rules."""
+"""Tipos y reglas puras del dominio de misiones."""
 
 from app.modules.missions.domain.catalog import (
     MissionCatalog,

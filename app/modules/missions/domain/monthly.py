@@ -1,8 +1,8 @@
-"""Monthly mission definitions and the Admin-owned monthly configuration.
+"""Definiciones de misión mensual y la configuración admin de cada mes.
 
-A month has exactly one global mission (D-PROD-010). The definition is versioned
-content; the configuration is the Admin's parameter choice for one concrete month
-and freezes as soon as that month starts.
+Un mes tiene exactamente una misión global (D-PROD-010). La definición es
+contenido versionado; la configuración es la elección de parámetros del
+Admin para un mes concreto, y se congela apenas ese mes arranca.
 """
 
 from __future__ import annotations
@@ -32,11 +32,11 @@ from app.modules.missions.domain.enums import MonthlyConfigState, StringEnum
 
 MONTH_KEY_PATTERN = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
 
-#: D-PROD-010, the monthly programme starts in August 2026. Earlier months are
-#: not configurable, so a mistyped month cannot silently create back-dated state.
+#: D-PROD-010: el programa mensual arranca en agosto 2026. Meses anteriores
+#: no son configurables, así un mes mal tecleado no crea estado retroactivo.
 FIRST_MONTHLY_MONTH_KEY = "2026-08"
 
-#: D-PROD-010, every monthly mission is worth exactly 15 XP.
+#: D-PROD-010: toda misión mensual vale exactamente 15 XP.
 MONTHLY_MISSION_XP = 15
 
 
@@ -50,7 +50,7 @@ class MonthlyParameterKind(StringEnum):
 
 
 class MonthlyAdminParameter(MonthlyModel):
-    """One value the Admin fixes before the month starts."""
+    """Un valor que el Admin fija antes de que el mes empiece."""
 
     key: str = Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=40)
     label: str = Field(min_length=1, max_length=60)
@@ -75,9 +75,8 @@ class MonthlyAdminParameter(MonthlyModel):
 class MonthlyEvaluationSpec(MonthlyModel):
     metric: str = Field(pattern=r"^monthly_[a-z][a-z0-9_]*$")
     comparator: MetricComparator
-    #: Which admin parameter supplies the threshold this comparator comes up against.
-    #: ``ALL`` missions compare several sub-goals at once and read every parameter,
-    #: so they intentionally name none.
+    #: Qué parámetro admin da el umbral de comparación. Las misiones ``ALL``
+    #: leen todos los parámetros a la vez, por eso no nombran ninguno.
     target_parameter: str | None = Field(
         default=None, pattern=r"^[a-z][a-z0-9_]*$", max_length=40
     )
@@ -164,7 +163,7 @@ class MonthlyMissionDefinition(MonthlyModel):
         }
 
     def validate_admin_parameters(self, values: dict[str, int]) -> dict[str, int]:
-        """Return the exact, bounded parameter set for this definition."""
+        """El set de parámetros exacto y acotado para esta definición."""
         expected = {parameter.key for parameter in self.admin_parameters}
         provided = set(values)
         if missing := sorted(expected - provided):
@@ -213,7 +212,7 @@ class MonthlyConfigError(ValueError):
 
 
 class MonthlyMissionConfig(BaseModel):
-    """One month's Admin decision, persisted in ``mission_monthly_configs``."""
+    """La decisión Admin de un mes, persistida en ``mission_monthly_configs``."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -241,7 +240,7 @@ class MonthlyMissionConfig(BaseModel):
     )
     @classmethod
     def normalize_datetime(cls, value: datetime | None) -> datetime | None:
-        # Mongo hands these back naive; the domain always reasons in aware UTC.
+        # Mongo los devuelve naive; el dominio siempre razona en UTC aware.
         if value is None:
             return None
         if value.tzinfo is None:
@@ -262,7 +261,7 @@ class MonthlyMissionConfig(BaseModel):
 
 
 def month_bounds(month_key: str) -> tuple[datetime, datetime]:
-    """Return the half-open UTC window ``[start, end)`` for ``YYYY-MM``."""
+    """La ventana UTC semiabierta ``[start, end)`` para ``YYYY-MM``."""
     if not re.fullmatch(MONTH_KEY_PATTERN, month_key):
         raise MonthlyConfigError(
             MonthlyConfigErrorCode.INVALID_MONTH,
@@ -281,7 +280,7 @@ def month_bounds(month_key: str) -> tuple[datetime, datetime]:
 
 
 def month_key_for(moment: datetime) -> str:
-    """The month a moment belongs to, always evaluated in UTC."""
+    """El mes al que pertenece un instante, siempre evaluado en UTC."""
     if moment.tzinfo is None:
         raise ValueError("month resolution requires an aware datetime")
     utc = moment.astimezone(UTC)

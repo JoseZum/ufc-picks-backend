@@ -1,12 +1,9 @@
-"""The single Card Streak (STREAK-001).
+"""El único Card Streak (STREAK-001), uno por usuario, estilo Duolingo.
 
-One streak per user, Duolingo-style: a card advances it when the user picked a
-winner in *more than* half of the card's active bouts before picks closed. There
-is no Freeze, grace period, comeback or alternate streak, a covered card
-advances, an uncovered one breaks it, and that is the whole rule.
-
-The reviewed reward curve is +1 XP per completed card plus a milestone bonus at
-3, 5, 10 and every 5 thereafter.
+Una card avanza el streak si el usuario acertó el ganador en más de la mitad
+de los bouts activos antes del cierre de picks. No hay Freeze, gracia ni
+streak alterno: cubierta avanza, no cubierta rompe. Recompensa: +1 XP por
+card más bono de hito en 3, 5, 10 y cada 5 en adelante.
 """
 
 from __future__ import annotations
@@ -15,21 +12,21 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.modules.missions.domain.enums import StringEnum
 
-#: XP every completed card is worth, independent of milestones.
+#: XP que vale cada card completada, aparte de los hitos.
 CARD_STREAK_XP = 1
 
 
 class CardStreakOutcome(StringEnum):
     ADVANCED = "ADVANCED"
     BROKEN = "BROKEN"
-    #: Covered too little, but there was no streak to break.
+    #: Cobertura insuficiente, pero no había streak que romper.
     UNCHANGED = "UNCHANGED"
-    #: The card had no active bouts at all, so it neither advances nor breaks.
+    #: La card no tenía bouts activos, así que ni avanza ni rompe.
     NOT_ELIGIBLE = "NOT_ELIGIBLE"
 
 
 def milestone_bonus(streak_length: int) -> int | None:
-    """The reviewed milestone curve: 3 (+2), 5 (+3), 10 (+5), then every 5 (+3)."""
+    """Curva de hitos: 3 (+2), 5 (+3), 10 (+5), luego cada 5 (+3)."""
     if streak_length == 3:
         return 2
     if streak_length == 5:
@@ -42,10 +39,10 @@ def milestone_bonus(streak_length: int) -> int | None:
 
 
 def next_milestone(current: int) -> tuple[int, int]:
-    """The next streak length that pays a bonus, and what it pays.
+    """Próxima longitud de streak que paga bono, y cuánto paga.
 
-    Resolved here rather than in React so the surface renders a finished string
-    and never re-derives the reward curve (D-ARCH-011).
+    Se resuelve aquí y no en React para que la UI solo renderice el string
+    final, sin re-derivar la curva de recompensa (D-ARCH-011).
     """
     candidate = current + 1
     while True:
@@ -56,14 +53,14 @@ def next_milestone(current: int) -> tuple[int, int]:
 
 
 def covers_card(*, picked: int, denominator: int) -> bool:
-    """More than half, an exact 50% split does not complete the card."""
+    """Más de la mitad: un empate exacto al 50% no completa la card."""
     if denominator <= 0:
         return False
     return picked * 2 > denominator
 
 
 class CardStreakDecision(BaseModel):
-    """What one card did to one user's streak, and what it is worth."""
+    """Qué hizo una card al streak de un usuario, y cuánto vale."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -103,14 +100,13 @@ def decide_card_streak(
     picked: int,
     denominator: int,
 ) -> CardStreakDecision:
-    """Apply STREAK-001 to one user on one card.
+    """Aplica STREAK-001 a un usuario en una card.
 
-    `denominator` is the frozen count of active bouts at pick close; `picked` is
-    how many of those the user actually picked. Both are inputs, this function
-    reads no clock and no database, so the same card always decides the same way.
+    `denominator` es el conteo de bouts activos, congelado al cierre de picks.
+    Entrada pura, sin reloj ni DB: la misma card siempre decide igual.
     """
     if denominator <= 0:
-        # A card with nothing to pick is not a card the user can fail.
+        # Una card sin nada que elegir no es una card que el usuario pueda fallar.
         return CardStreakDecision(
             outcome=CardStreakOutcome.NOT_ELIGIBLE,
             denominator=0,

@@ -1,10 +1,10 @@
-"""Stable persisted vocabulary for the mission domain."""
+"""Vocabulario estable y persistido del dominio de misiones."""
 
 from enum import Enum
 
 
 class StringEnum(str, Enum):
-    """Serialize domain enums as stable uppercase strings."""
+    """Serializa los enums de dominio como strings estables en mayúscula."""
 
 
 class MissionDifficulty(StringEnum):

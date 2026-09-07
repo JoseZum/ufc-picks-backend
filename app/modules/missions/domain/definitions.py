@@ -1,7 +1,7 @@
-"""Frozen, discriminated mission-definition schemas.
+"""Esquemas de definición de misión, congelados y discriminados.
 
-Definitions are versioned content. They describe UI, eligibility, evaluation
-and pick synchronization, but never contain mutable user progress.
+Son contenido versionado: describen UI, elegibilidad, evaluación y
+sincronización de picks, pero nunca progreso mutable de usuario.
 """
 
 from __future__ import annotations
@@ -352,9 +352,8 @@ class MissionDefinitionBase(MissionDefinitionModel):
 
     @model_validator(mode="after")
     def validate_reward_and_interaction(self):
-        # Mission IDs are immutable catalog identities. Some reviewed rows were
-        # rebalanced after their IDs were assigned, so the historical E/M/H
-        # segment must never be interpreted as the current difficulty.
+        # El mission_id es identidad inmutable: algunas filas se rebalancearon
+        # después, así que el segmento E/M/H del id nunca es la dificultad actual.
         xp_range = {
             MissionDifficulty.EASY: range(1, 3),
             MissionDifficulty.MEDIUM: range(3, 6),

@@ -1,4 +1,4 @@
-"""Deterministic personalized card-offer generation."""
+"""Generación determinista de ofertas de misiones personalizadas por card."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ OFFER_SLOT_COUNT = 3
 
 
 class OfferGenerationError(ValueError):
-    """The eligible catalog cannot produce a safe three-slot offer set."""
+    """El catálogo elegible no puede producir un set seguro de tres slots."""
 
 
 @dataclass(frozen=True)
@@ -56,9 +56,8 @@ class GeneratedMissionOfferSet:
     user_id: str
     event_id: int
     card_revision: int
-    # The eligibility fingerprint this draw belongs to. `card_revision` is kept
-    # alongside it only to record which revision happened to be current when
-    # the set was first drawn; it never addresses the set.
+    # Fingerprint de elegibilidad al que pertenece este sorteo. `card_revision`
+    # solo queda como registro de qué revisión estaba vigente; no direcciona el set.
     facts_fingerprint: str
     catalog_version: str
     slots: tuple[MissionOfferSlot, MissionOfferSlot, MissionOfferSlot]
@@ -80,7 +79,7 @@ def generated_offer_set_document(
     *,
     created_at: datetime,
 ) -> dict:
-    """Serialize a first draw without mutable definition or progress data."""
+    """Serializa un primer sorteo, sin datos mutables de definición o progreso."""
 
     return {
         "_id": offer_set.offer_set_id,
@@ -188,8 +187,8 @@ def generate_mission_offers(
                 f"{difficulty.value} missions; {OFFER_SLOT_COUNT} are required"
             )
 
-    # Seeded on the eligibility fingerprint, not the card revision: a reorder
-    # that leaves the eligible pool identical must reproduce the same draw.
+    # Semilla con el fingerprint de elegibilidad, no con la revisión: un reorden
+    # que deja el pool elegible igual debe reproducir el mismo sorteo.
     context: tuple[object, ...] = (
         "mission-offers-v1",
         catalog.version,

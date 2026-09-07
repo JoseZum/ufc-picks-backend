@@ -1,7 +1,7 @@
-"""Legal mission lifecycle transitions.
+"""Transiciones legales del ciclo de vida de una misión.
 
-Service-layer guards decide *whether* a requested reopen/correction is timely.
-These functions decide whether that kind of transition exists at all.
+La capa de servicio decide si un reopen o corrección llega a tiempo; estas
+funciones deciden si ese tipo de transición existe siquiera.
 """
 
 from __future__ import annotations
@@ -180,8 +180,8 @@ MONTHLY_PROGRESS_RULES: Mapping[
     ),
     MonthlyProgressStatus.COMPLETED: (
         TransitionRule(
-            # A correction inside a running month takes the user back below the
-            # threshold, not out of the running: the month can still be earned.
+            # Una corrección en un mes en curso baja al usuario del umbral,
+            # no lo saca de la carrera: el mes todavía se puede ganar.
             MonthlyProgressStatus.ACTIVE,
             frozenset({MissionTransitionReason.RESULT_CORRECTION}),
         ),

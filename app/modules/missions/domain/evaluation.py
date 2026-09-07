@@ -1,4 +1,4 @@
-"""Normalized, immutable snapshots consumed by mission metrics."""
+"""Snapshots normalizados e inmutables que consumen las métricas de misiones."""
 
 from __future__ import annotations
 
@@ -128,8 +128,8 @@ class PickEvaluationSnapshot(EvaluationModel):
     def validate_method_round_and_score(self):
         if self.method == WinMethod.DECISION and self.round is not None:
             raise ValueError("decision picks cannot include a round")
-        # Legacy user picks may omit a finish round. Mission-authored picks that
-        # bind ROUND are still required to be complete by the selection service.
+        # Los picks legacy pueden omitir el round; el servicio de selección
+        # sigue exigiendo completo lo que la misión ata a ROUND.
         if (self.points_awarded is None) != (self.score_revision is None):
             raise ValueError("points and score revision must appear together")
         return self

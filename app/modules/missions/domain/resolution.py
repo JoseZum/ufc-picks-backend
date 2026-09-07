@@ -1,4 +1,4 @@
-"""Comparator resolution and safe UI progress formatting."""
+"""Resolución de comparadores y formato seguro de progreso para la UI."""
 
 from __future__ import annotations
 

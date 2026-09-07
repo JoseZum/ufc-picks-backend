@@ -1,4 +1,4 @@
-"""Immutable versioned mission catalog loading."""
+"""Carga del catálogo de misiones, inmutable y versionado."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from app.modules.missions.domain.enums import (
 
 
 class MissionCatalogError(ValueError):
-    """A catalog cannot be used safely as versioned mission content."""
+    """El catálogo no se puede usar de forma segura como contenido versionado."""
 
 
 class MissionCatalog(Sequence[MissionDefinition]):

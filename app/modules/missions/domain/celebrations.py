@@ -1,4 +1,4 @@
-"""Durable celebration commands and queue records."""
+"""Comandos y registros de la cola de celebraciones (persistente)."""
 
 from __future__ import annotations
 

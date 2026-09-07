@@ -1,4 +1,4 @@
-"""Explicit registry for the rare mission rules that metrics cannot express."""
+"""Registro explícito para las reglas raras que las métricas no pueden expresar."""
 
 from __future__ import annotations
 
