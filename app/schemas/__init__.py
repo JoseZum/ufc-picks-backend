@@ -1,0 +1,1 @@
+# Schemas compartidos entre capas.
