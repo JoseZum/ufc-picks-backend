@@ -2,8 +2,7 @@
 
 D-DATA-002 fixes the precedence: ``Admin override > explicit ESPN metadata >
 scraper inference > quarantined fallback``. D-DATA-010 makes Admin the sole
-authority for the title fields, with **both** ``true`` and ``false`` durable —
-removing a title designation is a decision, not an absence of one.
+authority for the title fields, with **both** ``true`` and ``false`` durable, removing a title designation is a decision, not an absence of one.
 
 That only holds if the decision is written down. A bare ``is_title_fight: false``
 on a bout is indistinguishable from a scraper default, so the next Tapology run

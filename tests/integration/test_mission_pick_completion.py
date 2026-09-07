@@ -1,8 +1,8 @@
 """Selecting a pick-coupled mission on a bout the user never picked.
 
 Twenty-one of the eighty-five card missions rewrite the user's canonical picks.
-A canonical pick is only valid when it is complete — winner, method, and a
-round for anything that is not a decision — so a mission that binds a winner
+A canonical pick is only valid when it is complete, winner, method, and a
+round for anything that is not a decision, so a mission that binds a winner
 but leaves the method to the user cannot be written on a bout with no prior
 pick unless the user supplies the rest at selection time.
 
@@ -144,7 +144,7 @@ def selection_for(definition):
     legs = []
     used_methods: set[str] = set()
     for index, leg in enumerate(spec.legs):
-        # A leg the catalog pinned carries NO method in the payload — echoing
+        # A leg the catalog pinned carries NO method in the payload, echoing
         # it back is "Combo leg has a fixed method". Only a leg that OFFERS
         # methods is answered, and `distinct_methods` needs a different one
         # on each leg.
@@ -189,7 +189,7 @@ async def attempt(db, definition, index, *, patches=()):
     await db["mission_command_receipts"].delete_many({})
     # Each attempt is a separate user story. Without this the pick the previous
     # mission wrote stays bound and the next one is refused for the wrong
-    # reason — "Winner is bound by another active mission" rather than the
+    # reason, "Winner is bound by another active mission" rather than the
     # incompleteness this file is about.
     await db["picks"].delete_many({"user_id": "jose"})
     offer_id = offer_id_for(index)
@@ -337,7 +337,7 @@ async def test_every_pick_coupled_mission_is_selectable_once_the_gaps_are_filled
 async def test_the_select_route_carries_pick_completion_fields(
     client, auth_headers, test_db, sample_event_data
 ):
-    """The capability is worthless if the only caller — the browser — cannot use it.
+    """The capability is worthless if the only caller, the browser, cannot use it.
 
     This drives the real route rather than the service, because the gap that
     made six missions unselectable was not in the domain: it was a request

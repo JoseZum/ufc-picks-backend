@@ -179,7 +179,7 @@ class MonthlyProgressService:
 
         # A month activated part-way through only counts what happens after it
         # opens. Without this, activating August late would retroactively fold
-        # in cards that ran while nobody had been told the month existed — and
+        # in cards that ran while nobody had been told the month existed, and
         # a result correction on one of those old cards would quietly do the
         # same thing months later.
         if not await self._is_within_activation(config, summary.event_id):

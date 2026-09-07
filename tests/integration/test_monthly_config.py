@@ -147,7 +147,7 @@ async def test_switching_mission_swaps_to_the_new_parameter_contract(service):
 
 
 async def test_a_draft_stays_editable_after_the_month_technically_began(service):
-    """Otherwise August 2026 — the launch month — could never be configured."""
+    """Otherwise August 2026, the launch month, could never be configured."""
     await service().create_draft(month_key="2026-08", mission_id="MONTH-V2-001")
 
     updated = await service(INSIDE_AUGUST).update_draft(

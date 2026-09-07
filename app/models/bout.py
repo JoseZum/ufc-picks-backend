@@ -114,7 +114,7 @@ class Bout(BaseModel):
 
         A Pydantic default only applies when the KEY IS ABSENT. When the
         scraper leaves the key present with `null`, validation runs and
-        raises — and because the whole card is parsed in one list
+        raises, and because the whole card is parsed in one list
         comprehension, one null flag on one fight answered the entire
         `/events/{id}/bouts` request with a 500.
 

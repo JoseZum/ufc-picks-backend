@@ -1,7 +1,7 @@
 """The durable channel from an Admin decision to the CardData boundary.
 
 `build_admin_card_observations` already turns an Admin decision into an
-`admin_override` observation at the highest source rank — it is written and
+`admin_override` observation at the highest source rank, it is written and
 tested, but nothing in production ever called it, because the boundary lives in
 the scraper and the backend has no dependency on it.
 
@@ -51,7 +51,7 @@ def command_id(kind: str, event_id: int, bout_id: int | None, actor_id: str) -> 
     """Stable per (kind, target, actor).
 
     Re-deciding the same field replaces the previous command instead of piling
-    up conflicting overrides — the latest Admin decision is the only one that
+    up conflicting overrides, the latest Admin decision is the only one that
     should ever be replayed.
     """
     seed = f"{kind}\x1f{event_id}\x1f{bout_id or 0}\x1f{actor_id}"
@@ -191,7 +191,7 @@ async def forget_admin_command(
 ) -> bool:
     """Withdraw a standing decision so the boundary stops replaying it.
 
-    Used when Admin undoes an action — clearing a result must not leave the old
+    Used when Admin undoes an action, clearing a result must not leave the old
     result command replaying forever.
     """
     outcome = await db[COLLECTION].delete_one(

@@ -121,7 +121,7 @@ class CardStreakService:
 
         Ideally this runs exactly at pick close. In practice the first observable
         moment after picks close is the first registered result, and that is what
-        drives it today — a bout cancelled in that short window is therefore
+        drives it today, a bout cancelled in that short window is therefore
         excluded. Once written the row is never rewritten, which is the property
         D-DATA-003 actually asks for.
         """
@@ -173,7 +173,7 @@ class CardStreakService:
 
         picks_by_user = await self._picks_by_user(event_id, bout_ids)
         # A user with a live streak must be settled even if they ignored the
-        # card entirely — that is exactly how a streak breaks.
+        # card entirely, that is exactly how a streak breaks.
         candidates = set(picks_by_user) | {
             document["user_id"]
             async for document in self.streaks.find(

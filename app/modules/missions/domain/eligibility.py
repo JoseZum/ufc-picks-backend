@@ -53,8 +53,8 @@ class FrozenCardFacts:
         """Everything that decides *which* missions this card can offer.
 
         `card_revision` is deliberately excluded. It advances on any structural
-        change at all — ESPN reordering two prelims moves `order_overall` and
-        bumps it — while none of that changes which missions are eligible.
+        change at all, ESPN reordering two prelims moves `order_overall` and
+        bumps it, while none of that changes which missions are eligible.
         Keying offers on the revision therefore redrew a user's missions for
         purely cosmetic edits, which is the opposite of what INT-001 promises
         ("offers persist so refresh never rerolls"). These counts and
@@ -154,7 +154,7 @@ def canonical_eligible_bout_count(
     """The denominator every card-prop target is measured against.
 
     Selection freezes a prop's target from this number, and the offer has to
-    display the same one — a card prop that advertises "≥5 finishes" and then
+    display the same one, a card prop that advertises "≥5 finishes" and then
     stores a target of 6 is a broken promise, so both paths read it here rather
     than each counting bouts their own way. `None` means the card has no
     canonical count yet; callers decide whether that is fatal.

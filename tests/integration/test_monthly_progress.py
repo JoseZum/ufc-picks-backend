@@ -335,7 +335,7 @@ async def test_correcting_an_old_result_cannot_smuggle_the_card_back_in(
 
     A card from before activation is ignored today because it settled while the
     month was still DRAFT. But an Admin correcting one of its results months
-    later re-fires the trigger with the month now ACTIVE — without an explicit
+    later re-fires the trigger with the month now ACTIVE, without an explicit
     rule, that stale card would fold in at that moment.
     """
     _, progress = active_month(INSIDE)

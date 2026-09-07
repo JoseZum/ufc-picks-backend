@@ -4,7 +4,7 @@ Two independent controls, deliberately:
 
 ``MISSIONS_ENABLED``
     The off switch. When false nobody sees missions, regardless of allowlist.
-    This is what gets flipped if something goes wrong at 2am — one variable, no
+    This is what gets flipped if something goes wrong at 2am, one variable, no
     deploy, no code change.
 
 ``MISSIONS_ALLOWLIST``

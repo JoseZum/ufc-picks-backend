@@ -167,7 +167,7 @@ async def test_scoring_prefers_the_id_when_the_display_name_drifted(card):
 
 
 async def test_scoring_rejects_a_name_match_when_the_ids_disagree(card):
-    """Same name, different person — the id is authoritative and fails closed."""
+    """Same name, different person, the id is authoritative and fails closed."""
     points = PointsService(card)
     pick = {
         "picked_fighter_id": "fighter-a",

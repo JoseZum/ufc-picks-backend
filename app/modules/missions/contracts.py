@@ -171,8 +171,7 @@ class PublicMissionProfileResponse(MissionTransport):
     Deliberately a subset of `ProfileMissionsResponse`: no celebrations (they
     are unacknowledged notifications addressed to their owner) and no active
     missions (an in-flight selection is a bet nobody else has a right to read
-    before the card settles). Everything here is already-public standing —
-    level, title, XP and the missions the user finished.
+    before the card settles). Everything here is already-public standing, level, title, XP and the missions the user finished.
     """
 
     user_id: str
@@ -234,7 +233,7 @@ class MonthlyConfigView(MissionTransport):
     ends_at: datetime
     activated_at: datetime | None = None
     closed_at: datetime | None = None
-    #: False once the month starts or leaves DRAFT — the UI disables editing.
+    #: False once the month starts or leaves DRAFT, the UI disables editing.
     editable: bool
 
 

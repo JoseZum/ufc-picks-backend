@@ -65,7 +65,7 @@ class MissionTriggerOutcome:
 
 
 class MissionTriggerService:
-    """The single entry point every card writer — ESPN or Admin — calls."""
+    """The single entry point every card writer, ESPN or Admin, calls."""
 
     def __init__(
         self,

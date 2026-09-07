@@ -3,7 +3,7 @@
 Reconciliation is deliberately narrow. It only repairs state that has a
 *derivable* truth: the progression cache is a fold of the append-only XP ledger,
 and the streak counters are a fold of the append-only settled-card rows. When
-one of those caches drifts — a crashed write, a partial settlement — the correct
+one of those caches drifts, a crashed write, a partial settlement, the correct
 value can be recomputed with no judgement involved.
 
 It does not touch assignments. A mission's outcome is decided by the evaluator

@@ -2,7 +2,7 @@
 
 One streak per user, Duolingo-style: a card advances it when the user picked a
 winner in *more than* half of the card's active bouts before picks closed. There
-is no Freeze, grace period, comeback or alternate streak — a covered card
+is no Freeze, grace period, comeback or alternate streak, a covered card
 advances, an uncovered one breaks it, and that is the whole rule.
 
 The reviewed reward curve is +1 XP per completed card plus a milestone bonus at
@@ -56,7 +56,7 @@ def next_milestone(current: int) -> tuple[int, int]:
 
 
 def covers_card(*, picked: int, denominator: int) -> bool:
-    """More than half — an exact 50% split does not complete the card."""
+    """More than half, an exact 50% split does not complete the card."""
     if denominator <= 0:
         return False
     return picked * 2 > denominator
@@ -106,7 +106,7 @@ def decide_card_streak(
     """Apply STREAK-001 to one user on one card.
 
     `denominator` is the frozen count of active bouts at pick close; `picked` is
-    how many of those the user actually picked. Both are inputs — this function
+    how many of those the user actually picked. Both are inputs, this function
     reads no clock and no database, so the same card always decides the same way.
     """
     if denominator <= 0:

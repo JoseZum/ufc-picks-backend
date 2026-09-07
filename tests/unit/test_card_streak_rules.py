@@ -122,7 +122,7 @@ def test_more_picks_than_bouts_cannot_inflate_coverage():
 
 
 def test_there_is_no_grace_no_freeze_and_no_comeback():
-    """Two consecutive misses stay at zero — nothing restores the streak."""
+    """Two consecutive misses stay at zero, nothing restores the streak."""
     first = decide_card_streak(current=5, best=5, picked=2, denominator=10)
     second = decide_card_streak(
         current=first.current_after, best=first.best_after, picked=2, denominator=10

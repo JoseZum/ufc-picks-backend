@@ -29,7 +29,7 @@ TEST_ENV_DEFAULTS = {
     "IMAGE_CACHE_STRATEGY": "MEMORY",
     "IMAGE_SOURCE_MODE": "cache",
     # The launch flag ships OFF (CAL-004). The suite exercises the feature,
-    # so it turns it on with no allowlist — the gate itself has dedicated
+    # so it turns it on with no allowlist, the gate itself has dedicated
     # coverage in tests/integration/test_mission_access.py.
     "MISSIONS_ENABLED": "true",
     "MISSIONS_ALLOWLIST": "",

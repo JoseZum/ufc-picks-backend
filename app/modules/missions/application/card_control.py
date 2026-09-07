@@ -71,7 +71,7 @@ class CardControlService:
     # ------------------------------------------------------------------ reads
 
     async def state_for(self, event_id: int) -> CardControlState:
-        """A card nobody has touched is OPEN — the same default Home assumes."""
+        """A card nobody has touched is OPEN, the same default Home assumes."""
         document = await self.controls.find_one({"event_id": event_id})
         if document is None:
             return CardControlState(event_id=event_id, state=CardMissionState.OPEN)

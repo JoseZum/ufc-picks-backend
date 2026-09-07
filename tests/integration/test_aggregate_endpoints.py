@@ -2,7 +2,7 @@
 
 `collection.aggregate()` returns a coroutine on PyMongo Async; on Motor it
 returned the cursor directly. Five call sites kept the Motor shape and raised
-`'coroutine' object has no attribute 'to_list'` on the next line — a 500 that
+`'coroutine' object has no attribute 'to_list'` on the next line, a 500 that
 no test noticed because nothing exercised those routes.
 """
 
@@ -29,7 +29,7 @@ async def user_with_picks(test_db, sample_event_data):
         upsert=True,
     )
     # The pipeline joins picks to their bout and drops anything unmatched, so a
-    # pick without its bout is invisible — the fixture needs both.
+    # pick without its bout is invisible, the fixture needs both.
     await test_db["bouts"].delete_many({"event_id": 98001})
     await test_db["bouts"].insert_many([
         {

@@ -2,7 +2,7 @@
 
 Nothing here calls a service directly. A user reads Home, selects a mission,
 an admin registers results, and the test asserts what the user then sees. If a
-route is unplugged these fail — which is the point of having them.
+route is unplugged these fail, which is the point of having them.
 """
 
 from datetime import UTC, datetime, timedelta

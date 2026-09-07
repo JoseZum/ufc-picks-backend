@@ -1,7 +1,7 @@
 """Two questions Jose asked out loud, answered by running them.
 
-1. Does everyone get the same three missions? They must not — the draw is
-   personalised per user — but it must also be stable for one user, or a
+1. Does everyone get the same three missions? They must not, the draw is
+   personalised per user, but it must also be stable for one user, or a
    refresh would reroll what they are about to choose.
 2. Do the missions actually complete? Not "does the evaluator unit-test pass",
    but: accept one through the real route, register results that plainly
@@ -268,8 +268,8 @@ async def settle_card(test_db, user_id: str):
 @pytest.mark.parametrize(
     "mission_id,expected_family",
     [
-        ("CARD-V2-E-008", "AUTO"),          # PRELIM START — 1 prelim winner
-        ("CARD-V2-E-012", "CARD_PROP"),     # THREE FINISHES — >=3 finishes
+        ("CARD-V2-E-008", "AUTO"),          # PRELIM START, 1 prelim winner
+        ("CARD-V2-E-012", "CARD_PROP"),     # THREE FINISHES, >=3 finishes
     ],
 )
 @pytest.mark.asyncio

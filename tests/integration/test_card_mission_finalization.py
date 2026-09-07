@@ -227,8 +227,7 @@ async def test_replayed_result_after_finalization_keeps_terminal_missions_settle
 
     The daily scrape replays every result through `BoutResultMissionEvaluator`.
     That path used to build its context with `card_finalized=False`, so an
-    ALL-comparator mission that had already completed dropped back to PENDING —
-    and because finalization is idempotent per input set, nothing ever put it
+    ALL-comparator mission that had already completed dropped back to PENDING, and because finalization is idempotent per input set, nothing ever put it
     back. Three users sat on missions they had genuinely won.
     """
     finalizer = CardMissionFinalizer(finalization_db)

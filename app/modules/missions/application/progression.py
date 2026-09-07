@@ -38,7 +38,7 @@ class ProgressionService:
     async def sync(self, user_id: str) -> ProgressionProjection:
         """Refresh the cache and raise a celebration for any level crossed.
 
-        Level-ups are not events anyone emits — they are a consequence of the
+        Level-ups are not events anyone emits, they are a consequence of the
         ledger total moving. This compares the cached level with the recomputed
         one, so a single card that awards enough XP to cross two levels still
         announces the level the user actually landed on, exactly once.
@@ -49,12 +49,12 @@ class ProgressionService:
         projection = await self.rebuild_cache(user_id)
 
         # Existing users start at level 1 (D-PROD-007), so a user with no cache
-        # yet is compared against 1 rather than skipped — otherwise the very
+        # yet is compared against 1 rather than skipped, otherwise the very
         # first level-up would be the one nobody ever gets told about.
         previous_level = int((previous or {}).get("level", 1))
         # Same reasoning for the title: a user with no cache was at level 1, and
         # level 1 already has a title. Leaving this None made every first
-        # level-up claim a new title had been unlocked — the celebration read
+        # level-up claim a new title had been unlocked, the celebration read
         # "NEW TITLE UNLOCKED / BUM" while the title had not moved at all.
         previous_title = (previous or {}).get("title") or title_for_level(
             previous_level

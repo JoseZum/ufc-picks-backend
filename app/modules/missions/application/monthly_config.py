@@ -254,7 +254,7 @@ class MonthlyConfigService:
 
         The invariant that matters is that a user with progress never sees the
         goalposts move. Activation is what publishes the month, so DRAFT stays
-        editable even after the month has technically begun — otherwise the
+        editable even after the month has technically begun, otherwise the
         August 2026 launch month could never be configured at all. Any recorded
         progress freezes it immediately, whatever the state says.
         """

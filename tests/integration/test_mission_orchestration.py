@@ -1,6 +1,6 @@
 """A canonical result must move mission progress through one real entry point.
 
-These tests call only `MissionTriggerService.on_bout_result` — the same thing a
+These tests call only `MissionTriggerService.on_bout_result`, the same thing a
 result writer calls. Nothing here reaches into the evaluator, the finalizer or
 the monthly service directly, because the gap this closes is precisely that
 nobody was calling them.

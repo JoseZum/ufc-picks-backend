@@ -1,7 +1,7 @@
 """Slice 1 acceptance: a result registered through the REAL route moves missions.
 
 Nothing here calls the evaluator, the finalizer or the monthly service. The test
-hits `PUT /admin/bouts/{id}/result` — the endpoint an admin actually uses — and
+hits `PUT /admin/bouts/{id}/result`, the endpoint an admin actually uses, and
 then asserts that mission state moved. If the trigger is ever unplugged, these
 fail.
 """
@@ -306,7 +306,7 @@ async def _pick(test_db, user_id: str, bout_indexes) -> None:
 async def test_the_first_result_settles_the_card_streak(
     client, admin_headers, test_db, card
 ):
-    """A registered result means picks closed — that is when STREAK-001 runs."""
+    """A registered result means picks closed, that is when STREAK-001 runs."""
     await _pick(test_db, "covered", [0, 1])  # 2 of 3 is more than half
 
     response = await client.put(

@@ -105,8 +105,7 @@ async def public_mission_profile(
 ) -> PublicMissionProfileResponse:
     """Another user's mission standing, for the profile card.
 
-    Requires a session — this is a logged-in social surface, not an open API —
-    and answers 404 for an unknown user rather than an empty record, so the
+    Requires a session, this is a logged-in social surface, not an open API, and answers 404 for an unknown user rather than an empty record, so the
     endpoint cannot be used to enumerate who exists.
     """
 

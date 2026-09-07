@@ -142,7 +142,7 @@ class MissionReadService:
         streak = await self.streak.state_for(user_id)
         offer_set = await self._offer_set(user_id, facts)
         if offer_set is None:
-            # A card too small to fill three slots still has to render — Home
+            # A card too small to fill three slots still has to render, Home
             # shows the monthly mission and an explicit empty state, never a 500.
             return HomeMissionsResponse(
                 event_id=event_id,
@@ -283,8 +283,8 @@ class MissionReadService:
         """Draw once and persist, so a refresh can never reroll (D-PROD-003).
 
         Addressed by the eligibility fingerprint rather than `card_revision`.
-        The revision advances on every structural edit — a reordered prelim is
-        enough — so keying on it redrew the whole set for changes that leave
+        The revision advances on every structural edit, a reordered prelim is
+        enough, so keying on it redrew the whole set for changes that leave
         the offerable catalog identical. One card reached revision 14 in six
         days and redrew nine missions each time.
         """
@@ -326,8 +326,7 @@ class MissionReadService:
         """Re-home a pre-fingerprint draw instead of redrawing it.
 
         Every set written before this keying existed carries no fingerprint. If
-        those were left behind, the switch itself would reroll every user once —
-        the exact harm it removes. The newest such draw is adopted, but only
+        those were left behind, the switch itself would reroll every user once, the exact harm it removes. The newest such draw is adopted, but only
         when all nine of its missions are still eligible against the current
         facts; otherwise the card really did change and a fresh draw is right.
         """
@@ -406,8 +405,8 @@ class MissionReadService:
         A prop whose target depends on card size used to ship only its raw
         inputs (`target_source`, `frozen_ratio`), so "DISPLAYED FINISH LINE"
         reached the drawer with no line to display and the exact-count stepper
-        had no idea what it was counting. Resolving them here — never in the
-        client — keeps the arithmetic on the side that owns it, and uses the
+        had no idea what it was counting. Resolving them here, never in the
+        client, keeps the arithmetic on the side that owns it, and uses the
         same denominator selection freezes, so the number shown is the number
         stored.
         """

@@ -32,11 +32,11 @@ from app.modules.missions.domain.enums import MonthlyConfigState, StringEnum
 
 MONTH_KEY_PATTERN = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
 
-#: D-PROD-010 — the monthly programme starts in August 2026. Earlier months are
+#: D-PROD-010, the monthly programme starts in August 2026. Earlier months are
 #: not configurable, so a mistyped month cannot silently create back-dated state.
 FIRST_MONTHLY_MONTH_KEY = "2026-08"
 
-#: D-PROD-010 — every monthly mission is worth exactly 15 XP.
+#: D-PROD-010, every monthly mission is worth exactly 15 XP.
 MONTHLY_MISSION_XP = 15
 
 
