@@ -1,6 +1,7 @@
 """Acceso a datos para la colección de peleas."""
 
 from datetime import datetime
+from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -56,7 +57,7 @@ class BoutRepository:
 
         Ejemplo: bouts = await repo.get_by_event(event_id=123, status="scheduled")
         """
-        query = {"event_id": event_id}
+        query: dict[str, Any] = {"event_id": event_id}
         if status:
             query["status"] = status
         else:
@@ -126,7 +127,7 @@ class BoutRepository:
         event_id: int | None = None
     ) -> list[Bout]:
         """Obtiene peleas por el título"""
-        query = {"is_title_fight": True}
+        query: dict[str, Any] = {"is_title_fight": True}
         if event_id:
             query["event_id"] = event_id
 
@@ -184,7 +185,7 @@ class BoutRepository:
 
     async def get_stats_by_weight_class(self) -> list[dict]:
         """Obtiene estadísticas agrupadas por categoría de peso."""
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {
                 "$group": {
                     "_id": "$weight_class",
@@ -210,7 +211,7 @@ class BoutRepository:
 
     async def get_fighter_record(self, fighter_name: str) -> dict:
         """Calcula el récord de un peleador a partir de resultados guardados."""
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {
                 "$match": {
                     "$or": [
@@ -265,7 +266,8 @@ class BoutRepository:
         if not results:
             return {"total_fights": 0, "wins": 0, "losses": 0}
 
-        return results[0]
+        record: dict[str, Any] = results[0]
+        return record
 
     # Utility
 

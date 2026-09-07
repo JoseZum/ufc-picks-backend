@@ -1,6 +1,7 @@
 """Acceso a datos para la colección de picks."""
 
 from datetime import datetime
+from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -222,7 +223,7 @@ class PickRepository:
 
     async def get_user_stats(self, user_id: str) -> dict:
         """Get user statistics."""
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {"user_id": user_id, "is_correct": {"$ne": None}}},
             {
                 "$group": {
@@ -262,11 +263,12 @@ class PickRepository:
                 "total_points": 0
             }
 
-        return results[0]
+        stats: dict[str, Any] = results[0]
+        return stats
 
     async def get_bout_distribution(self, bout_id: int) -> dict:
         """Get pick distribution for a bout by fighter name."""
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {"bout_id": bout_id}},
             {
                 "$group": {
@@ -279,7 +281,7 @@ class PickRepository:
         cursor = await self.collection.aggregate(pipeline)
         results = await cursor.to_list(length=None)
 
-        distribution = {"total": 0, "fighters": {}}
+        distribution: dict[str, Any] = {"total": 0, "fighters": {}}
 
         for item in results:
             fighter_name = item["_id"]

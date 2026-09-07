@@ -1,6 +1,7 @@
 """Acceso a datos para la colección de usuarios."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -30,7 +31,7 @@ class UserRepository:
         """Create a new user."""
         now = datetime.now(UTC)
 
-        user_doc = {
+        user_doc: dict[str, Any] = {
             "_id": user_data.google_id,
             "google_id": user_data.google_id,
             "email": user_data.email,
