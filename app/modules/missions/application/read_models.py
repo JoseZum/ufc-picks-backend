@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 from math import ceil
+from typing import Any, cast
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -297,7 +298,7 @@ class MissionReadService:
             }
         )
         if existing:
-            return existing
+            return cast("dict[Any, Any] | None", existing)
 
         adopted = await self._adopt_legacy_offer_set(user_id, facts, fingerprint)
         if adopted:
@@ -378,7 +379,7 @@ class MissionReadService:
             {"$set": {"facts_fingerprint": fingerprint}},
         )
         candidate["facts_fingerprint"] = fingerprint
-        return candidate
+        return cast("dict[Any, Any] | None", candidate)
 
     def _offer_view(
         self, offer: dict, *, event: dict | None = None, bouts: list[dict] | None = None
@@ -415,13 +416,13 @@ class MissionReadService:
 
         spec = definition.selection.model_dump(mode="json")
         if definition.interaction is not MissionInteractionType.CARD_PROP:
-            return spec
+            return cast("dict[Any, Any] | None", spec)
         if event is None:
-            return spec
+            return cast("dict[Any, Any] | None", spec)
 
         eligible = canonical_eligible_bout_count(event, bouts or ())
         if eligible is None:
-            return spec
+            return cast("dict[Any, Any] | None", spec)
 
         target_source = spec.get("target_source")
         if target_source == CardPropTargetSource.FROZEN_ELIGIBLE_RATIO.value:
@@ -435,7 +436,7 @@ class MissionReadService:
         unit = _CARD_PROP_COUNT_UNITS.get(definition.evaluation.metric)
         if unit:
             spec["count_unit"] = unit
-        return spec
+        return cast("dict[Any, Any] | None", spec)
 
     @staticmethod
     def _empty_monthly_progress(definition, config):

@@ -10,7 +10,7 @@ Nota: Comparamos por NOMBRE del peleador, no por corner, para evitar
 problemas cuando los datos cambian en los scrapes.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -56,7 +56,7 @@ class PointsService:
         """
         picked_id = pick.get("picked_fighter_id")
         if picked_id and winner_fighter_id:
-            return picked_id == winner_fighter_id
+            return cast("bool", picked_id == winner_fighter_id)
         return self.normalize_name(
             pick.get("picked_fighter_name", "")
         ) == self.normalize_name(winner_name)

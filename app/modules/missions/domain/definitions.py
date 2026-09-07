@@ -6,7 +6,7 @@ and pick synchronization, but never contain mutable user progress.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, cast
 
 from pydantic import (
     BaseModel,
@@ -444,4 +444,4 @@ MISSION_DEFINITION_ADAPTER = TypeAdapter(MissionDefinition)
 
 
 def validate_mission_definition(value: object) -> MissionDefinition:
-    return MISSION_DEFINITION_ADAPTER.validate_python(value)
+    return cast("AutoMissionDefinition | TargetFighterMissionDefinition | TargetFightMissionDefinition | ComboBuilderMissionDefinition | CardPropMissionDefinition", MISSION_DEFINITION_ADAPTER.validate_python(value))

@@ -1,7 +1,7 @@
 """Helpers compartidos por los routers de admin."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException, status
 
@@ -58,7 +58,7 @@ async def get_bout_or_404(db, bout_id: int) -> dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bout {bout_id} no encontrado",
         )
-    return bout
+    return cast("dict[str, Any]", bout)
 
 
 async def get_event_or_404(db, event_id: int) -> dict[str, Any]:
@@ -69,4 +69,4 @@ async def get_event_or_404(db, event_id: int) -> dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evento {event_id} no encontrado",
         )
-    return event
+    return cast("dict[str, Any]", event)

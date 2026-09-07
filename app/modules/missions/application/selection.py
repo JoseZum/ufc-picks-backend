@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from math import ceil
+from typing import Any, cast
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -396,7 +397,7 @@ class MissionSelectionService:
                 MissionSelectionErrorCode.OFFER_NOT_FOUND,
                 "Mission offer does not belong to the requested slot",
             )
-        return offer
+        return cast("dict[Any, Any]", offer)
 
     def _ensure_card_open(
         self,
@@ -464,11 +465,11 @@ class MissionSelectionService:
         selection = command.selection
         if isinstance(definition, AutoMissionDefinition):
             if not isinstance(selection, AutoMissionSelection):
-                return self._invalid_type()
+                return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
             return selection.model_dump(mode="json"), ()
         if isinstance(definition, TargetFighterMissionDefinition):
             if not isinstance(selection, TargetFighterMissionSelection):
-                return self._invalid_type()
+                return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
             return self._resolve_target_fighter(
                 definition,
                 selection,
@@ -477,7 +478,7 @@ class MissionSelectionService:
             )
         if isinstance(definition, TargetFightMissionDefinition):
             if not isinstance(selection, TargetFightMissionSelection):
-                return self._invalid_type()
+                return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
             bout = self._selectable_bout(selection.bout_id, bouts_by_id, event)
             if (
                 definition.selection.required_round is not None
@@ -493,18 +494,18 @@ class MissionSelectionService:
             }, ()
         if isinstance(definition, ComboBuilderMissionDefinition):
             if not isinstance(selection, ComboBuilderMissionSelection):
-                return self._invalid_type()
+                return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
             return self._resolve_combo(definition, selection, bouts_by_id, event)
         if isinstance(definition, CardPropMissionDefinition):
             if not isinstance(selection, CardPropMissionSelection):
-                return self._invalid_type()
+                return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
             return self._resolve_card_prop(
                 definition,
                 selection,
                 bouts_by_id,
                 event,
             ), ()
-        return self._invalid_type()
+        return cast("tuple[dict[Any, Any], tuple[_PickBinding, ...]]", self._invalid_type())
 
     def _resolve_target_fighter(
         self,
@@ -983,4 +984,4 @@ class MissionSelectionService:
                 MissionSelectionErrorCode.INVALID_SELECTION,
                 f"Bout {bout.get('id')} has no valid scheduled-round authority",
             )
-        return value
+        return cast("int", value)

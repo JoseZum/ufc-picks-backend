@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from hmac import compare_digest
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Header, HTTPException, status
 
@@ -291,7 +291,7 @@ def _card_view(state, selected: int = 0) -> CardControlView:
 
 async def _selected_on_card(db, event_id: int) -> int:
     """How many missions users hold on this card, whatever their outcome."""
-    return await db["mission_assignments"].count_documents({"event_id": event_id})
+    return cast("int", await db["mission_assignments"].count_documents({"event_id": event_id}))
 
 
 def _card_fail(error: CardControlError) -> HTTPException:

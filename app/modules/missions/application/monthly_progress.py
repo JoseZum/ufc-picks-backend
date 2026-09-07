@@ -12,6 +12,7 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
@@ -157,7 +158,7 @@ class MonthlyProgressService:
             moment = datetime.fromisoformat(moment.replace("Z", "+00:00"))
         if moment.tzinfo is None:
             moment = moment.replace(tzinfo=UTC)
-        return moment
+        return cast("datetime | None", moment)
 
     # --------------------------------------------------------------- progress
 
@@ -227,7 +228,7 @@ class MonthlyProgressService:
         moment = await self.event_moment(event_id)
         if moment is None:
             return True
-        return moment >= activated_at
+        return cast("bool", moment >= activated_at)
 
     async def close_month(
         self,
@@ -292,7 +293,7 @@ class MonthlyProgressService:
         document_id = _progress_id(user_id, config.month_key)
         existing = await self.collection.find_one({"_id": document_id}, session=session)
         if existing:
-            return existing
+            return cast("dict[Any, Any]", existing)
         now = self.clock()
         document = {
             "_id": document_id,

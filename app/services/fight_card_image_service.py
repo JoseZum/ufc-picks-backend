@@ -1,4 +1,6 @@
+
 import io
+from typing import cast
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
@@ -70,7 +72,7 @@ def _block_width_for_cols(cols: int) -> int:
 
 async def _download_image(url: str, cache: dict) -> Image.Image | None:
     if url in cache:
-        return cache[url]
+        return cast("Image | None", cache[url])
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
@@ -121,7 +123,7 @@ def _get_fighter_image_url(fighter: dict) -> str | None:
             pass
     purl = fighter.get("profile_image_url", "")
     if purl and purl.startswith("http"):
-        return purl
+        return cast("str | None", purl)
     return None
 
 
