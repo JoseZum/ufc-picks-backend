@@ -136,7 +136,7 @@ def _get_last_name(full_name: str, max_len: int = 14) -> str:
 
 def _draw_fight_block(
     canvas: Image.Image,
-    draw: ImageDraw.Draw,
+    draw: ImageDraw.ImageDraw,
     x: int,
     y: int,
     block_w: int,
@@ -318,7 +318,7 @@ def _calc_rows_height(row_list: list[tuple]) -> int:
 
 def _draw_rows(
     canvas: Image.Image,
-    draw: ImageDraw.Draw,
+    draw: ImageDraw.ImageDraw,
     start_y: int,
     row_list: list[tuple[list, int]],
     picks_map: dict,

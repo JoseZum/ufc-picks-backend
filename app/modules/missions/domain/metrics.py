@@ -59,7 +59,11 @@ class MetricObservation(MetricModel):
     def validate_counts(self):
         if (self.numerator is None) != (self.denominator is None):
             raise ValueError("numerator and denominator must appear together")
-        if self.numerator is not None and self.numerator > self.denominator:
+        if (
+            self.numerator is not None
+            and self.denominator is not None
+            and self.numerator > self.denominator
+        ):
             raise ValueError("numerator cannot exceed denominator")
         if self.resolved_count > self.total_count:
             raise ValueError("resolved_count cannot exceed total_count")
@@ -303,6 +307,12 @@ def _resolved(bouts: tuple[BoutEvaluationSnapshot, ...]) -> tuple[BoutEvaluation
     return tuple(bout for bout in bouts if bout.result is not None)
 
 
+def _resolved_results(
+    bouts: tuple[BoutEvaluationSnapshot, ...],
+) -> tuple[BoutResultSnapshot, ...]:
+    return tuple(bout.result for bout in bouts if bout.result is not None)
+
+
 def _is_decision(result: BoutResultSnapshot) -> bool:
     return (
         result.outcome != BoutOutcome.NO_CONTEST
@@ -334,8 +344,8 @@ def _count_observation(
     bouts: tuple[BoutEvaluationSnapshot, ...],
     predicate: Callable[[BoutResultSnapshot], bool],
 ) -> MetricObservation:
-    resolved = _resolved(bouts)
-    count = sum(predicate(bout.result) for bout in resolved)
+    resolved = _resolved_results(bouts)
+    count = sum(predicate(result) for result in resolved)
     target_override: int | None = None
     if context.selection.card_prop_exact_count is not None:
         target_override = context.selection.card_prop_exact_count
@@ -382,12 +392,12 @@ def _card_submission_count(request, context):
 
 def _card_finish_rate(request, context):
     bouts = _surviving_bouts(context)
-    resolved = _resolved(bouts)
+    resolved = _resolved_results(bouts)
     denominator = sum(
-        _is_finish(bout.result) or _is_decision(bout.result) for bout in resolved
+        _is_finish(result) or _is_decision(result) for result in resolved
     )
-    numerator = sum(_is_finish(bout.result) for bout in resolved)
-    decisions = sum(_is_decision(bout.result) for bout in resolved)
+    numerator = sum(_is_finish(result) for result in resolved)
+    decisions = sum(_is_decision(result) for result in resolved)
     value = numerator / denominator if denominator else 0
     return _observation(
         request,
@@ -404,9 +414,9 @@ def _card_finish_rate(request, context):
 
 def _finish_vs_decision(request, context):
     bouts = _surviving_bouts(context)
-    resolved = _resolved(bouts)
-    finishes = sum(_is_finish(bout.result) for bout in resolved)
-    decisions = sum(_is_decision(bout.result) for bout in resolved)
+    resolved = _resolved_results(bouts)
+    finishes = sum(_is_finish(result) for result in resolved)
+    decisions = sum(_is_decision(result) for result in resolved)
     reverse = request.metric == "card_decision_vs_finish"
     return _observation(
         request,
@@ -422,20 +432,20 @@ def _finish_vs_decision(request, context):
 
 def _card_method_presence(request, context):
     bouts = _surviving_bouts(context)
-    resolved = _resolved(bouts)
+    resolved = _resolved_results(bouts)
     presence_mode = request.parameters.get("presence_mode")
     if presence_mode in {None, "METHODS"}:
         methods = frozenset(
             method
-            for bout in resolved
-            if (method := _common_method(bout.result)) is not None
+            for result in resolved
+            if (method := _common_method(result)) is not None
         )
     elif presence_mode == "FINISH_DECISION":
         methods = frozenset(
             family
             for family, present in (
-                ("FINISH", any(_is_finish(bout.result) for bout in resolved)),
-                ("DECISION", any(_is_decision(bout.result) for bout in resolved)),
+                ("FINISH", any(_is_finish(result) for result in resolved)),
+                ("DECISION", any(_is_decision(result) for result in resolved)),
             )
             if present
         )
@@ -976,10 +986,12 @@ def _winner_and_finish_provider(role: BoutRole) -> MetricProvider:
     def provider(request, context):
         bouts = _role_bouts(context, frozenset({role}))
         pairs = _pick_pairs(context, bouts)
+        # `_pick_pairs` ya descarta las peleas sin resultado.
+        first_result = pairs[0][0].result if pairs else None
         checks = (
             (
                 _winner_correct(*pairs[0]),
-                _is_finish(pairs[0][0].result),
+                first_result is not None and _is_finish(first_result),
             )
             if pairs
             else (False, False)
@@ -1194,9 +1206,9 @@ def _selected_result_family(request, context):
             "selected_result_family_vs_other requires FINISHES or DECISIONS",
         )
     bouts = _surviving_bouts(context)
-    resolved = _resolved(bouts)
-    finishes = sum(_is_finish(bout.result) for bout in resolved)
-    decisions = sum(_is_decision(bout.result) for bout in resolved)
+    resolved = _resolved_results(bouts)
+    finishes = sum(_is_finish(result) for result in resolved)
+    decisions = sum(_is_decision(result) for result in resolved)
     chosen, other = (
         (finishes, decisions) if choice == "FINISHES" else (decisions, finishes)
     )
