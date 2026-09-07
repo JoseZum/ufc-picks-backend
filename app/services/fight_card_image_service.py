@@ -1,5 +1,4 @@
 import io
-from typing import Optional
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
@@ -69,7 +68,7 @@ def _block_width_for_cols(cols: int) -> int:
     return (CANVAS_WIDTH - PADDING * 2 - GAP_X * (cols - 1)) // cols
 
 
-async def _download_image(url: str, cache: dict) -> Optional[Image.Image]:
+async def _download_image(url: str, cache: dict) -> Image.Image | None:
     if url in cache:
         return cache[url]
     try:
@@ -110,7 +109,7 @@ def _make_placeholder(name: str, size: int) -> Image.Image:
     return img
 
 
-def _get_fighter_image_url(fighter: dict) -> Optional[str]:
+def _get_fighter_image_url(fighter: dict) -> str | None:
     image_key = fighter.get("image_key")
     if image_key:
         try:
@@ -142,7 +141,7 @@ def _draw_fight_block(
     y: int,
     block_w: int,
     bout: dict,
-    picked_corner: Optional[str],
+    picked_corner: str | None,
     downloaded_images: dict,
 ):
     """Dibuja un bloque de pelea en (x, y) con el ancho indicado."""
@@ -345,7 +344,7 @@ def _draw_rows(
 async def generate_fight_card_png(
     event: dict,
     db: AsyncDatabase,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> bytes:
     # 1. Obtener peleas ordenadas por sección de cartelera.
     bouts_cursor = db["bouts"].find({"event_id": event["id"]}).sort([

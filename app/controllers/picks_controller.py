@@ -32,22 +32,22 @@ async def create_pick(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
-        )
+        ) from e
     except EventNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
-        )
+        ) from e
     except BoutNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
-        )
+        ) from e
     except InvalidPickError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
     return PickResponse(
         id=pick.id,
@@ -141,8 +141,8 @@ async def get_all_my_picks_detailed(
         return []
 
     # Get event and bout IDs
-    event_ids = list(set(p.event_id for p in picks))
-    bout_ids = list(set(p.bout_id for p in picks))
+    event_ids = list({p.event_id for p in picks})
+    bout_ids = list({p.bout_id for p in picks})
 
     # Fetch events
     events_cursor = db["events"].find({"id": {"$in": event_ids}})

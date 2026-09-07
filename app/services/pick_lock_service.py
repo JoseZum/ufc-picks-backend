@@ -10,14 +10,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
 class PickLockState:
     locked: bool
-    reason: Optional[str] = None
-    automatic_lock_time_utc: Optional[datetime] = None
+    reason: str | None = None
+    automatic_lock_time_utc: datetime | None = None
 
 
 def _value(document: Any, field: str, default=None):
@@ -26,7 +26,7 @@ def _value(document: Any, field: str, default=None):
     return getattr(document, field, default)
 
 
-def as_utc_datetime(value: Any) -> Optional[datetime]:
+def as_utc_datetime(value: Any) -> datetime | None:
     """Normalize Mongo datetimes and ISO strings to aware UTC datetimes."""
     if value is None:
         return None
@@ -42,7 +42,7 @@ def as_utc_datetime(value: Any) -> Optional[datetime]:
     return value.astimezone(UTC)
 
 
-def get_bout_automatic_lock_time(event: Any, bout: Any) -> Optional[datetime]:
+def get_bout_automatic_lock_time(event: Any, bout: Any) -> datetime | None:
     """Resolve a bout's section lock with compatibility fallbacks."""
     direct = as_utc_datetime(_value(bout, "automatic_lock_time_utc"))
     if direct:
@@ -67,7 +67,7 @@ def get_bout_automatic_lock_time(event: Any, bout: Any) -> Optional[datetime]:
 def evaluate_bout_pick_lock(
     event: Any,
     bout: Any,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> PickLockState:
     """Return the effective lock and the exact reason shown by the UI."""
     automatic_lock_time = get_bout_automatic_lock_time(event, bout)

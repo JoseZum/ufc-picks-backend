@@ -3,7 +3,6 @@ Controlador de eventos - Endpoints relacionados con eventos
 """
 
 from datetime import date, datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
@@ -17,32 +16,32 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 class LocationResponse(BaseModel):
     """Ubicación de una pelea."""
-    venue: Optional[str] = None
-    city: Optional[str] = None
-    country: Optional[str] = None
+    venue: str | None = None
+    city: str | None = None
+    country: str | None = None
 
 
 class EventResponse(BaseModel):
     """Datos básicos del evento."""
     id: int
     name: str
-    subtitle: Optional[str] = None
+    subtitle: str | None = None
     date: date
-    start_time_et: Optional[str] = None
-    timezone: Optional[str] = None
-    location: Optional[dict] = None
+    start_time_et: str | None = None
+    timezone: str | None = None
+    location: dict | None = None
     status: str
     total_bouts: int
-    poster_image_url: Optional[str] = None
-    hero_image_url: Optional[str] = None
-    event_art_url: Optional[str] = None
+    poster_image_url: str | None = None
+    hero_image_url: str | None = None
+    event_art_url: str | None = None
     picks_locked: bool = False
-    picks_lock_override: Optional[str] = None
-    card_start_time_utc: Optional[datetime] = None
-    picks_lock_time_utc: Optional[datetime] = None
+    picks_lock_override: str | None = None
+    card_start_time_utc: datetime | None = None
+    picks_lock_time_utc: datetime | None = None
     section_start_times_utc: dict[str, datetime] = Field(default_factory=dict)
     section_lock_times_utc: dict[str, datetime] = Field(default_factory=dict)
-    timing_source: Optional[str] = None
+    timing_source: str | None = None
     is_title_fight: bool = False  # True si la pelea principal es por título
     is_bmf_title_fight: bool = False  # True si la pelea principal es por el cinturón BMF
 
@@ -56,7 +55,7 @@ class EventDetailResponse(EventResponse):
 @router.get("", response_model=list[EventResponse])
 async def get_events(
     db: Database,
-    status: Optional[str] = Query(None, description="Filtrar por: scheduled, completed"),
+    status: str | None = Query(None, description="Filtrar por: scheduled, completed"),
     limit: int = Query(20, ge=1, le=50)
 ):
     """Obtiene lista de eventos próximos y recientes."""
@@ -136,7 +135,7 @@ async def get_event(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Event {event_id} not found"
-        )
+        ) from None
 
     poster_url = _get_poster_url(
         getattr(event, 'poster_image_url', None),
@@ -247,9 +246,9 @@ async def _get_main_event_flag_ids(db, event_ids: list[int], flag_field: str) ->
 
 
 def _get_poster_url(
-    source_url: Optional[str],
-    source_kind: Optional[str],
-) -> Optional[str]:
+    source_url: str | None,
+    source_kind: str | None,
+) -> str | None:
     """Prefer Wikipedia posters and allow the explicit official UFC fallback."""
     if source_kind not in {
         "wikipedia_source",
@@ -263,9 +262,9 @@ def _get_poster_url(
 
 
 def _get_hero_url(
-    source_url: Optional[str],
-    source_kind: Optional[str],
-) -> Optional[str]:
+    source_url: str | None,
+    source_kind: str | None,
+) -> str | None:
     """Return only official UFC XL 2x hero art."""
     if source_kind != "ufc_official_xl_2x":
         return None

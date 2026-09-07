@@ -209,7 +209,7 @@ class PointsService:
         # Recopilar usuarios afectados antes de limpiar
         picks_cursor = self.db["picks"].find({"bout_id": bout_id})
         picks = await picks_cursor.to_list(length=None)
-        users_affected = set(pick["user_id"] for pick in picks)
+        users_affected = {pick["user_id"] for pick in picks}
 
         # Limpiar puntos y resultado de los picks
         await self.db["picks"].update_many(

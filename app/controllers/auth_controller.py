@@ -2,7 +2,6 @@
 Controlador de autenticación - Rutas relacionadas con login y usuario
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
@@ -17,13 +16,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Cuerpo de la request OAuth
 class GoogleAuthRequest(BaseModel):
-    id_token: Optional[str] = None
-    access_token: Optional[str] = None
+    id_token: str | None = None
+    access_token: str | None = None
 
 # Request para actualizar perfil
 class UpdateProfileRequest(BaseModel):
-    name: Optional[str] = None
-    profile_picture: Optional[str] = None
+    name: str | None = None
+    profile_picture: str | None = None
 
 # Respuesta con JWT
 class AuthResponse(BaseModel):
@@ -62,7 +61,7 @@ async def authenticate_google(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
-        )
+        ) from e
 
     return AuthResponse(
         access_token=token,

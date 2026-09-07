@@ -1,7 +1,6 @@
 """Acceso a datos para la colección de picks."""
 
 from datetime import datetime
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -24,11 +23,11 @@ class PickRepository:
             await self.collection.insert_one(pick_dict)
             return pick
         except DuplicateKeyError:
-            raise ValueError(f"Pick {pick.id} already exists")
+            raise ValueError(f"Pick {pick.id} already exists") from None
 
     # Read
 
-    async def get_by_id(self, pick_id: str) -> Optional[Pick]:
+    async def get_by_id(self, pick_id: str) -> Pick | None:
         """Get pick by composite ID (user_id:bout_id)."""
         doc = await self.collection.find_one({"_id": pick_id})
         return Pick(**doc) if doc else None
@@ -37,7 +36,7 @@ class PickRepository:
         self,
         user_id: str,
         bout_id: int
-    ) -> Optional[Pick]:
+    ) -> Pick | None:
         """Get user's pick for a specific bout."""
         doc = await self.collection.find_one({
             "user_id": user_id,
@@ -86,10 +85,10 @@ class PickRepository:
         pick_id: str,
         picked_fighter_name: str,
         picked_method: str,
-        picked_round: Optional[int],
+        picked_round: int | None,
         updated_at: datetime,
-        picked_fighter_id: Optional[str] = None,
-    ) -> Optional[Pick]:
+        picked_fighter_id: str | None = None,
+    ) -> Pick | None:
         """Update a pick's prediction.
 
         `picked_fighter_id` is written alongside the display name so the pair
@@ -116,7 +115,7 @@ class PickRepository:
         pick_id: str,
         is_correct: bool,
         points_awarded: int
-    ) -> Optional[Pick]:
+    ) -> Pick | None:
         """Update pick result after bout completion."""
         result = await self.collection.find_one_and_update(
             {"_id": pick_id},
@@ -143,7 +142,7 @@ class PickRepository:
         bout_id: int,
         winner_name: str,
         result_method: str,
-        result_round: Optional[int]
+        result_round: int | None
     ) -> int:
         """
         Batch update all picks for a bout after result.

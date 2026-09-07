@@ -5,7 +5,6 @@ Controlador de Admin - Endpoints exclusivos para administradores
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
@@ -77,40 +76,40 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 class UpdateEventTimingRequest(BaseModel):
     """Datos para actualizar fecha/hora de un evento."""
-    card_start_time_utc: Optional[datetime] = None
-    picks_lock_time_utc: Optional[datetime] = None
+    card_start_time_utc: datetime | None = None
+    picks_lock_time_utc: datetime | None = None
     # Legacy aliases kept while deployed frontends roll over.
-    event_date: Optional[datetime] = None
-    picks_lock_date: Optional[datetime] = None
+    event_date: datetime | None = None
+    picks_lock_date: datetime | None = None
 
 
 class UpdateBoutTimingRequest(BaseModel):
     """Datos para actualizar timing de una pelea individual."""
-    bout_start_time: Optional[datetime] = None
-    picks_lock_time: Optional[datetime] = None
+    bout_start_time: datetime | None = None
+    picks_lock_time: datetime | None = None
 
 
 class UpdateBoutResultRequest(BaseModel):
     """Datos para registrar el resultado de una pelea."""
     winner: str  # "red" | "blue" | "draw" | "nc"
     method: str  # "KO/TKO" | "SUB" | "DEC" | "DQ" | "OTHER"
-    round: Optional[int] = None
-    time: Optional[str] = None
+    round: int | None = None
+    time: str | None = None
 
 
 class UpdateBoutDetailsRequest(BaseModel):
     """Datos editables de una pelea y su posición en la cartelera."""
     # Campos del bout
-    rounds_scheduled: Optional[int] = None  # 3 o 5
-    weight_class: Optional[str] = None
-    is_title_fight: Optional[bool] = None
-    is_bmf_title_fight: Optional[bool] = None
+    rounds_scheduled: int | None = None  # 3 o 5
+    weight_class: str | None = None
+    is_title_fight: bool | None = None
+    is_bmf_title_fight: bool | None = None
     # Campos del event_card_slot
-    card_section: Optional[str] = None  # "main" | "prelim" | "early_prelim"
-    order_overall: Optional[int] = None
-    order_section: Optional[int] = None
-    is_main_event: Optional[bool] = None
-    is_co_main: Optional[bool] = None
+    card_section: str | None = None  # "main" | "prelim" | "early_prelim"
+    order_overall: int | None = None
+    order_section: int | None = None
+    is_main_event: bool | None = None
+    is_co_main: bool | None = None
 
 
 # Event art endpoints
@@ -177,7 +176,7 @@ async def upload_event_art(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al subir: {str(e)}"
-        )
+        ) from e
 
 
 @router.delete("/events/{event_id}/event-art")
@@ -231,8 +230,8 @@ def _shift_section_times(
 
 def build_event_timing_updates(
     event: dict,
-    card_start_time_utc: Optional[datetime],
-    picks_lock_time_utc: Optional[datetime],
+    card_start_time_utc: datetime | None,
+    picks_lock_time_utc: datetime | None,
 ) -> dict:
     """Shift section starts/locks while preserving their ESPN spacing."""
     requested_start = (
@@ -979,7 +978,7 @@ async def cancel_bout(
     # Get affected users before deleting picks
     picks_cursor = db["picks"].find({"bout_id": bout_id})
     picks = await picks_cursor.to_list(length=None)
-    users_affected = set(pick["user_id"] for pick in picks)
+    users_affected = {pick["user_id"] for pick in picks}
     picks_count = len(picks)
 
     # If bout had a result, revert points first
@@ -1111,17 +1110,17 @@ async def upload_fighter_photo(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Escritura en S3 no permitida (modo cache activo)"
-        )
+        ) from None
     except S3ServiceError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error de S3: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al subir foto: {str(e)}"
-        )
+        ) from e
 
 
 # Bout deletion endpoint
@@ -1160,7 +1159,7 @@ async def delete_bout(
     # Recopilar usuarios afectados antes de eliminar picks
     picks_cursor = db["picks"].find({"bout_id": bout_id})
     picks = await picks_cursor.to_list(length=None)
-    users_affected = set(pick["user_id"] for pick in picks)
+    users_affected = {pick["user_id"] for pick in picks}
     picks_count = len(picks)
 
     # Si tenía resultado, revertir puntos primero

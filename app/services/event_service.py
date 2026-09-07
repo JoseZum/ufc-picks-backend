@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -37,7 +36,7 @@ class EventService:
 
     async def get_events_by_status(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 20
     ) -> list[Event]:
         """Obtiene eventos filtrados por estado."""

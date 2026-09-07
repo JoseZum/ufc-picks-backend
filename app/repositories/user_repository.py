@@ -1,7 +1,6 @@
 """Acceso a datos para la colección de usuarios."""
 
 from datetime import UTC, datetime
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -13,16 +12,16 @@ class UserRepository:
         self.db = db
         self.collection = db["users"]
 
-    async def get_by_id(self, user_id: str) -> Optional[User]:
+    async def get_by_id(self, user_id: str) -> User | None:
         """Get user by ID (google_id)."""
         doc = await self.collection.find_one({"_id": user_id})
         return User(**doc) if doc else None
 
-    async def get_by_google_id(self, google_id: str) -> Optional[User]:
+    async def get_by_google_id(self, google_id: str) -> User | None:
         """Get user by Google ID (alias for get_by_id)."""
         return await self.get_by_id(google_id)
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """Get user by email."""
         doc = await self.collection.find_one({"email": email})
         return User(**doc) if doc else None
@@ -46,7 +45,7 @@ class UserRepository:
         await self.collection.insert_one(user_doc)
         return User(**user_doc)
 
-    async def update_last_login(self, user_id: str) -> Optional[User]:
+    async def update_last_login(self, user_id: str) -> User | None:
         """Update user's last login timestamp."""
         now = datetime.now(UTC)
 
@@ -62,9 +61,9 @@ class UserRepository:
     async def update_profile(
         self,
         user_id: str,
-        name: Optional[str] = None,
-        profile_picture: Optional[str] = None
-    ) -> Optional[User]:
+        name: str | None = None,
+        profile_picture: str | None = None
+    ) -> User | None:
         """Update user profile fields."""
         updates = {}
 

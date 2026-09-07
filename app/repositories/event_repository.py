@@ -1,7 +1,6 @@
 """Acceso a datos para eventos y slots de cartelera."""
 
 from datetime import date, datetime
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -37,7 +36,7 @@ class EventRepository:
             await self.collection.insert_one(event_dict)
             return event
         except DuplicateKeyError:
-            raise ValueError(f"Event with id {event.id} already exists")
+            raise ValueError(f"Event with id {event.id} already exists") from None
 
     async def create_card_slot(self, slot: EventCardSlot) -> EventCardSlot:
         """Asigna una pelea a un slot de la cartelera"""
@@ -47,11 +46,11 @@ class EventRepository:
             await self.card_slots.insert_one(slot_dict)
             return slot
         except DuplicateKeyError:
-            raise ValueError(f"Card slot {slot.id} already exists")
+            raise ValueError(f"Card slot {slot.id} already exists") from None
 
     # Read
 
-    async def get_by_id(self, event_id: int) -> Optional[Event]:
+    async def get_by_id(self, event_id: int) -> Event | None:
         """Obtiene un evento por ID"""
         doc = await self.collection.find_one({"id": event_id})
         if doc:
@@ -124,7 +123,7 @@ class EventRepository:
 
     # Update
 
-    async def update(self, event_id: int, updates: dict) -> Optional[Event]:
+    async def update(self, event_id: int, updates: dict) -> Event | None:
         """Actualiza campos de un evento"""
         updates["last_updated"] = datetime.utcnow()
 
@@ -136,11 +135,11 @@ class EventRepository:
 
         return Event(**result) if result else None
 
-    async def update_status(self, event_id: int, status: str) -> Optional[Event]:
+    async def update_status(self, event_id: int, status: str) -> Event | None:
         """Cambia el estado de un evento"""
         return await self.update(event_id, {"status": status})
 
-    async def update_bout_count(self, event_id: int, total_bouts: int) -> Optional[Event]:
+    async def update_bout_count(self, event_id: int, total_bouts: int) -> Event | None:
         """Actualiza el conteo de peleas"""
         return await self.update(event_id, {"total_bouts": total_bouts})
 

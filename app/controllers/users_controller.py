@@ -3,7 +3,6 @@ Controlador de usuarios - Endpoints públicos para ver perfiles y picks de usuar
 """
 
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
@@ -17,7 +16,7 @@ class UserProfileResponse(BaseModel):
     """Perfil público de un usuario."""
     id: str
     name: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     created_at: datetime
     # Stats
     total_points: int = 0
@@ -32,20 +31,20 @@ class UserPickResponse(BaseModel):
     id: str
     bout_id: int
     event_id: int
-    event_name: Optional[str] = None
-    event_date: Optional[str] = None
+    event_name: str | None = None
+    event_date: str | None = None
     picked_fighter_name: str
     picked_method: str
-    picked_round: Optional[int] = None
-    is_correct: Optional[bool] = None
+    picked_round: int | None = None
+    is_correct: bool | None = None
     points_awarded: int = 0
     locked: bool = False
     created_at: datetime
     # Bout info
-    fighter_red: Optional[str] = None
-    fighter_blue: Optional[str] = None
-    weight_class: Optional[str] = None
-    result: Optional[dict] = None
+    fighter_red: str | None = None
+    fighter_blue: str | None = None
+    weight_class: str | None = None
+    result: dict | None = None
 
 
 @router.get("/{user_id}", response_model=UserProfileResponse)
@@ -81,9 +80,9 @@ async def get_user_profile(
 async def get_user_picks(
     user_id: str,
     db: Database,
-    event_id: Optional[int] = Query(None, description="Filter by event ID"),
-    year: Optional[int] = Query(None, description="Filter by year"),
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: correct, incorrect, pending"),
+    event_id: int | None = Query(None, description="Filter by event ID"),
+    year: int | None = Query(None, description="Filter by year"),
+    status_filter: str | None = Query(None, alias="status", description="Filter by status: correct, incorrect, pending"),
     limit: int = Query(50, ge=1, le=200, description="Maximum number of picks to return"),
     skip: int = Query(0, ge=0, description="Number of picks to skip")
 ):
@@ -149,8 +148,8 @@ async def get_user_picks(
         return []
 
     # Obtener información de eventos y bouts
-    event_ids = list(set(p["event_id"] for p in picks))
-    bout_ids = list(set(p["bout_id"] for p in picks))
+    event_ids = list({p["event_id"] for p in picks})
+    bout_ids = list({p["bout_id"] for p in picks})
 
     # Fetch events
     events_cursor = db["events"].find({"id": {"$in": event_ids}})
@@ -215,7 +214,7 @@ async def get_user_picks(
 async def get_user_picks_stats(
     user_id: str,
     db: Database,
-    year: Optional[int] = Query(None, description="Filter by year")
+    year: int | None = Query(None, description="Filter by year")
 ):
     """
     Obtener estadísticas de picks de un usuario.

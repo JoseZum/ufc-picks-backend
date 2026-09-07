@@ -1,7 +1,6 @@
 """Acceso a datos para la colección de peleas."""
 
 from datetime import datetime
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -25,7 +24,7 @@ class BoutRepository:
             bout_dict["_id"] = result.inserted_id
             return Bout(**bout_dict)
         except DuplicateKeyError:
-            raise ValueError(f"Bout with id {bout.id} already exists")
+            raise ValueError(f"Bout with id {bout.id} already exists") from None
 
     async def create_many(self, bouts: list[Bout]) -> int:
         """Inserta múltiples peleas (bulk insert desde scraper)"""
@@ -38,7 +37,7 @@ class BoutRepository:
 
     # Read
 
-    async def get_by_id(self, bout_id: int) -> Optional[Bout]:
+    async def get_by_id(self, bout_id: int) -> Bout | None:
         """Obtiene una pelea por su ID"""
         doc = await self.collection.find_one({"id": bout_id})
         return Bout(**doc) if doc else None
@@ -46,7 +45,7 @@ class BoutRepository:
     async def get_by_event(
         self,
         event_id: int,
-        status: Optional[str] = None
+        status: str | None = None
     ) -> list[Bout]:
         """
         Obtiene todas las peleas de un evento ordenadas correctamente:
@@ -76,7 +75,7 @@ class BoutRepository:
         docs = await cursor.to_list(length=None)
         return [Bout(**doc) for doc in docs]
 
-    async def get_main_event(self, event_id: int) -> Optional[Bout]:
+    async def get_main_event(self, event_id: int) -> Bout | None:
         """
         Obtiene la pelea principal de un evento
         Asume que tienes un campo is_main_event en EventCardSlot
@@ -124,7 +123,7 @@ class BoutRepository:
 
     async def get_title_fights(
         self,
-        event_id: Optional[int] = None
+        event_id: int | None = None
     ) -> list[Bout]:
         """Obtiene peleas por el título"""
         query = {"is_title_fight": True}
@@ -137,7 +136,7 @@ class BoutRepository:
 
     # Update
 
-    async def update(self, bout_id: int, updates: dict) -> Optional[Bout]:
+    async def update(self, bout_id: int, updates: dict) -> Bout | None:
         """Actualiza campos específicos de una pelea"""
         updates["last_updated"] = datetime.utcnow()
 
@@ -153,7 +152,7 @@ class BoutRepository:
         self,
         bout_id: int,
         result: dict
-    ) -> Optional[Bout]:
+    ) -> Bout | None:
         """
         Actualiza el resultado de una pelea
 
@@ -170,7 +169,7 @@ class BoutRepository:
             "status": "completed"
         })
 
-    async def update_status(self, bout_id: int, status: str) -> Optional[Bout]:
+    async def update_status(self, bout_id: int, status: str) -> Bout | None:
         """Cambia el estado de una pelea"""
         return await self.update(bout_id, {"status": status})
 

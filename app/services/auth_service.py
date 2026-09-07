@@ -37,7 +37,7 @@ class AuthService:
         try:
             google_data = await verify_google_token(google_id_token)
         except GoogleAuthError as e:
-            raise AuthServiceError(str(e))
+            raise AuthServiceError(str(e)) from e
 
         google_id = google_data["sub"]
         email = google_data["email"]
@@ -77,7 +77,7 @@ class AuthService:
         try:
             google_data = await verify_google_access_token(google_access_token)
         except GoogleAuthError as e:
-            raise AuthServiceError(str(e))
+            raise AuthServiceError(str(e)) from e
 
         google_id = google_data["sub"]
         email = google_data["email"]

@@ -234,9 +234,9 @@ async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Re
         )
 
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Timeout fetching image")
+        raise HTTPException(status_code=504, detail="Timeout fetching image") from None
     except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Error fetching image: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Error fetching image: {str(e)}") from e
 
 
 # S3 strategy
@@ -355,16 +355,16 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
                 )
 
         except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="Timeout fetching image")
+            raise HTTPException(status_code=504, detail="Timeout fetching image") from None
         except httpx.RequestError as e:
-            raise HTTPException(status_code=502, detail=f"Error fetching image: {str(e)}")
+            raise HTTPException(status_code=502, detail=f"Error fetching image: {str(e)}") from e
 
     except S3NotConfiguredError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except S3WriteNotAllowedError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"S3 error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"S3 error: {str(e)}") from e
 
 
 @router.get("/tapology/{path:path}")

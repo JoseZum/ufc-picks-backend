@@ -3,7 +3,6 @@ Controlador de peleas - Endpoints relacionados con bouts
 """
 
 from datetime import datetime
-from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, status
@@ -262,24 +261,24 @@ class FighterResponse(BaseModel):
     corner: str
     nationality: str
     record_at_fight: dict
-    ranking: Optional[dict] = None
+    ranking: dict | None = None
     age_at_fight_years: int
-    height_cm: Optional[int] = None
-    reach_cm: Optional[int] = None
-    fighting_out_of: Optional[str] = None
-    tapology_id: Optional[str] = None
-    tapology_url: Optional[str] = None
-    espn_id: Optional[str] = None
-    espn_url: Optional[str] = None
-    profile_image_url: Optional[str] = None
+    height_cm: int | None = None
+    reach_cm: int | None = None
+    fighting_out_of: str | None = None
+    tapology_id: str | None = None
+    tapology_url: str | None = None
+    espn_id: str | None = None
+    espn_url: str | None = None
+    profile_image_url: str | None = None
 
 
 class BoutResultResponse(BaseModel):
     """Resultado de la pelea."""
     winner: str
     method: str
-    round: Optional[int] = None
-    time: Optional[str] = None
+    round: int | None = None
+    time: str | None = None
 
 
 class BoutResponse(BaseModel):
@@ -293,18 +292,18 @@ class BoutResponse(BaseModel):
     is_bmf_title_fight: bool = False
     is_main_event: bool = False
     is_co_main_event: bool = False
-    card_section: Optional[str] = None
-    card_order: Optional[int] = None
-    order_overall: Optional[int] = None
-    order_section: Optional[int] = None
+    card_section: str | None = None
+    card_order: int | None = None
+    order_overall: int | None = None
+    order_section: int | None = None
     status: str
     fighters: dict
-    result: Optional[dict] = None
+    result: dict | None = None
     picks_locked: bool = False
-    picks_lock_override: Optional[str] = None
-    automatic_lock_time_utc: Optional[datetime] = None
+    picks_lock_override: str | None = None
+    automatic_lock_time_utc: datetime | None = None
     effective_picks_locked: bool = False
-    picks_lock_reason: Optional[str] = None
+    picks_lock_reason: str | None = None
 
 
 def _effective_rounds(is_main_event: bool, rounds_scheduled) -> int:
@@ -333,7 +332,7 @@ async def get_event_bouts(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Event {event_id} not found"
-        )
+        ) from None
 
     # Obtener todos los bout_details para este evento de una vez (más eficiente)
     bout_ids = [b.id for b in bouts]

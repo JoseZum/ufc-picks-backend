@@ -5,7 +5,6 @@ Las tablas de clasificación se generan de forma previa por procesos offline.
 Este controlador sirve los datos en caché.
 """
 
-from typing import Optional
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -21,7 +20,7 @@ class LeaderboardEntryResponse(BaseModel):
     rank: int
     user_id: str
     username: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     total_points: int
     accuracy: float
     picks_total: int
@@ -32,13 +31,13 @@ class LeaderboardEntryResponse(BaseModel):
 class LeaderboardResponse(BaseModel):
     """Leaderboard con las entradas y la posición del usuario (opcional)."""
     entries: list[LeaderboardEntryResponse]
-    user_position: Optional[LeaderboardEntryResponse] = None
+    user_position: LeaderboardEntryResponse | None = None
 
 
 @router.get("/global", response_model=LeaderboardResponse)
 async def get_global_leaderboard(
     db: Database,
-    year: Optional[int] = Query(None, description="Filter by year"),
+    year: int | None = Query(None, description="Filter by year"),
     limit: int = Query(100, ge=1, le=500)
 ):
     """
@@ -99,7 +98,7 @@ async def get_event_leaderboard(
 async def get_category_leaderboard(
     category: str,
     db: Database,
-    year: Optional[int] = Query(None, description="Filter by year"),
+    year: int | None = Query(None, description="Filter by year"),
     limit: int = Query(100, ge=1, le=500)
 ):
     """

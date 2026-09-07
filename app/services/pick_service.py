@@ -8,7 +8,6 @@ picked_corner para evitar problemas cuando los corners cambian.
 """
 
 from datetime import UTC, datetime
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -181,7 +180,7 @@ class PickService:
         self,
         bout_id: int,
         picked_normalized: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Resolve the stable fighter id for a pick (B-009).
 
         Reads the raw bout document because `card_data_v1` is a canonical sidecar
@@ -229,7 +228,7 @@ class PickService:
         self,
         user_id: str,
         bout_id: int
-    ) -> Optional[Pick]:
+    ) -> Pick | None:
         """Obtiene un pick específico de una pelea."""
         return await self.pick_repo.get_user_pick_for_bout(user_id, bout_id)
 

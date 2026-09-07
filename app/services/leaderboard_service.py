@@ -5,7 +5,6 @@ Este servicio calcula rankings al vuelo a partir de datos de picks.
 Para mejor rendimiento en producción, considera precomputar estos valores.
 """
 
-from typing import Optional
 
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -32,9 +31,9 @@ class LeaderboardService:
     async def _calculate_user_stats(
         self,
         user_id: str,
-        event_filter: Optional[dict] = None,
-        year: Optional[int] = None
-    ) -> Optional[dict]:
+        event_filter: dict | None = None,
+        year: int | None = None
+    ) -> dict | None:
         """
         Obtiene estadísticas de un solo usuario.
 
@@ -110,7 +109,7 @@ class LeaderboardService:
     async def get_global_leaderboard(
         self,
         limit: int = 100,
-        year: Optional[int] = None
+        year: int | None = None
     ) -> list[LeaderboardEntry]:
         """
         Obtiene el ranking global (todos los eventos).
@@ -193,7 +192,7 @@ class LeaderboardService:
         self,
         category: str,
         limit: int = 100,
-        year: Optional[int] = None
+        year: int | None = None
     ) -> list[LeaderboardEntry]:
         """
         Obtiene el ranking por categoría.
@@ -211,7 +210,7 @@ class LeaderboardService:
         self,
         user_id: str,
         category: str = "global"
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Obtiene la posición del usuario en una categoría específica.
 

@@ -12,7 +12,6 @@ import asyncio
 import copy
 import hashlib
 import json
-import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,19 +20,21 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT.parent / 'ufc-picks-scraper'))
 
+import requests
 from bson import json_util
 from cryptography.fernet import Fernet
 from dotenv import dotenv_values
 from pymongo import AsyncMongoClient
 from pymongo.read_concern import ReadConcern
-import requests
-
 from tapology_scraper.espn_etl import map_competitors_to_corners, transform_result
+
 from app.modules.missions.application.bout_evaluation import (
-    BoutResultMissionEvaluator, MissionEvaluationContextBuilder,
+    BoutResultMissionEvaluator,
+    MissionEvaluationContextBuilder,
 )
 from app.modules.missions.application.orchestration import (
-    MissionTriggerService, project_admin_result_to_canonical,
+    MissionTriggerService,
+    project_admin_result_to_canonical,
 )
 from app.modules.missions.domain.definitions import validate_mission_definition
 from app.services.admin_card_commands import record_admin_command, result_values
@@ -299,4 +300,4 @@ if __name__ == '__main__':
     except Exception as error:
         # Driver errors can contain credentials or user documents.
         print(json.dumps({'failed': True, 'error_type': type(error).__name__}))
-        raise SystemExit(1)
+        raise SystemExit(1) from error

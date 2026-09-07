@@ -13,7 +13,6 @@ CloudFront se encarga de servir las imágenes públicamente.
 import hashlib
 import re
 from io import BytesIO
-from typing import Optional
 
 from app.core.config import get_settings
 
@@ -85,7 +84,7 @@ class S3Service:
             except ImportError:
                 raise S3NotConfiguredError(
                     "boto3 no está instalado. Instalar con: pip install boto3"
-                )
+                ) from None
 
         return self._s3_client
 
@@ -185,7 +184,7 @@ class S3Service:
         s3_key: str,
         image_data: bytes,
         content_type: str = "image/jpeg",
-        metadata: Optional[dict] = None
+        metadata: dict | None = None
     ) -> None:
         """
         Sube una imagen a S3
@@ -247,7 +246,7 @@ class S3Service:
         content_type = response.get('ContentType', 'image/jpeg')
         return image_data, content_type
 
-    def get_cloudfront_url(self, s3_key: str) -> Optional[str]:
+    def get_cloudfront_url(self, s3_key: str) -> str | None:
         """
         Genera la URL pública de CloudFront para una imagen
 
@@ -272,7 +271,7 @@ class S3Service:
         domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
         return f"https://{domain}/{s3_key}"
 
-    def extract_key_from_cloudfront_url(self, cloudfront_url: str) -> Optional[str]:
+    def extract_key_from_cloudfront_url(self, cloudfront_url: str) -> str | None:
         """
         Extrae la key S3 desde una URL de CloudFront
 
@@ -319,7 +318,7 @@ class S3Service:
         domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
         return domain not in example_domains
 
-    def get_event_poster_cloudfront_url(self, event_id: int) -> Optional[str]:
+    def get_event_poster_cloudfront_url(self, event_id: int) -> str | None:
         """
         Obtiene la URL de CloudFront para un poster de evento específico
 
@@ -343,7 +342,7 @@ class S3Service:
 
 
 # Instancia singleton del servicio
-_s3_service_instance: Optional[S3Service] = None
+_s3_service_instance: S3Service | None = None
 
 
 def get_s3_service() -> S3Service:
