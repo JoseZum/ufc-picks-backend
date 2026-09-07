@@ -87,18 +87,11 @@ jobs:
           # reinstall unpinned versions after this step.
 
       - name: Linting (Ruff)
-        run: |
-          echo "Ejecutando Ruff linter..."
-          ruff check app/ tests/ --output-format=github || echo "Problemas de linting encontrados (no bloqueante)"
-        # Linting es informativo, no bloquea la build
-        # Los errores son mayormente del codigo legacy
-        continue-on-error: true
+        run: ruff check app/ tests/ scripts/ --output-format=github
 
       - name: Type checking (MyPy)
-        run: |
-          echo "Ejecutando MyPy type checker..."
-          mypy app/ --ignore-missing-imports --no-error-summary || echo "Problemas de tipos encontrados (no bloqueante)"
-        # Type checking es informativo, no bloquea la build
+        # Informativo mientras quedan errores de tipos por resolver.
+        run: mypy app/ --ignore-missing-imports || true
         continue-on-error: true
 
       - name: Ejecutar todos los tests con cobertura
