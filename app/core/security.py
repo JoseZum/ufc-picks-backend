@@ -3,6 +3,7 @@ Seguridad: Manejo de JWT y verificación de tokens de Google OAuth
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 from jose import JWTError, jwt
@@ -132,7 +133,10 @@ def create_access_token(user_id: str, email: str) -> str:
     }
 
     # Firmo el token con nuestra clave secreta
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    token: str = jwt.encode(
+        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+    )
+    return token
 
 
 def decode_access_token(token: str) -> dict | None:
@@ -142,7 +146,7 @@ def decode_access_token(token: str) -> dict | None:
     Retorna el payload si es válido, None si está expirado o corrupto
     """
     try:
-        payload = jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm]

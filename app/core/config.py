@@ -81,4 +81,5 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Retorna la instancia de configuración (cacheada para no releerla)"""
-    return Settings()
+    # Los campos obligatorios llegan del entorno, no como argumentos.
+    return Settings()  # type: ignore[call-arg]
