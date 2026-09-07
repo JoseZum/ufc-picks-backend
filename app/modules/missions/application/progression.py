@@ -1,4 +1,4 @@
-"""Rebuildable user progression projection over the XP ledger."""
+"""Proyección de progresión del usuario, reconstruible desde el ledger de XP."""
 
 from __future__ import annotations
 
@@ -36,26 +36,21 @@ class ProgressionService:
         self.clock = clock
 
     async def sync(self, user_id: str) -> ProgressionProjection:
-        """Refresh the cache and raise a celebration for any level crossed.
+        """Refresca el cache y dispara una celebración si se cruzó de nivel.
 
-        Level-ups are not events anyone emits, they are a consequence of the
-        ledger total moving. This compares the cached level with the recomputed
-        one, so a single card that awards enough XP to cross two levels still
-        announces the level the user actually landed on, exactly once.
+        El level-up no lo emite nadie: se compara el nivel cacheado contra el
+        recalculado, así una card que cruza dos niveles avisa una sola vez.
         """
         previous = await self.db["mission_user_progression"].find_one(
             {"user_id": user_id}, {"level": 1, "title": 1}
         )
         projection = await self.rebuild_cache(user_id)
 
-        # Existing users start at level 1 (D-PROD-007), so a user with no cache
-        # yet is compared against 1 rather than skipped, otherwise the very
-        # first level-up would be the one nobody ever gets told about.
+        # Sin cache previo se compara contra nivel 1 (arranque real, D-PROD-007),
+        # si no el primer level-up real nunca se anunciaría.
         previous_level = int((previous or {}).get("level", 1))
-        # Same reasoning for the title: a user with no cache was at level 1, and
-        # level 1 already has a title. Leaving this None made every first
-        # level-up claim a new title had been unlocked, the celebration read
-        # "NEW TITLE UNLOCKED / BUM" while the title had not moved at all.
+        # Mismo motivo para el título: dejarlo en None hacía que todo primer
+        # level-up pareciera título nuevo aunque no hubiera cambiado.
         previous_title = (previous or {}).get("title") or title_for_level(
             previous_level
         )[1].value
@@ -99,11 +94,10 @@ class ProgressionService:
         message: str,
         metadata: dict,
     ) -> None:
-        """Attach the celebration to the award that caused it, if there is one.
+        """Ata la celebración al award que la causó, si existe uno.
 
-        Tying it to the most recent ledger entry is what lets a compensation
-        cancel the celebration too, so a corrected result does not leave a
-        congratulation on screen for XP the user no longer has.
+        Ligarla a la entrada más reciente permite que una compensación
+        también la cancele, sin dejar una felicitación por XP que ya no existe.
         """
         latest = (
             await self.db["mission_xp_ledger"]
@@ -127,7 +121,7 @@ class ProgressionService:
                 ),
             )
         except CelebrationQueueError:
-            # A replay of the same milestone is not an error worth propagating.
+            # Repetir el mismo hito no es un error que valga la pena propagar.
             return
 
     async def compute(self, user_id: str) -> tuple[ProgressionProjection, int]:

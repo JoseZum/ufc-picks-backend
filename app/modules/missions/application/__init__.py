@@ -1,4 +1,4 @@
-"""Mission application use cases."""
+"""Casos de uso de la aplicación de misiones."""
 
 from app.modules.missions.application.bout_evaluation import (
     AssignmentEvaluationFailure,

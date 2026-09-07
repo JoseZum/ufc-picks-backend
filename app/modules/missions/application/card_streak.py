@@ -1,20 +1,9 @@
-"""Settles the single Card Streak once per card, per user.
+"""Liquida el único Card Streak, una vez por card y por usuario.
 
-Three collections carry the whole feature:
-
-``mission_card_streak_denominators``
-    One frozen row per event. The count of active bouts is captured the first
-    time the card is settled and never recomputed, so a bout cancelled after
-    picks closed cannot retroactively rewrite whether a user covered the card
-    (D-DATA-003).
-
-``mission_card_streak_cards``
-    One row per (user, event). It is the idempotency token: a card can advance
-    a streak at most once, however many times a writer replays the trigger.
-
-``mission_card_streaks``
-    The user's current and best streak. A projection of the rows above, but
-    kept live because every Home and Profile read needs it.
+`..._denominators` congela los bouts activos al primer settle, nunca se
+recalcula (D-DATA-003). `..._cards` es el token de idempotencia por
+(usuario, evento): una card avanza el streak una sola vez. `..._streaks`
+guarda el actual/mejor, vivo porque Home y Profile siempre lo leen.
 """
 
 from __future__ import annotations
@@ -78,7 +67,7 @@ class CardStreakSettlement:
 
 
 class CardStreakService:
-    """STREAK-001 end to end: freeze the denominator, settle, pay, celebrate."""
+    """STREAK-001 de punta a punta: congela el denominador, liquida, paga, celebra."""
 
     def __init__(self, db: AsyncDatabase, *, clock: Clock = _utc_now) -> None:
         self.db = db
@@ -89,7 +78,7 @@ class CardStreakService:
         self.xp = XpLedgerService(db, clock=clock)
         self.celebrations = CelebrationQueueService(db, clock=clock)
 
-    # ------------------------------------------------------------------ reads
+    # ----------------------------------------------------------------- lecturas
 
     async def state_for(self, user_id: str) -> CardStreakState:
         document = await self.streaks.find_one({"user_id": user_id})
@@ -107,23 +96,20 @@ class CardStreakService:
     async def history_for(
         self, user_id: str, *, limit: int = 20
     ) -> list[dict]:
-        """The user's most recent settled cards, newest first."""
+        """Las cards liquidadas más recientes del usuario, más nuevas primero."""
         return (
             await self.cards.find({"user_id": user_id})
             .sort([("settled_at", -1)])
             .to_list(length=limit)
         )
 
-    # ------------------------------------------------------- denominator
+    # ------------------------------------------------------- denominador
 
     async def capture_denominator(self, event_id: int) -> tuple[int, list[int]]:
-        """Freeze the card's active bouts, or return the already-frozen set.
+        """Congela los bouts activos de la card, o devuelve el set ya congelado.
 
-        Ideally this runs exactly at pick close. In practice the first observable
-        moment after picks close is the first registered result, and that is what
-        drives it today, a bout cancelled in that short window is therefore
-        excluded. Once written the row is never rewritten, which is the property
-        D-DATA-003 actually asks for.
+        Corre en el primer resultado registrado (no exactamente al cierre de
+        picks) y nunca se reescribe una vez creada, que es lo que pide D-DATA-003.
         """
         frozen = await self.denominators.find_one({"_id": event_id})
         if frozen is not None:
@@ -142,7 +128,7 @@ class CardStreakService:
                 }
             )
         except DuplicateKeyError:
-            # Another writer froze it first; theirs is the authority.
+            # Otro writer la congeló primero; la suya es la autoridad.
             frozen = await self.denominators.find_one({"_id": event_id})
             return int(frozen["denominator"]), list(frozen["bout_ids"])
         return len(bout_ids), bout_ids
@@ -163,17 +149,17 @@ class CardStreakService:
             active.append(int(bout["id"]))
         return sorted(active)
 
-    # ----------------------------------------------------------------- settle
+    # ----------------------------------------------------------------- liquidar
 
     async def settle_card(self, event_id: int) -> CardStreakSettlement:
-        """Settle every user this card can touch. Safe to call repeatedly."""
+        """Liquida a todos los usuarios que esta card puede tocar. Repetible."""
         denominator, bout_ids = await self.capture_denominator(event_id)
         if denominator <= 0:
             return CardStreakSettlement(event_id=event_id, denominator=0)
 
         picks_by_user = await self._picks_by_user(event_id, bout_ids)
-        # A user with a live streak must be settled even if they ignored the
-        # card entirely, that is exactly how a streak breaks.
+        # Un usuario con streak vivo se liquida aunque haya ignorado la card
+        # por completo: así es exactamente como se rompe un streak.
         candidates = set(picks_by_user) | {
             document["user_id"]
             async for document in self.streaks.find(
@@ -192,7 +178,7 @@ class CardStreakService:
                     denominator=denominator,
                     picked=len(picks_by_user.get(user_id, ())),
                 )
-            except Exception as exc:  # noqa: BLE001 - one user must not stop the card
+            except Exception as exc:  # noqa: BLE001 - un usuario no debe frenar la card
                 errors.append(f"{user_id}: {exc}")
                 continue
             if decision is None:
@@ -207,8 +193,8 @@ class CardStreakService:
                 counters["unchanged"] += 1
 
         if not errors:
-            # Only a clean sweep closes the card, so a run that failed for some
-            # users is retried by the next trigger instead of being lost.
+            # Solo un barrido limpio cierra la card: una corrida con fallos se
+            # reintenta en el próximo trigger en vez de perderse.
             await self.denominators.update_one(
                 {"_id": event_id},
                 {"$set": {"settled_at": self.clock()}},
@@ -226,7 +212,7 @@ class CardStreakService:
         )
 
     async def is_settled(self, event_id: int) -> bool:
-        """Whether this card already settled every user cleanly."""
+        """Si esta card ya liquidó a todos los usuarios sin errores."""
         row = await self.denominators.find_one(
             {"_id": event_id}, {"settled_at": 1}
         )
@@ -240,7 +226,7 @@ class CardStreakService:
         denominator: int,
         picked: int,
     ) -> CardStreakDecision | None:
-        """Settle one user on one card. Returns ``None`` if already settled."""
+        """Liquida a un usuario en una card. ``None`` si ya estaba liquidada."""
         if await self.cards.find_one({"_id": _card_id(user_id, event_id)}):
             return None
 
@@ -268,10 +254,10 @@ class CardStreakService:
             async with self.db.client.start_session() as session:
                 return await session.with_transaction(callback)
         except DuplicateKeyError:
-            # Another writer settled this card for this user first.
+            # Otro writer ya liquidó esta card para este usuario.
             return None
 
-    # ---------------------------------------------------------------- writers
+    # --------------------------------------------------------------- escrituras
 
     async def _record_card(
         self,
@@ -389,12 +375,12 @@ class CardStreakService:
             session=session,
         )
 
-    # ---------------------------------------------------------------- helpers
+    # ------------------------------------------------------------------ ayudas
 
     async def _picks_by_user(
         self, event_id: int, bout_ids: list[int]
     ) -> dict[str, set[int]]:
-        """Winner picks, counted only against the frozen denominator."""
+        """Picks de ganador, contados solo contra el denominador congelado."""
         eligible = set(bout_ids)
         picks_by_user: dict[str, set[int]] = {}
         cursor = self.db["picks"].find(

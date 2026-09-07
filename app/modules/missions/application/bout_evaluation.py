@@ -1,4 +1,4 @@
-"""Idempotent mission evaluation after a canonical bout result changes."""
+"""Evaluación idempotente de misiones tras un cambio de resultado canónico."""
 
 from __future__ import annotations
 
@@ -245,7 +245,7 @@ def _score_pick(pick: PickEvaluationSnapshot, bout: BoutEvaluationSnapshot) -> i
 
 
 class MissionEvaluationContextBuilder:
-    """Translate persisted CardData V1 and legacy picks into domain snapshots."""
+    """Traduce CardData V1 persistido y picks legacy a snapshots de dominio."""
 
     def __init__(self, db: AsyncDatabase) -> None:
         self.db = db
@@ -358,17 +358,12 @@ class MissionEvaluationContextBuilder:
     def _belongs_to_the_card(
         bout: Mapping, slots_by_bout: Mapping[int, Mapping]
     ) -> bool:
-        """¿Este bout forma parte de la estructura canónica de la card?
+        """¿Este bout pertenece a la estructura canónica de la card?
 
-        La estructura la definen los slots, que son propiedad del reconciliador.
-        Un bout sin slot Y sin sidecar `card_data_v1` nunca cruzó la frontera
-        CardData: es un resto legacy o creado a mano, y no pertenece a la card.
-        Incluirlo reventaba la evaluación de TODA la card por un bout que a nadie
-        le importa -- ocurrió en producción con el `1143866` (cancelado, sin
-        slot y sin sidecar) el día de Gamrot vs Salkilld.
-
-        Un bout que SÍ tiene sidecar pero perdió su slot es otra cosa: eso es
-        corrupción de la estructura y debe seguir gritando, no silenciarse.
+        Sin slot y sin sidecar es un resto legacy que nunca cruzó la frontera
+        CardData: incluirlo reventaba la evaluación de la card entera (pasó con
+        el bout 1143866 en Gamrot vs Salkilld). Con sidecar pero sin slot es
+        corrupción de verdad y debe seguir fallando ruidosamente.
         """
         bout_id = bout.get("id")
         if isinstance(bout_id, int) and bout_id in slots_by_bout:
@@ -569,10 +564,9 @@ class BoutResultMissionEvaluator:
 
     async def evaluate(self, command: EvaluateBoutResultCommand) -> BoutEvaluationResult:
         await self._validate_trigger(command)
-        # A card that has already been finalized stays finalized. Without this
-        # the daily re-scrape replayed each result as if the night were still
-        # running and undid finished missions, and finalization is idempotent
-        # per input set so it never ran again to put them back.
+        # Una card finalizada se queda finalizada: sin esto el re-scrape diario
+        # deshacía misiones ya terminadas, y como finalizar es idempotente por
+        # set de entrada, nunca volvía a correr para devolverlas.
         already_final = await self.db["mission_card_finalization_runs"].find_one(
             {"event_id": command.event_id}
         )
@@ -585,9 +579,8 @@ class BoutResultMissionEvaluator:
             bout_id=command.bout_id,
             result_revision=command.result_revision,
         )
-        # Carried with the finalized flag, never apart from it: a leaderboard
-        # mission evaluated as terminal without its frozen standings has no
-        # rank to read and voids itself.
+        # Va siempre junto con la flag de finalizado: sin standings congelados,
+        # una misión de leaderboard terminal no tiene rank y se auto-anula.
         frozen_leaderboard = self._frozen_leaderboard(already_final)
         cursor = self.db["mission_assignments"].find(
             {
@@ -629,7 +622,7 @@ class BoutResultMissionEvaluator:
     def _frozen_leaderboard(
         finalization_run: Mapping | None,
     ) -> dict[str, LeaderboardEvaluationSnapshot]:
-        """Rehydrate the standings finalization already froze for this card."""
+        """Rehidrata el standings que la finalización ya congeló para esta card."""
         if not finalization_run:
             return {}
         stored = finalization_run.get("leaderboard") or {}
@@ -685,10 +678,8 @@ class BoutResultMissionEvaluator:
             previous_status = MissionAssignmentStatus(assignment["status"])
             await self._validate_trigger_in_session(trigger, session)
             definition = validate_mission_definition(assignment["definition_snapshot"])
-            # Which moment this is comes from what fired, not from whether the
-            # card happens to be final. The two used to share one flag, so a
-            # re-scraped result after finalization re-entered as a non-final
-            # evaluation and sent every ALL-comparator mission back to PENDING.
+            # El momento lo da qué disparó, no si la card es final: compartir
+            # una sola flag mandaba misiones ALL de vuelta a PENDING.
             evaluation_moment = (
                 EvaluationMoment.CARD_FINALIZED
                 if trigger.trigger_type == "CARD_FINALIZED"

@@ -1,4 +1,4 @@
-"""Retry-safe terminal evaluation when a canonical UFC card is finalized."""
+"""Evaluación terminal, segura ante reintentos, al finalizar una card canónica."""
 
 from __future__ import annotations
 

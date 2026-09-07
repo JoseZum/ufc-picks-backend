@@ -1,4 +1,4 @@
-"""Irreversible mission selection and mission-to-pick synchronization."""
+"""Selección irreversible de misión y su sincronización con los picks."""
 
 from __future__ import annotations
 
@@ -125,7 +125,7 @@ def _fighters(bout: dict) -> dict[FighterCorner, str]:
 
 
 def _fighter_ids(bout: dict) -> dict[FighterCorner, str]:
-    """Return stable CardData fighter IDs when the canonical sidecar has them."""
+    """IDs estables de CardData para los peleadores, si el sidecar los tiene."""
 
     sidecar_fighters = (bout.get("card_data_v1") or {}).get("fighters") or ()
     by_corner = {
@@ -406,12 +406,8 @@ class MissionSelectionService:
         offer_set: dict,
         control: dict | None,
     ) -> None:
-        # Staleness is measured against the eligibility fingerprint, the same
-        # thing the offer set is addressed by. Comparing `card_revision` here
-        # rejected offers that were still perfectly valid: the revision advances
-        # on any structural edit, so once a set was allowed to span revisions,
-        # every user holding one drawn before the latest reorder was told their
-        # card had changed and could not confirm anything.
+        # Lo obsoleto se mide contra el fingerprint de elegibilidad: comparar
+        # `card_revision` rechazaba ofertas válidas por cualquier cambio estructural.
         stored_fingerprint = offer_set.get("facts_fingerprint")
         if stored_fingerprint:
             if frozen_card_facts(event, bouts).offer_fingerprint != stored_fingerprint:
@@ -420,8 +416,8 @@ class MissionSelectionService:
                     "Card changed after these offers were generated",
                 )
         elif card_revision_of(event) != offer_set.get("card_revision"):
-            # Pre-fingerprint sets keep the original check; they were drawn when
-            # the revision was the identity, so it is still the right question.
+            # Los sets de antes del fingerprint mantienen el chequeo original:
+            # se sortearon cuando la revisión era la identidad.
             raise MissionSelectionError(
                 MissionSelectionErrorCode.STALE_CARD,
                 "Card revision changed after these offers were generated",

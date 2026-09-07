@@ -1,9 +1,9 @@
-"""The seam that turns a canonical result into mission progress.
+"""La costura que convierte un resultado canónico en progreso de misiones.
 
-Nothing else calls the evaluators. A result writer calls `on_bout_result`; when
-the card runs out of unresolved current bouts, the same call finalizes it, folds
-each participant's event summary into their month, and stops. Every step is
-keyed so a retry, a replay or two writers racing converge on one outcome.
+Nada más llama a los evaluadores: un writer llama `on_bout_result`, y
+cuando la card se queda sin bouts sin resolver, la misma llamada la
+finaliza y pliega cada resumen en su mes. Cada paso tiene key propia para
+que un retry o replay converjan en un solo resultado.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ class MissionTriggerOutcome:
 
 
 class MissionTriggerService:
-    """The single entry point every card writer, ESPN or Admin, calls."""
+    """El único punto de entrada que llama cualquier writer, ESPN o Admin."""
 
     def __init__(
         self,
@@ -89,7 +89,7 @@ class MissionTriggerService:
         bout_id: int,
         result_revision: int,
     ) -> MissionTriggerOutcome:
-        """Run incremental evaluation, then finalize the card if it is complete."""
+        """Evalúa incrementalmente y finaliza la card si ya está completa."""
         errors: list[str] = []
         evaluated = 0
         try:
@@ -125,13 +125,13 @@ class MissionTriggerService:
         )
 
     async def _sync_progression(self, event_id: int) -> int:
-        """Refresh level and title for everyone this card just paid.
+        """Refresca nivel y título de todos a quienes esta card acaba de pagar.
 
-        A level-up is a consequence of the ledger moving, not an event anyone
-        emits, so it is detected once here after every award this card produced.
+        El level-up es consecuencia de que el ledger se movió, no un evento
+        que alguien emite, así que se detecta aquí una vez por card.
         """
-        # Derived from this card's own state rather than by pattern-matching XP
-        # source ids, whose format differs per source.
+        # Derivado del propio estado de la card, no de matchear el formato de
+        # los source ids de XP, que cambia según la fuente.
         touched = set(
             await self.db["mission_assignments"].distinct(
                 "user_id", {"event_id": event_id}
@@ -148,25 +148,23 @@ class MissionTriggerService:
                     {"user_id": user_id}, {"level": 1}
                 )
                 projection = await self.progression.sync(user_id)
-            except Exception:  # noqa: BLE001 - progression must not break a result
+            except Exception:  # noqa: BLE001 - progresión no debe romper un resultado
                 continue
             if projection.level > int((before or {}).get("level", 1)):
                 levelled += 1
         return levelled
 
     async def _settle_streak(self, event_id: int) -> CardStreakSettlement:
-        """Settle the Card Streak once, on the first result the card registers.
+        """Liquida el Card Streak una vez, con el primer resultado de la card.
 
-        A registered result means picks are already closed, which is the moment
-        STREAK-001 is evaluated. Settling is idempotent per (user, card), and the
-        card is only marked settled when every user succeeded, so a partial
-        failure is simply retried by the next result.
+        Idempotente por (usuario, card); la card solo queda marcada liquidada
+        si todos tuvieron éxito, así una falla parcial se reintenta después.
         """
         if await self.streak.is_settled(event_id):
             return CardStreakSettlement(event_id=event_id, denominator=0)
         try:
             return await self.streak.settle_card(event_id)
-        except Exception as exc:  # noqa: BLE001 - never break a result write
+        except Exception as exc:  # noqa: BLE001 - nunca romper la escritura de un resultado
             return CardStreakSettlement(
                 event_id=event_id,
                 denominator=0,
@@ -174,7 +172,7 @@ class MissionTriggerService:
             )
 
     async def _finalize_if_complete(self, event_id: int) -> MissionTriggerOutcome:
-        """Finalize exactly once per set of canonical inputs."""
+        """Finaliza exactamente una vez por cada set de inputs canónicos."""
         bouts, slots = await self._card(event_id)
         snapshots = self._snapshots(bouts, slots)
         unresolved = [
@@ -187,9 +185,8 @@ class MissionTriggerService:
         if unresolved or not snapshots:
             return MissionTriggerOutcome(event_id=event_id, bout_id=None)
 
-        # The revision advances only when the canonical inputs change, so a repeat
-        # trigger on unchanged results replays the frozen finalization instead of
-        # minting a second one.
+        # La revisión avanza solo si cambian los inputs canónicos: un trigger
+        # repetido repite la finalización congelada en vez de acuñar otra.
         revision = await self._finalization_revision(event_id)
         errors: list[str] = []
         try:
@@ -223,7 +220,7 @@ class MissionTriggerService:
         )
 
     async def _finalization_revision(self, event_id: int) -> int:
-        """One revision per distinct canonical input set for this event."""
+        """Una revisión por cada set distinto de inputs canónicos de este evento."""
         existing = (
             await self.db["mission_card_finalization_runs"]
             .find({"event_id": event_id})
@@ -232,7 +229,7 @@ class MissionTriggerService:
         )
         return int(existing[0]["finalization_revision"]) if existing else 1
 
-    # ---------------------------------------------------------------- monthly
+    # --------------------------------------------------------------- mensual
 
     async def _fold_month(self, event_id: int, snapshots: Mapping) -> int:
         month_key = await self.monthly.month_key_for_event(event_id)
@@ -322,7 +319,7 @@ class MissionTriggerService:
                     pick, snapshots, canonical_names
                 )
             except BoutEvaluationError:
-                # One malformed legacy pick must not poison a whole month.
+                # Un pick legacy mal formado no debe envenenar el mes entero.
                 continue
             result = decided[bout_id].result
             if result.outcome not in {BoutOutcome.RED_WIN, BoutOutcome.BLUE_WIN}:
@@ -376,8 +373,8 @@ class MissionTriggerService:
             summaries[user_id] = MonthlyEventSummary(
                 event_id=event_id,
                 month_key=month_key,
-                # The revision is the event's own input identity, so a corrected
-                # result produces a different summary for the same event.
+                # La revisión es la identidad propia del input: un resultado
+                # corregido produce un resumen distinto para el mismo evento.
                 summary_revision=max(
                     1,
                     max(
@@ -405,7 +402,7 @@ class MissionTriggerService:
             )
         return summaries
 
-    # ----------------------------------------------------------------- shared
+    # ---------------------------------------------------------------- común
 
     async def _card(self, event_id: int) -> tuple[list[dict], list[dict]]:
         bouts = await self.db["bouts"].find({"event_id": event_id}).to_list(length=None)
@@ -466,15 +463,10 @@ def project_admin_result_to_canonical(
     bout: Mapping,
     result_data: Mapping,
 ) -> dict | None:
-    """Translate an Admin result into the canonical `card_data_v1.result`.
+    """Traduce un resultado Admin al `card_data_v1.result` canónico.
 
-    Returns the `$set` fields to apply, or None when the bout has not been
-    through the CardData boundary and therefore has no stable fighter identity
-    to attach the result to. Returning None is deliberate: an Admin write must
-    still succeed on a legacy bout, it simply cannot drive mission evaluation.
-
-    This is an additive projection. The legacy top-level `result` keeps serving
-    the current API/UI exactly as before (D-ARCH-018 strangler boundary).
+    None si el bout nunca pasó por CardData: el write de Admin igual debe
+    tener éxito, solo que no dispara evaluación de misiones (D-ARCH-018).
     """
     sidecar = bout.get("card_data_v1")
     if not isinstance(sidecar, Mapping):

@@ -1,18 +1,9 @@
-"""Preview and apply reconciliation of the mission projections.
+"""Preview y aplicación de la reconciliación de proyecciones de misiones.
 
-Reconciliation is deliberately narrow. It only repairs state that has a
-*derivable* truth: the progression cache is a fold of the append-only XP ledger,
-and the streak counters are a fold of the append-only settled-card rows. When
-one of those caches drifts, a crashed write, a partial settlement, the correct
-value can be recomputed with no judgement involved.
-
-It does not touch assignments. A mission's outcome is decided by the evaluator
-against a frozen card, so "what this assignment should say" is not derivable
-here; inventing it would be a second, unaudited evaluation.
-
-Preview never writes. Apply writes under compare-and-set on the same revision
-the preview observed, so a plan built against stale state fails instead of
-overwriting someone else's change.
+Solo repara estado derivable (progresión y streak son un fold del ledger y
+de las cards liquidadas). No toca assignments: ese resultado lo decide el
+evaluador, inventarlo aquí sería una segunda evaluación no auditada.
+Preview nunca escribe; apply usa compare-and-set sobre esa revisión.
 """
 
 from __future__ import annotations
@@ -72,10 +63,10 @@ class MissionReconciliationService:
         self.clock = clock
         self.progression = ProgressionService(db, clock=clock)
 
-    # ---------------------------------------------------------------- preview
+    # ----------------------------------------------------------------- preview
 
     async def preview(self, scope: ReconciliationScope) -> MissionReconciliationPreview:
-        """Build the plan without writing anything."""
+        """Arma el plan sin escribir nada."""
         candidates: list[ReconciliationCandidate] = []
         for user_id in await self._users_in_scope(scope):
             candidates.extend(await self._progression_candidate(user_id))
@@ -90,7 +81,7 @@ class MissionReconciliationService:
                 {"_id": scope.assignment_id}, {"user_id": 1}
             )
             return [assignment["user_id"]] if assignment else []
-        # An event scope means everyone that card could have touched.
+        # Un scope de evento significa todos a quienes esa card pudo tocar.
         users = set(
             await self.db["mission_assignments"].distinct(
                 "user_id", {"event_id": scope.event_id}
@@ -131,7 +122,7 @@ class MissionReconciliationService:
         ]
 
     async def _streak_candidate(self, user_id: str) -> list[ReconciliationCandidate]:
-        """Fold the settled cards back into the counters, in settlement order."""
+        """Reconstruye los contadores plegando las cards liquidadas en orden."""
         rows = (
             await self.db["mission_card_streak_cards"]
             .find({"user_id": user_id})
@@ -168,7 +159,7 @@ class MissionReconciliationService:
             )
         ]
 
-    # ------------------------------------------------------------------ apply
+    # ------------------------------------------------------------------- apply
 
     async def apply(
         self,
@@ -178,7 +169,7 @@ class MissionReconciliationService:
         actor_id: str,
         reason: str,
     ) -> ReconciliationOutcome:
-        """Re-preview, verify the plan still describes reality, then write."""
+        """Vuelve a hacer preview, verifica que el plan siga vigente y escribe."""
         if not (reason or "").strip():
             raise ReconciliationError(
                 ReconciliationErrorCode.REASON_REQUIRED,
@@ -186,8 +177,8 @@ class MissionReconciliationService:
             )
         preview = await self.preview(scope)
         if preview.plan_id != plan_id:
-            # The state moved between preview and apply. Refusing is the whole
-            # point: the operator approved a different set of changes.
+            # El estado cambió entre preview y apply; rechazar es el punto,
+            # el operador aprobó un conjunto de cambios distinto.
             raise ReconciliationError(
                 ReconciliationErrorCode.PLAN_STALE,
                 "The state changed since this plan was previewed; preview again",
@@ -242,7 +233,7 @@ class MissionReconciliationService:
         )
 
     async def _write(self, operation) -> bool:
-        """Compare-and-set on the revision the preview observed."""
+        """Compare-and-set sobre la revisión que observó el preview."""
         collection, key = (
             ("mission_user_progression", "user_id")
             if operation.entity_type == ReconciliationEntityType.USER_PROGRESSION

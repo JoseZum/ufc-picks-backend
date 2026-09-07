@@ -1,4 +1,4 @@
-"""Append-only, idempotent XP ledger operations."""
+"""Operaciones del ledger de XP: append only e idempotentes."""
 
 from __future__ import annotations
 

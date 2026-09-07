@@ -1,9 +1,9 @@
-"""Monthly mission progress, finalization and its single 15 XP reward.
+"""Progreso de la misión mensual, su finalización y sus 15 XP únicos.
 
-A month accumulates one immutable summary per finished event. Re-recording an
-event replaces its summary and recomputes the month, so a late result correction
-converges instead of double-counting. The 15 XP award is keyed by user+month, so
-retries, replays and concurrent writers can only ever produce one award.
+Un mes acumula un resumen inmutable por evento; re-registrar un evento
+reemplaza su resumen y recalcula el mes, así una corrección tardía converge
+en vez de contar dos veces. El award de 15 XP usa key user+mes, así retries
+y escritores concurrentes solo producen un único award.
 """
 
 from __future__ import annotations
@@ -94,10 +94,10 @@ def _progress_id(user_id: str, month_key: str) -> str:
 
 
 def _award_key(user_id: str, month_key: str, cycle: int) -> str:
-    """Idempotency key for one award attempt.
+    """Clave de idempotencia de un intento de award.
 
-    The cycle only advances when a correction compensated the previous award, so
-    a retry or replay reuses the same key while a genuine re-earn gets a new one.
+    El ciclo solo avanza cuando una corrección compensó el award anterior:
+    un retry o replay reusa la misma clave, un re-earn genuino saca otra.
     """
     return f"monthly-mission:{user_id}:{month_key}:{cycle}"
 
@@ -118,13 +118,13 @@ class MonthlyProgressService:
         self.xp = XpLedgerService(db, clock=clock)
         self.celebrations = CelebrationQueueService(db, clock=clock)
 
-    # ------------------------------------------------------------------ month
+    # ------------------------------------------------------------------- mes
 
     async def month_key_for_event(self, event_id: int) -> str | None:
-        """The month an event belongs to, taken from its official CardData date.
+        """El mes de un evento, tomado de su fecha oficial en CardData.
 
-        Falls back to the legacy event date so a card that has not been through
-        the CardData boundary yet still lands in a month instead of vanishing.
+        Cae a la fecha legacy si la card aún no pasó por CardData, para que
+        no desaparezca en vez de caer en algún mes.
         """
         event = await self.db["events"].find_one(
             {"id": event_id},
@@ -143,7 +143,7 @@ class MonthlyProgressService:
         return month_key_for(moment)
 
     async def event_moment(self, event_id: int) -> datetime | None:
-        """When an event happened, by the same rule that assigns it a month."""
+        """Cuándo ocurrió un evento, con la misma regla que le asigna el mes."""
         event = await self.db["events"].find_one(
             {"id": event_id},
             {"card_data_v1": 1, "date": 1, "event_date": 1},
@@ -160,7 +160,7 @@ class MonthlyProgressService:
             moment = moment.replace(tzinfo=UTC)
         return cast("datetime | None", moment)
 
-    # --------------------------------------------------------------- progress
+    # --------------------------------------------------------------- progreso
 
     async def record_event_summary(
         self,
@@ -169,20 +169,17 @@ class MonthlyProgressService:
         summary: MonthlyEventSummary,
         session: AsyncClientSession | None = None,
     ) -> MonthlyProgressResult | None:
-        """Fold one finished event into the user's month and re-resolve it.
+        """Pliega un evento terminado en el mes del usuario y lo re-resuelve.
 
-        Returns ``None`` when the month has no ACTIVE configuration, so a card
-        outside the programme simply contributes nothing.
+        ``None`` si el mes no tiene configuración ACTIVE: una card fuera del
+        programa simplemente no aporta nada.
         """
         config = await self.config_service.get(summary.month_key)
         if config is None or config.state == MonthlyConfigState.DRAFT:
             return None
 
-        # A month activated part-way through only counts what happens after it
-        # opens. Without this, activating August late would retroactively fold
-        # in cards that ran while nobody had been told the month existed, and
-        # a result correction on one of those old cards would quietly do the
-        # same thing months later.
+        # Un mes activado a medias solo cuenta lo de después de abrir; si no,
+        # una activación tardía plegaría retroactivamente cards de antes.
         if not await self._is_within_activation(config, summary.event_id):
             return None
 
@@ -195,7 +192,7 @@ class MonthlyProgressService:
         }
         previous = summaries.get(summary.event_id)
         if previous is not None and previous == summary:
-            # Exact replay of an event we already folded in: nothing changes.
+            # Replay exacto de un evento ya plegado: no cambia nada.
             return await self._resolve_and_persist(
                 user_id,
                 config,
@@ -217,10 +214,10 @@ class MonthlyProgressService:
         )
 
     async def _is_within_activation(self, config, event_id: int) -> bool:
-        """Whether this event happened once the month was already open.
+        """Si este evento ocurrió ya con el mes abierto.
 
-        An event with no resolvable date is counted rather than dropped: losing
-        a user's month over missing card metadata is the worse failure.
+        Un evento sin fecha resoluble se cuenta en vez de descartarse: perder
+        el mes de un usuario por metadata faltante es el peor de los males.
         """
         activated_at = getattr(config, "activated_at", None)
         if activated_at is None:
@@ -236,7 +233,7 @@ class MonthlyProgressService:
         month_key: str,
         session: AsyncClientSession | None = None,
     ) -> tuple[MonthlyProgressResult, ...]:
-        """Settle every still-ACTIVE participant once the month is CLOSED."""
+        """Liquida a todo participante ACTIVE una vez que el mes está CLOSED."""
         config = await self.config_service.require(month_key)
         if config.state != MonthlyConfigState.CLOSED:
             raise MonthlyConfigError(
@@ -272,7 +269,7 @@ class MonthlyProgressService:
             {"_id": _progress_id(user_id, month_key)}
         )
 
-    # ---------------------------------------------------------------- helpers
+    # ------------------------------------------------------------------ ayudas
 
     def _definition(self, config: MonthlyMissionConfig) -> MonthlyMissionDefinition:
         definition = self.catalog.get(config.mission_id)
@@ -301,8 +298,8 @@ class MonthlyProgressService:
             "month_key": config.month_key,
             "mission_id": config.mission_id,
             "catalog_version": config.catalog_version,
-            # The parameters are snapshotted so a later catalog edit cannot
-            # retroactively change what this user was asked to do.
+            # Los parámetros quedan en snapshot: una edición posterior del
+            # catálogo no puede cambiar retroactivamente lo que se le pidió.
             "parameters": dict(config.parameters),
             "status": MonthlyProgressStatus.ACTIVE.value,
             "event_summaries": {},
@@ -399,8 +396,8 @@ class MonthlyProgressService:
             and target_status != MonthlyProgressStatus.COMPLETED
             and award_entry_id
         ):
-            # A correction took the month back below its threshold. XP is
-            # append-only, so reverse it with an exact linked compensation.
+            # Una corrección bajó al mes del umbral. El XP es append-only,
+            # así que se revierte con una compensación enlazada exacta.
             await self.xp.compensate(
                 user_id=user_id,
                 command=CompensateXpCommand(
@@ -419,8 +416,8 @@ class MonthlyProgressService:
             )
             xp_delta = -MONTHLY_MISSION_XP
             award_entry_id = None
-            # Only a real reversal advances the cycle, so the next completion is
-            # a new award instead of colliding with the compensated one.
+            # Solo una reversión real avanza el ciclo: la siguiente completación
+            # es un award nuevo, no choca con el ya compensado.
             award_cycle += 1
 
         now = self.clock()

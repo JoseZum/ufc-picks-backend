@@ -1,8 +1,8 @@
-"""Presentation-ready mission read models for the HTTP boundary.
+"""Read models de misiones, listos para pintar, para la frontera HTTP.
 
-Everything a surface renders is resolved here: progress copy, percent, lock and
-VOID reasons, XP and eligibility. The client receives finished strings and never
-recomputes a domain rule (D-ARCH-011, roadmap rule 8).
+Todo lo que una superficie renderiza se resuelve aquí: texto de progreso,
+porcentaje, razones de lock y VOID, XP y elegibilidad. El cliente recibe
+strings terminados y nunca recalcula una regla de dominio (D-ARCH-011).
 """
 
 from __future__ import annotations
@@ -57,9 +57,8 @@ from app.modules.missions.domain.streak import next_milestone
 
 Clock = Callable[[], datetime]
 
-#: What an exact-count stepper is counting, keyed by the metric that settles it.
-#: Without this the picker can only say "ON THIS CARD", which never told the
-#: user whether they were choosing finishes or decisions.
+#: Qué cuenta el stepper de conteo exacto, según qué métrica lo liquida;
+#: antes el picker solo decía "ON THIS CARD" sin distinguir el tipo.
 _CARD_PROP_COUNT_UNITS = {
     "card_finish_count": "FINISHES",
     "card_decision_count": "DECISIONS",
@@ -85,23 +84,21 @@ _METHOD_DISPLAY = {
 def _display_method(value: object) -> str:
     """Ortografía de pantalla para un método; cualquier otra cosa pasa igual.
 
-    El enum interno se escribe `KO_TKO`, y esa cadena estaba llegando tal cual
-    a la tarjeta de misión. Es el mismo par de vocabularios que el frontend ya
-    resuelve para los pickers, aplicado aquí porque esta frase la construye el
-    backend entera.
+    El enum interno usa `KO_TKO`; se traduce aquí porque esta frase la arma
+    el backend entera, igual que el frontend ya hace para los pickers.
     """
     text = str(value)
     return _METHOD_DISPLAY.get(text.upper(), text)
 
 
 def _milestone_label(current: int) -> str:
-    """The finished copy the Profile renders, e.g. "5 → +3 XP"."""
+    """El texto final que Profile renderiza, ej. "5 → +3 XP"."""
     length, bonus = next_milestone(current)
     return f"{length} → +{bonus} XP"
 
 
 class MissionReadService:
-    """Assembles Home and Profile payloads from persisted mission state."""
+    """Arma los payloads de Home y Profile a partir del estado persistido."""
 
     def __init__(
         self,
@@ -143,8 +140,8 @@ class MissionReadService:
         streak = await self.streak.state_for(user_id)
         offer_set = await self._offer_set(user_id, facts)
         if offer_set is None:
-            # A card too small to fill three slots still has to render, Home
-            # shows the monthly mission and an explicit empty state, never a 500.
+            # Una card muy chica para llenar tres slots igual debe renderizar:
+            # Home muestra la misión mensual y un vacío explícito, nunca un 500.
             return HomeMissionsResponse(
                 event_id=event_id,
                 card_state=card_state,
@@ -195,7 +192,7 @@ class MissionReadService:
             lock_reason=lock_reason,
         )
 
-    # ---------------------------------------------------------------- profile
+    # --------------------------------------------------------------- profile
 
     async def profile(self, *, user_id: str) -> ProfileMissionsResponse:
         projection, _ = await self.progression.compute(user_id)
@@ -258,8 +255,8 @@ class MissionReadService:
                     xp_earned=int(row.get("xp_awarded", 0)),
                 )
                 for row in streak_cards
-                # NOT_ELIGIBLE cards are never recorded, but a defensive filter
-                # keeps an unexpected row out of the contract instead of 500ing.
+                # NOT_ELIGIBLE nunca se registra, pero el filtro defensivo evita
+                # que una fila inesperada tumbe el contrato con un 500.
                 if row["outcome"] in {"ADVANCED", "BROKEN", "UNCHANGED"}
             ),
             celebrations=tuple(
@@ -275,19 +272,16 @@ class MissionReadService:
             ),
         )
 
-    # ---------------------------------------------------------------- helpers
+    # ------------------------------------------------------------------ ayudas
 
     def _card_facts(self, event: dict, bouts: list[dict]) -> FrozenCardFacts:
         return frozen_card_facts(event, bouts)
 
     async def _offer_set(self, user_id: str, facts: FrozenCardFacts) -> dict | None:
-        """Draw once and persist, so a refresh can never reroll (D-PROD-003).
+        """Sortea una vez y persiste, así un refresh nunca resortea (D-PROD-003).
 
-        Addressed by the eligibility fingerprint rather than `card_revision`.
-        The revision advances on every structural edit, a reordered prelim is
-        enough, so keying on it redrew the whole set for changes that leave
-        the offerable catalog identical. One card reached revision 14 in six
-        days and redrew nine missions each time.
+        Direccionado por el fingerprint de elegibilidad, no por
+        `card_revision` (avanza con cualquier cambio estructural).
         """
         fingerprint = facts.offer_fingerprint
         existing = await self.db["mission_offer_sets"].find_one(
@@ -324,12 +318,10 @@ class MissionReadService:
     async def _adopt_legacy_offer_set(
         self, user_id: str, facts: FrozenCardFacts, fingerprint: str
     ) -> dict | None:
-        """Re-home a pre-fingerprint draw instead of redrawing it.
+        """Reubica un sorteo previo al fingerprint en vez de resortearlo.
 
-        Every set written before this keying existed carries no fingerprint. If
-        those were left behind, the switch itself would reroll every user once, the exact harm it removes. The newest such draw is adopted, but only
-        when all nine of its missions are still eligible against the current
-        facts; otherwise the card really did change and a fresh draw is right.
+        Sin esta migración, el cambio de keying resortearía a todo el mundo
+        una vez. Se adopta el sorteo más nuevo solo si sigue elegible.
         """
         already_migrated = await self.db["mission_offer_sets"].find_one(
             {
@@ -340,8 +332,8 @@ class MissionReadService:
             {"_id": 1},
         )
         if already_migrated:
-            # This card has drawn under the new keying before, so a missing
-            # fingerprint match means the facts genuinely moved. Redraw.
+            # Esta card ya sorteó con el nuevo keying antes, así que si no
+            # matchea el fingerprint es porque los hechos realmente cambiaron.
             return None
 
         legacy = await (
@@ -401,15 +393,10 @@ class MissionReadService:
     def _selection_spec(
         self, definition, event: dict | None, bouts: list[dict] | None
     ) -> dict | None:
-        """The offer's selection spec, with card-prop numbers already resolved.
+        """El selection spec de la oferta, con los números de card prop resueltos.
 
-        A prop whose target depends on card size used to ship only its raw
-        inputs (`target_source`, `frozen_ratio`), so "DISPLAYED FINISH LINE"
-        reached the drawer with no line to display and the exact-count stepper
-        had no idea what it was counting. Resolving them here, never in the
-        client, keeps the arithmetic on the side that owns it, and uses the
-        same denominator selection freezes, so the number shown is the number
-        stored.
+        Se resuelve aquí, nunca en el cliente, con el mismo denominador que
+        congela selección, así el número mostrado es el número guardado.
         """
         if definition.selection is None:
             return None
@@ -430,7 +417,7 @@ class MissionReadService:
             if ratio is not None:
                 spec["displayed_target"] = ceil(eligible * ratio)
         elif target_source == CardPropTargetSource.SELECTED_EXACT_COUNT.value:
-            # The stepper's ceiling is the same count selection will freeze.
+            # El tope del stepper es el mismo conteo que selección va a congelar.
             spec["max_count"] = eligible
 
         unit = _CARD_PROP_COUNT_UNITS.get(definition.evaluation.metric)
@@ -440,7 +427,7 @@ class MissionReadService:
 
     @staticmethod
     def _empty_monthly_progress(definition, config):
-        """The reviewed progress copy for a month with no recorded events."""
+        """El texto de progreso revisado para un mes sin eventos registrados."""
         observation = evaluate_monthly_metric(
             definition.evaluation.metric,
             MonthlyEvaluationContext(
@@ -457,7 +444,7 @@ class MissionReadService:
         ).progress
 
     async def _event_labels(self, event_ids: set[int]) -> dict[int, str]:
-        """Human names for the cards a Profile row refers to."""
+        """Nombres legibles de las cards a las que refiere una fila de Profile."""
         if not event_ids:
             return {}
         events = (
@@ -476,9 +463,8 @@ class MissionReadService:
     ) -> SelectedMissionView:
         definition = self.catalog.get(assignment["mission_id"])
         status = assignment.get("status", "ACTIVE")
-        # The evaluator persists the whole MetricResolution under "progress", so
-        # the rendered copy lives at progress.progress.{text,percent}. Reading a
-        # flat progress_text here silently produced an empty string.
+        # El evaluador persiste el MetricResolution completo bajo "progress",
+        # así que el texto vive en progress.progress.{text,percent}.
         resolution = assignment.get("progress") or {}
         rendered = resolution.get("progress") or {}
         observation = resolution.get("observation") or {}
@@ -503,17 +489,15 @@ class MissionReadService:
             selection_summary=self._selection_summary(definition, assignment),
             selection_parts=self._selection_parts(assignment),
             selection=assignment.get("selection") or None,
-            # Two writers, two shapes: the evaluator records the reason inside
-            # the resolved observation, while an Admin VOID stamps it flat on
-            # the assignment. Reading only one meant an Admin VOID showed no
-            # reason at all.
+            # Dos writers, dos formas: el evaluador guarda la razón dentro de
+            # la observación resuelta; un VOID de Admin la estampa plana.
             void_reason=(
                 assignment.get("void_reason") or observation.get("void_reason")
             ),
         )
 
     def _selection_summary(self, definition, assignment: dict) -> str | None:
-        """A short human line describing what the user actually locked in."""
+        """Una línea corta y legible de lo que el usuario realmente eligió."""
         parts = self._selection_parts(assignment)
         if not parts:
             return None
@@ -586,9 +570,8 @@ class MissionReadService:
             description=definition.ui.description,
             xp=definition.xp,
             status=(progress or {}).get("status", "ACTIVE"),
-            # A user who has not played yet still needs to see the goal. Resolving
-            # an empty month through the real evaluator renders "0 / 15 winners"
-            # from the reviewed template, rather than restating it here.
+            # Un usuario sin jugar igual necesita ver la meta: resolver un mes
+            # vacío con el evaluador real da "0 / 15 winners" sin repetirla aquí.
             progress_text=(
                 (progress or {}).get("progress_text")
                 or self._empty_monthly_progress(definition, config).text
@@ -598,7 +581,7 @@ class MissionReadService:
 
     @staticmethod
     def _lock(event: dict, card_state: str, bouts: list[dict]) -> tuple[bool, str | None]:
-        """Distinguish why selection is closed: Admin, picks close or results."""
+        """Distingue por qué está cerrada la selección: Admin, cierre o resultados."""
         if card_state != "OPEN":
             return True, "ADMIN_CLOSED"
         if any(

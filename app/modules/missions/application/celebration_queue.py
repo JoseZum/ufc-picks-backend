@@ -1,4 +1,4 @@
-"""Durable pending-until-acknowledged celebration queue."""
+"""Cola persistente de celebraciones, pendientes hasta que se confirman."""
 
 from __future__ import annotations
 

@@ -1,8 +1,8 @@
-"""Admin-owned monthly mission configuration lifecycle (DRAFT/ACTIVE/CLOSED).
+"""Ciclo de vida de la configuración mensual (DRAFT/ACTIVE/CLOSED), admin.
 
-One month has exactly one configuration. It stays editable while it is a DRAFT
-that nobody is playing yet; activation publishes it and freezes the parameters so
-a running month can never move the goalposts underneath a user's progress.
+Un mes tiene exactamente una configuración. Es editable mientras sea DRAFT
+y nadie la esté jugando; activar la publica y congela los parámetros para
+que un mes en curso nunca le mueva la meta al progreso de un usuario.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _config_id(month_key: str) -> str:
 
 
 class MonthlyConfigService:
-    """Reads and mutates ``mission_monthly_configs`` under the approved rules."""
+    """Lee y muta ``mission_monthly_configs`` según las reglas aprobadas."""
 
     def __init__(
         self,
@@ -56,7 +56,7 @@ class MonthlyConfigService:
         self.catalog = catalog
         self.clock = clock
 
-    # ------------------------------------------------------------------ reads
+    # ----------------------------------------------------------------- lecturas
 
     async def get(self, month_key: str) -> MonthlyMissionConfig | None:
         document = await self.collection.find_one({"month_key": month_key})
@@ -72,13 +72,13 @@ class MonthlyConfigService:
         return config
 
     async def active_for(self, moment: datetime) -> MonthlyMissionConfig | None:
-        """The ACTIVE configuration governing the month a moment falls in."""
+        """La configuración ACTIVE del mes al que pertenece este instante."""
         config = await self.get(month_key_for(moment))
         if config is None or config.state != MonthlyConfigState.ACTIVE:
             return None
         return config
 
-    # ----------------------------------------------------------------- writes
+    # ----------------------------------------------------------------- escritura
 
     async def create_draft(
         self,
@@ -135,8 +135,8 @@ class MonthlyConfigService:
         await self._require_editable(config)
         definition = self._definition(mission_id or config.mission_id)
         if mission_id is not None and mission_id != config.mission_id and parameters is None:
-            # A different mission has a different parameter contract, so keeping
-            # the previous values would silently mean something else.
+            # Otra misión tiene otro contrato de parámetros: conservar los
+            # valores previos significaría algo distinto sin avisar.
             requested = definition.default_parameters()
         else:
             requested = dict(parameters) if parameters is not None else config.parameters
@@ -196,8 +196,8 @@ class MonthlyConfigService:
             },
             session=session,
         )
-        # Always answer from storage: Mongo truncates to milliseconds, so
-        # returning the in-memory copy made a retry report a different instant.
+        # Responder siempre desde storage: Mongo trunca a milisegundos, la
+        # copia en memoria hacía que un retry reportara otro instante.
         return await self.require(month_key)
 
     async def close(
@@ -238,7 +238,7 @@ class MonthlyConfigService:
             }
         )
 
-    # ---------------------------------------------------------------- helpers
+    # ------------------------------------------------------------------ ayudas
 
     def _definition(self, mission_id: str) -> MonthlyMissionDefinition:
         definition = self.catalog.get(mission_id)
@@ -250,13 +250,10 @@ class MonthlyConfigService:
         return definition
 
     async def _require_editable(self, config: MonthlyMissionConfig) -> None:
-        """A month is editable while it is a DRAFT nobody is playing yet.
+        """Editable solo como DRAFT y sin nadie jugándolo todavía.
 
-        The invariant that matters is that a user with progress never sees the
-        goalposts move. Activation is what publishes the month, so DRAFT stays
-        editable even after the month has technically begun, otherwise the
-        August 2026 launch month could never be configured at all. Any recorded
-        progress freezes it immediately, whatever the state says.
+        Un usuario con progreso nunca debe ver la meta moverse: cualquier
+        progreso registrado congela la config de inmediato, sin importar el estado.
         """
         if config.state != MonthlyConfigState.DRAFT:
             raise MonthlyConfigError(

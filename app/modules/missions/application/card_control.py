@@ -1,12 +1,8 @@
-"""Admin control over a card's mission window: close, reopen, VOID.
+"""Control admin de la ventana de misiones de una card: close, reopen, VOID.
 
-`mission_card_controls` was read by Home and by selection but nothing ever wrote
-it, so the state was permanently `OPEN` by default. This is the writer.
-
-VOID is the one irreversible action. It is terminal for the card and it settles
-every assignment on it, because a card that never happened cannot leave users
-holding missions that can neither complete nor fail. Closing is reversible;
-reopening is the escape hatch for a close made too early.
+Único escritor de `mission_card_controls` (antes solo se leía y quedaba en
+`OPEN` por defecto). VOID es irreversible: liquida toda asignación porque
+una card que nunca ocurrió no puede dejar misiones que ni completan ni fallan.
 """
 
 from __future__ import annotations
@@ -61,17 +57,17 @@ class CardControlState:
 
 
 class CardControlService:
-    """Reads and moves one card's mission state under the approved rules."""
+    """Lee y mueve el estado de misiones de una card según las reglas aprobadas."""
 
     def __init__(self, db: AsyncDatabase, *, clock: Clock = _utc_now) -> None:
         self.db = db
         self.clock = clock
         self.controls = db["mission_card_controls"]
 
-    # ------------------------------------------------------------------ reads
+    # ----------------------------------------------------------------- lecturas
 
     async def state_for(self, event_id: int) -> CardControlState:
-        """A card nobody has touched is OPEN, the same default Home assumes."""
+        """Una card sin tocar está OPEN: el mismo default que asume Home."""
         document = await self.controls.find_one({"event_id": event_id})
         if document is None:
             return CardControlState(event_id=event_id, state=CardMissionState.OPEN)
@@ -86,7 +82,7 @@ class CardControlService:
             history=tuple(document.get("history") or ()),
         )
 
-    # ---------------------------------------------------------------- writers
+    # --------------------------------------------------------------- escrituras
 
     async def close(self, *, event_id: int, actor_id: str, reason: str) -> CardControlState:
         return await self._transition(
@@ -107,7 +103,7 @@ class CardControlService:
         )
 
     async def void(self, *, event_id: int, actor_id: str, reason: str) -> CardControlState:
-        """VOID the card and settle every assignment on it. Irreversible."""
+        """Pone la card en VOID y liquida todas sus asignaciones. Irreversible."""
         return await self._transition(
             event_id=event_id,
             target=CardMissionState.VOID,
@@ -137,7 +133,7 @@ class CardControlService:
 
         current = await self.state_for(event_id)
         if current.state == target:
-            # Repeating an action is not an error; the card is already there.
+            # Repetir la acción no es error: la card ya está en ese estado.
             return current
         if current.state == CardMissionState.VOID:
             raise CardControlError(
@@ -181,12 +177,10 @@ class CardControlService:
     async def _void_assignments(
         self, event_id: int, *, actor_id: str, reason: str
     ) -> int:
-        """Settle every unsettled mission on a card that will never happen.
+        """Liquida las misiones pendientes de una card que nunca va a ocurrir.
 
-        Already-settled assignments are left alone: a mission that genuinely
-        completed before the card was voided keeps its XP, and the ledger is
-        append-only, so silently reversing it here would be a second, unaudited
-        decision.
+        Las ya liquidadas no se tocan: revertirlas sería una segunda decisión
+        no auditada sobre un ledger de XP que es append-only.
         """
         now = self.clock()
         voided = 0
