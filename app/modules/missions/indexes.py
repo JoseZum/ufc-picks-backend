@@ -1,8 +1,8 @@
-"""Versioned MongoDB index manifest for the mission system.
+"""Manifiesto versionado de índices de MongoDB para el sistema de misiones.
 
-The manifest is application-owned infrastructure. Inspection is read-only,
-application is explicit, and rollback removes only named mission indexes while
-leaving documents and collections intact.
+Infraestructura propiedad de la app: inspeccionar es de solo lectura, aplicar
+es explícito y el rollback solo borra los índices nombrados, sin tocar
+documentos ni colecciones.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ class MissionIndexReport:
 
 
 class MissionIndexMigrationError(RuntimeError):
-    """Raised when a manifest cannot be applied without manual remediation."""
+    """Se lanza cuando el manifiesto necesita remediación manual para aplicarse."""
 
 
 MISSION_INDEXES: tuple[MissionIndexSpec, ...] = (

@@ -1,4 +1,4 @@
-"""Versioned, reviewed mission catalog assets."""
+"""Catálogos de misiones, versionados y revisados."""
 
 import json
 from pathlib import Path
@@ -34,7 +34,7 @@ def load_card_catalog() -> MissionCatalog:
 
 
 def load_monthly_catalog() -> MappingProxyType[str, MonthlyMissionDefinition]:
-    """The 18 reviewed monthly templates, keyed by mission ID."""
+    """Las 18 plantillas mensuales revisadas, indexadas por mission_id."""
     values = json.loads(MONTHLY_CATALOG_PATH.read_text(encoding="utf-8"))
     if not isinstance(values, list) or not values:
         raise MissionCatalogError("Monthly catalog root must be a non-empty JSON array")

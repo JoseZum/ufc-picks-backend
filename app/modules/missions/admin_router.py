@@ -1,8 +1,8 @@
-"""Admin HTTP boundary for the monthly mission programme.
+"""Frontera HTTP admin del programa de misión mensual.
 
-Admin picks one of the 18 reviewed templates for a month and fixes its
-parameters before the month starts. Every mutation writes an audit row, because
-these decisions change what every user is asked to do.
+Admin elige una de las 18 plantillas revisadas para un mes y fija sus
+parámetros antes de que empiece. Cada mutación escribe una fila de auditoría
+porque estas decisiones cambian lo que se le pide a cada usuario.
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ def _services(db):
 
 @router.get("/monthly/templates", response_model=list[MonthlyTemplateView])
 async def list_monthly_templates(_admin: CurrentAdmin) -> list[MonthlyTemplateView]:
-    """The 18 reviewed templates, with the bounds Admin may choose inside."""
+    """Las 18 plantillas revisadas, con los límites que Admin puede elegir."""
     catalog = load_monthly_catalog()
     return [
         MonthlyTemplateView(
@@ -162,7 +162,7 @@ async def upsert_monthly_config(
     admin: CurrentAdmin,
     db: Database,
 ) -> MonthlyConfigView:
-    """Create the month's draft, or edit it while it is still editable."""
+    """Crea el draft del mes, o lo edita mientras siga siendo editable."""
     catalog, service = _services(db)
     try:
         existing = await service.get(month_key)
@@ -226,10 +226,10 @@ async def close_monthly_config(
     db: Database,
     force: bool = False,
 ) -> MonthlyConfigView:
-    """Close the month and settle everyone still short of the target.
+    """Cierra el mes y liquida a quien se quedó corto del objetivo.
 
-    `force=true` is the explicit Admin close for a month that has not ended yet;
-    without it a running month refuses to close.
+    `force=true` es el close explícito de Admin para un mes que aún no
+    terminó; sin eso, un mes en curso se niega a cerrar.
     """
     catalog, service = _services(db)
     try:
@@ -290,7 +290,7 @@ def _card_view(state, selected: int = 0) -> CardControlView:
 
 
 async def _selected_on_card(db, event_id: int) -> int:
-    """How many missions users hold on this card, whatever their outcome."""
+    """Cuántas misiones tienen los usuarios en esta card, sin importar el desenlace."""
     return cast("int", await db["mission_assignments"].count_documents({"event_id": event_id}))
 
 
@@ -323,10 +323,10 @@ async def act_on_card(
     admin: CurrentAdmin,
     db: Database,
 ) -> CardControlView:
-    """Close, reopen or VOID a card's mission window.
+    """Close, reopen o VOID sobre la ventana de misiones de una card.
 
-    VOID is irreversible and settles every ACTIVE assignment on the card, so the
-    reason is mandatory and the whole transition is audited.
+    VOID es irreversible y liquida toda asignación ACTIVE de la card, por eso
+    el motivo es obligatorio y la transición completa queda auditada.
     """
     service = CardControlService(db)
     handler = {
@@ -391,7 +391,7 @@ async def preview_reconciliation(
     user_id: str | None = None,
     assignment_id: str | None = None,
 ) -> ReconciliationPreviewView:
-    """Build the repair plan. Writes nothing, ever."""
+    """Arma el plan de reparación. Nunca escribe nada."""
     preview = await MissionReconciliationService(db).preview(
         _scope(event_id, user_id, assignment_id)
     )
@@ -433,7 +433,7 @@ async def apply_reconciliation(
     admin: CurrentAdmin,
     db: Database,
 ) -> dict:
-    """Apply a previously previewed plan, under compare-and-set."""
+    """Aplica un plan ya previsualizado, bajo compare-and-set."""
     scope = _scope(request.event_id, request.user_id, request.assignment_id)
     try:
         outcome = await MissionReconciliationService(db).apply(
@@ -470,13 +470,8 @@ async def reconcile_result_evaluation(
 ) -> dict:
     """Evalúa las misiones de los resultados que ya están escritos.
 
-    Lo llama el job `ESPN Results ETL` justo después de registrar resultados: el
-    scraper escribe en Mongo sin pasar por `PUT /admin/bouts/{id}/result`, que
-    era el único camino que disparaba el motor de misiones.
-
-    Va con token de servicio y no con `CurrentAdmin` a propósito: el scraper
-    corre en GitHub Actions y no tiene sesión de usuario. Darle un JWT de admin
-    le concedería todo el panel para hacer una sola cosa.
+    Lo llama el ETL tras escribir en Mongo (no pasa por el endpoint que
+    dispara el motor). Usa token de servicio: el scraper no tiene sesión.
     """
     settings = get_settings()
     expected = settings.mission_reconcile_token

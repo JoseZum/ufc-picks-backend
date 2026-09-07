@@ -1,4 +1,4 @@
-"""Authenticated HTTP boundary for the mission system."""
+"""Frontera HTTP autenticada del sistema de misiones."""
 
 from __future__ import annotations
 
@@ -32,8 +32,8 @@ from app.modules.missions.domain.selections import SelectMissionCommand
 
 router = APIRouter(prefix="/missions", tags=["missions"])
 
-#: Offer draws are HMAC-stable per user+card, so the same secret must produce the
-#: same three slots on every refresh. Derived from the app secret, never printed.
+#: Estable por HMAC para user+card: el mismo secreto siempre da los mismos
+#: tres slots. Derivado del secreto de la app, nunca se imprime.
 def _offer_secret() -> bytes:
     return hashlib.sha256(
         f"mission-offers:{get_settings().jwt_secret}".encode()
@@ -45,10 +45,10 @@ def _user_id(user) -> str:
 
 
 def _require_access(user) -> None:
-    """The launch gate (CAL-004).
+    """El gate de lanzamiento.
 
-    404 rather than 403 on purpose: while the feature is dark, a user outside
-    the canary should not be able to tell that missions exist at all.
+    404 y no 403 a propósito: mientras la feature está apagada, un usuario
+    fuera del canary no debe poder saber que las misiones existen.
     """
     if user_can_see_missions(
         _user_id(user), getattr(user, "email", None)
@@ -64,7 +64,7 @@ def _require_access(user) -> None:
 async def get_mission_capabilities(
     _current_user: CurrentUser,
 ) -> MissionCapabilitiesResponse:
-    """Return the renderer contract supported by this API version."""
+    """Contrato del renderer soportado por esta versión de la API."""
 
     _require_access(_current_user)
 
@@ -77,7 +77,7 @@ async def get_home_missions(
     current_user: CurrentUser,
     db: Database,
 ) -> HomeMissionsResponse:
-    """The monthly mission and three card slots for one event."""
+    """La misión mensual y los tres slots de card de un evento."""
 
     _require_access(current_user)
     service = MissionReadService(db, offer_secret=_offer_secret())
@@ -89,7 +89,7 @@ async def get_profile_missions(
     current_user: CurrentUser,
     db: Database,
 ) -> ProfileMissionsResponse:
-    """XP, level, title, streak, active missions, history and celebrations."""
+    """XP, nivel, título, streak, misiones activas, historial y celebraciones."""
 
     _require_access(current_user)
 
@@ -103,10 +103,10 @@ async def public_mission_profile(
     current_user: CurrentUser,
     db: Database,
 ) -> PublicMissionProfileResponse:
-    """Another user's mission standing, for the profile card.
+    """El estado de misiones de otro usuario, para su tarjeta de perfil.
 
-    Requires a session, this is a logged-in social surface, not an open API, and answers 404 for an unknown user rather than an empty record, so the
-    endpoint cannot be used to enumerate who exists.
+    Requiere sesión (superficie social, no API abierta) y responde 404 para
+    un usuario inexistente, así no sirve para enumerar quién existe.
     """
 
     _require_access(current_user)
@@ -152,7 +152,7 @@ async def select_mission(
     current_user: CurrentUser,
     db: Database,
 ) -> SelectedMissionView:
-    """Irreversibly activate one offer and upsert any canonical picks it owns."""
+    """Activa una oferta de forma irreversible y hace upsert de sus picks canónicos."""
 
     _require_access(current_user)
     user_id = _user_id(current_user)
@@ -172,8 +172,8 @@ async def select_mission(
             },
         )
 
-    # A retry must be idempotent. Once a slot is taken its options are empty, so
-    # resolve an already-selected slot before looking the offer up.
+    # Un retry debe ser idempotente: si el slot ya está tomado sus opciones
+    # quedan vacías, así que se resuelve antes de buscar la oferta.
     taken = next(
         (slot.selected for slot in home.slots if slot.slot == request.slot),
         None,
@@ -189,8 +189,8 @@ async def select_mission(
             },
         )
 
-    # The interaction type is server truth: derive the selection discriminator
-    # from the offer instead of trusting a client-supplied `kind`.
+    # El tipo de interacción lo decide el servidor: se deriva de la oferta,
+    # nunca de un `kind` que mande el cliente.
     offer = next(
         (
             option
@@ -226,8 +226,7 @@ async def select_mission(
             ),
         )
     except ValidationError as error:
-        # A malformed patch is the client's mistake, not a 500. The domain
-        # models are the only place patch shapes are defined.
+        # Un patch mal formado es error del cliente, no un 500.
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
@@ -261,7 +260,7 @@ async def acknowledge_celebration(
     current_user: CurrentUser,
     db: Database,
 ) -> Response:
-    """Acknowledge one pending celebration. Repeats are harmless."""
+    """Confirma una celebración pendiente. Repetirlo no tiene efecto."""
 
     _require_access(current_user)
 

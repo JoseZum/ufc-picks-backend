@@ -1,19 +1,9 @@
-"""The launch switch for the mission system (CAL-004).
+"""Interruptor de lanzamiento del sistema de misiones.
 
-Two independent controls, deliberately:
-
-``MISSIONS_ENABLED``
-    The off switch. When false nobody sees missions, regardless of allowlist.
-    This is what gets flipped if something goes wrong at 2am, one variable, no
-    deploy, no code change.
-
-``MISSIONS_ALLOWLIST``
-    The canary. When it is non-empty, only those users get missions even though
-    the feature is "on". Emptying it opens the feature to everyone, which makes
-    "go to general availability" a config change rather than a release.
-
-Failing closed matters more than convenience here: an unset allowlist with the
-feature enabled means everyone, so the canary phase must set both.
+Dos controles independientes: ``MISSIONS_ENABLED`` apaga todo sin importar
+el allowlist, y ``MISSIONS_ALLOWLIST`` es el canary (si tiene usuarios, solo
+ellos ven misiones). Falla cerrado: un allowlist vacío con la feature activa
+significa "todos", así que el canary debe fijar ambas variables.
 """
 
 from __future__ import annotations
@@ -42,15 +32,15 @@ def missions_enabled() -> bool:
 
 
 def canary_only() -> bool:
-    """True while an allowlist is set, i.e. the feature is still a canary."""
+    """True mientras haya un allowlist activo, o sea la feature sigue en canary."""
     return bool(_allowlist())
 
 
 def user_can_see_missions(user_id: str | None, email: str | None = None) -> bool:
-    """Whether this user is inside the launch.
+    """Si este usuario está dentro del lanzamiento.
 
-    Matching accepts either the account id or the email, because an allowlist
-    written by a human is going to contain emails.
+    Acepta id de cuenta o email porque un allowlist escrito a mano suele
+    tener emails.
     """
     if not missions_enabled():
         return False
@@ -66,7 +56,7 @@ def user_can_see_missions(user_id: str | None, email: str | None = None) -> bool
 
 
 def reset_cache() -> None:
-    """Tests and config reloads only."""
+    """Solo para tests y recargas de config."""
     _allowlist.cache_clear()
 
 

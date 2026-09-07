@@ -1,7 +1,7 @@
-"""Stable transport contracts for the mission-system boundary.
+"""Contratos de transporte estables para la frontera del sistema de misiones.
 
-Every field is presentation-ready. The client renders these strings and numbers
-as-is; it never recomputes progress, eligibility, XP or lock rules.
+Cada campo llega listo para pintar. El cliente renderiza estos strings y
+números tal cual, nunca recalcula progreso, elegibilidad, XP ni locks.
 """
 
 from datetime import datetime
@@ -15,7 +15,7 @@ MISSION_API_VERSION = "1"
 MISSION_CATALOG_VERSION = "2026.08.01"
 
 class MissionCapabilitiesResponse(BaseModel):
-    """Renderer capabilities shared by the backend and frontend gateway."""
+    """Capacidades del renderer, compartidas entre backend y gateway del frontend."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -35,7 +35,7 @@ class MissionTransport(BaseModel):
 
 
 class MissionOfferView(MissionTransport):
-    """One selectable option inside a slot."""
+    """Una opción seleccionable dentro de un slot."""
 
     offer_id: str
     mission_id: str
@@ -52,11 +52,8 @@ class MissionOfferView(MissionTransport):
 class SelectionPartView(MissionTransport):
     """Una pieza de lo que el usuario eligió, ya lista para pintar.
 
-    Se manda partida porque la UI estiliza cada rol por separado: el peleador
-    destaca y el método lo acompaña discreto. Mientras solo viajaba la frase
-    plana, la superficie tenía que partirla por puntuación o mostrarlo todo con
-    el mismo peso, y el método salía además con la ortografía interna
-    (`KO_TKO` en vez de `KO/TKO`).
+    Va partida porque la UI estiliza cada rol aparte, y así el método sale
+    ya traducido (`KO/TKO`, no `KO_TKO`).
     """
 
     label: str | None = None
@@ -65,7 +62,7 @@ class SelectionPartView(MissionTransport):
 
 
 class SelectedMissionView(MissionTransport):
-    """An irreversible selection and its resolved progress."""
+    """Una selección irreversible y su progreso resuelto."""
 
     assignment_id: str
     event_id: int
@@ -111,13 +108,13 @@ class CelebrationView(MissionTransport):
     presentation: str
     heading: str
     message: str
-    #: The typed payload the surface renders (level, title, streak, XP). Carried
-    #: through so the client never has to parse `heading`/`message` back apart.
+    #: Payload tipado (nivel, título, streak, XP) para que el cliente no
+    #: tenga que parsear `heading`/`message`.
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class StreakCardView(MissionTransport):
-    """What one settled card did to the streak."""
+    """Qué le hizo al streak una card ya liquidada."""
 
     event_id: int
     event_label: str | None = None
@@ -154,9 +151,9 @@ class ProfileMissionsResponse(MissionTransport):
     next_title_level: int | None = None
     current_streak: int
     best_streak: int
-    #: Finished copy for the next milestone, e.g. "5 → +3 XP".
+    #: Texto final del próximo hito, ej. "5 → +3 XP".
     next_streak_milestone_label: str = ""
-    #: True when the most recently settled card broke the streak.
+    #: True cuando la última card liquidada rompió el streak.
     streak_just_broke: bool = False
     monthly: MonthlyMissionView | None = None
     active: tuple[SelectedMissionView, ...] = ()
@@ -166,12 +163,10 @@ class ProfileMissionsResponse(MissionTransport):
 
 
 class PublicMissionProfileResponse(MissionTransport):
-    """What one user may see about ANOTHER user's mission record.
+    """Lo que un usuario puede ver del historial de misiones de OTRO.
 
-    Deliberately a subset of `ProfileMissionsResponse`: no celebrations (they
-    are unacknowledged notifications addressed to their owner) and no active
-    missions (an in-flight selection is a bet nobody else has a right to read
-    before the card settles). Everything here is already-public standing, level, title, XP and the missions the user finished.
+    Subconjunto de `ProfileMissionsResponse`: sin celebraciones (del dueño)
+    ni misiones activas (nadie más puede leer una apuesta en curso).
     """
 
     user_id: str
@@ -185,9 +180,9 @@ class PublicMissionProfileResponse(MissionTransport):
     best_streak: int
     missions_completed: int
     missions_settled: int
-    #: Settled missions, newest first, with the same bounded history as Profile.
+    #: Misiones liquidadas, más nuevas primero, mismo límite que Profile.
     history: tuple[SelectedMissionView, ...] = ()
-    #: Latest eight completed missions, retained for older clients.
+    #: Últimas ocho completadas, se mantiene por clientes viejos.
     recent: tuple[SelectedMissionView, ...] = ()
 
 
@@ -197,11 +192,8 @@ class SelectMissionRequest(MissionTransport):
     offer_id: str
     idempotency_key: str = Field(min_length=8, max_length=128)
     selection: dict[str, Any] | None = None
-    # A mission that binds a winner still has to write a COMPLETE canonical
-    # pick, and several missions leave the method or the round to the user.
-    # On a bout the user never picked there is nothing to inherit them from,
-    # so the client sends the missing fields here. Shapes are validated by
-    # `CanonicalPickPatch` in the domain, not restated.
+    # El pick debe quedar COMPLETE; sin pick previo no hay método/round que
+    # heredar, así que el cliente los manda aquí (forma validada en el dominio).
     pick_patches: list[dict[str, Any]] = Field(default_factory=list, max_length=6)
 
 
@@ -211,7 +203,7 @@ class MissionErrorResponse(MissionTransport):
 
 
 class MonthlyTemplateView(MissionTransport):
-    """One of the 18 reviewed templates, with the bounds Admin may pick inside."""
+    """Una de las 18 plantillas revisadas, con los límites que Admin puede elegir."""
 
     mission_id: str
     name: str
@@ -233,39 +225,39 @@ class MonthlyConfigView(MissionTransport):
     ends_at: datetime
     activated_at: datetime | None = None
     closed_at: datetime | None = None
-    #: False once the month starts or leaves DRAFT, the UI disables editing.
+    #: False en cuanto el mes arranca o deja DRAFT; la UI bloquea edición.
     editable: bool
 
 
 class UpsertMonthlyConfigRequest(MissionTransport):
     mission_id: str
-    #: Omit to take the reviewed defaults for that template.
+    #: Se omite para usar los defaults revisados de esa plantilla.
     parameters: dict[str, int] | None = None
 
 
 class CardControlView(MissionTransport):
-    """The mission window Admin controls on one card."""
+    """La ventana de misiones que Admin controla sobre una card."""
 
     event_id: int
     state: Literal["OPEN", "CLOSED", "VOID"]
     reason: str | None = None
     actor_id: str | None = None
     updated_at: datetime | None = None
-    #: How many ACTIVE assignments a VOID settled. 0 for close/reopen.
+    #: Cuántas asignaciones ACTIVE liquidó un VOID. 0 en close/reopen.
     voided_assignments: int = 0
-    #: Missions users have chosen on this card. An operator needs this BEFORE
-    #: pressing VOID, because VOID settles every one of them.
+    #: Misiones ya elegidas en esta card. El operador lo necesita ANTES de
+    #: pulsar VOID porque liquida todas.
     selected_assignments: int = 0
     revision: int = 0
 
 
 class CardControlActionRequest(MissionTransport):
-    #: Mandatory: an Admin action on live user state must say why.
+    #: Obligatorio: una acción Admin sobre estado en vivo debe decir por qué.
     reason: str = Field(min_length=3, max_length=240)
 
 
 class ReconciliationPreviewView(MissionTransport):
-    """A no-write repair plan. `plan_id` is what `apply` must echo back."""
+    """Un plan de reparación que no escribe. `apply` debe repetir `plan_id`."""
 
     preview_version: str
     plan_id: str
@@ -279,7 +271,7 @@ class ReconciliationPreviewView(MissionTransport):
 
 
 class ReconciliationApplyRequest(MissionTransport):
-    #: The plan the operator actually reviewed. A stale id is a 409.
+    #: El plan que el operador realmente revisó. Un id viejo da 409.
     plan_id: str
     reason: str = Field(min_length=3, max_length=240)
     event_id: int | None = None

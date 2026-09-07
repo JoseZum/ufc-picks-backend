@@ -1,5 +1,6 @@
-"""Mission-system vertical module.
+"""Módulo vertical del sistema de misiones.
 
-Import concrete adapters such as ``router`` explicitly so pure domain and
-migration modules never initialize FastAPI settings as a side effect.
+Los adaptadores concretos (como ``router``) se importan explícitamente para
+que los módulos de dominio y de migración nunca inicialicen la config de
+FastAPI como efecto secundario.
 """
