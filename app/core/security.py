@@ -3,7 +3,6 @@ Seguridad: Manejo de JWT y verificación de tokens de Google OAuth
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Optional
 
 import httpx
 from jose import JWTError, jwt
@@ -19,11 +18,6 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 class GoogleAuthError(Exception):
     """Se lanza cuando falla la verificación del token de Google"""
-    pass
-
-
-class JWTError(Exception):
-    """Se lanza cuando falla algo con los JWT"""
     pass
 
 
@@ -141,7 +135,7 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """
     Decodifica y valida un JWT
 
@@ -154,6 +148,6 @@ def decode_access_token(token: str) -> Optional[dict]:
             algorithms=[settings.jwt_algorithm]
         )
         return payload
-    except Exception:
+    except (JWTError, ValueError):
         # Token inválido, expirado, o corrupto
         return None
