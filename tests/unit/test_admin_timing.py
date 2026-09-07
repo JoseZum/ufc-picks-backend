@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.controllers.admin_controller import build_event_timing_updates
+from app.controllers.admin.timing import build_event_timing_updates
 
 
 def sample_event():
