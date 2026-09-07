@@ -87,15 +87,9 @@ async def get_user_picks(
     limit: int = Query(50, ge=1, le=200, description="Maximum number of picks to return"),
     skip: int = Query(0, ge=0, description="Number of picks to skip")
 ):
-    """
-    Obtener los picks de un usuario con filtros.
+    """Picks de un usuario, filtrables por evento, año y acierto.
 
-    Los picks se pueden filtrar por:
-    - event_id: ID de un evento específico
-    - year: Año del evento
-    - status: correct, incorrect, pending
-
-    Solo muestra picks de peleas que ya tienen resultado público.
+    Solo aparecen los de peleas con resultado ya público.
     """
     # Verificar que el usuario existe
     user = await db["users"].find_one({"_id": user_id})
@@ -217,15 +211,8 @@ async def get_user_picks_stats(
     db: Database,
     year: int | None = Query(None, description="Filter by year")
 ):
-    """
-    Obtener estadísticas de picks de un usuario.
-
-    Retorna estadísticas como:
-    - Total de picks
-    - Picks correctos/incorrectos
-    - Accuracy
-    - Picks por método (DEC, KO/TKO, SUB)
-    - Picks por evento
+    """Resumen de aciertos de un usuario: totales, accuracy y desglose por
+    método y por evento.
     """
     # Verificar que el usuario existe
     user = await db["users"].find_one({"_id": user_id})

@@ -74,20 +74,11 @@ def _resolve_image_key(image_key: str) -> str:
 
 
 def _process_fighters(fighters: dict) -> dict:
-    """
-    Procesa el diccionario de peleadores, normalizando campos y generando profile_image_url.
+    """Normaliza los peleadores y resuelve `profile_image_url` desde `image_key`.
 
-    Normalización de campos:
-    - ufc_ranking -> ranking (frontend espera 'ranking')
-    - Asegura que height, reach estén en formato correcto
-
-    Estrategia de imagen:
-    1. Si image_key existe (ya subido a S3 por el spider) -> usar CloudFront
-    2. Si no hay image_key -> el frontend mostrará placeholder
-
-    Nota: El proxy on-demand no funciona porque Tapology bloquea requests directos
-    (bot protection). Las imágenes se obtienen via el spider fighter_images que
-    corre periódicamente y sube a S3.
+    Sin `image_key` no hay imagen: el frontend pone el placeholder. No se
+    intenta bajarla al vuelo porque Tapology bloquea los requests directos, así
+    que las fotos solo llegan por el spider `fighter_images`.
     """
     if not fighters:
         return fighters
