@@ -58,23 +58,10 @@ def _get_content_type(path: str, response_content_type: str | None) -> str:
 
 
 def _build_cache_headers(etag: str, cache_status: str) -> dict:
-    """
-    Construye headers HTTP optimizados para caché en múltiples capas
+    """Headers de cache para browser y CDN.
 
-    Estos headers le dicen a los navegadores y CDNs cuánto tiempo pueden
-    cachear la imagen. Usamos tiempos largos porque las imágenes no cambian.
-
-    Cache strategy:
-    - max-age=604800 (7 días): tiempo que el browser/CDN puede usar la imagen sin revalidar
-    - stale-while-revalidate: permite servir imagen vieja mientras se revalida en background
-    - stale-if-error: si el servidor falla, sigue sirviendo imagen vieja
-
-    Args:
-        etag: Hash único de la imagen (para validación condicional)
-        cache_status: Estado del cache para debugging (HIT/MISS/etc)
-
-    Returns:
-        Dict de headers HTTP para agregar al response
+    Las imagenes no cambian, asi que se cachean 7 dias y se siguen sirviendo
+    viejas mientras revalidan o si el origen falla.
     """
     return {
         # Cache principal: 7 días, permite servir stale mientras revalida
@@ -124,27 +111,10 @@ def _clean_old_cache():
 
 
 async def _fetch_from_tapology(tapology_url: str, path: str) -> tuple[bytes, str]:
-    """
-    Descarga una imagen desde Tapology CDN
+    """Descarga una imagen del CDN de Tapology.
 
-    Hace un request HTTP a Tapology simulando ser un navegador normal para
-    evitar bloqueos. Maneja redirects automáticamente.
-
-    ¿Por qué estos headers específicos?
-    - User-Agent: simular navegador real (algunos sitios bloquean bots)
-    - Referer: indica que venimos del sitio de Tapology (anti-hotlinking)
-    - Accept: especifica que aceptamos formatos modernos como WebP
-
-    Args:
-        tapology_url: URL completa de la imagen en Tapology
-                     Ej: https://images.tapology.com/poster_images/135755/profile/xxx.jpg
-        path: Path relativo (para inferir content-type si es necesario)
-
-    Returns:
-        Tupla de (image_bytes, content_type)
-
-    Raises:
-        HTTPException: Si la imagen no existe (404) o hay error de descarga
+    Los headers imitan a un navegador porque Tapology bloquea bots y aplica
+    anti-hotlinking. Devuelve (bytes, content_type).
     """
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
@@ -177,28 +147,10 @@ async def _fetch_from_tapology(tapology_url: str, path: str) -> tuple[bytes, str
 
 # In-memory strategy
 async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Response:
-    """
-    Obtiene imagen usando estrategia de cache en memoria
+    """Sirve la imagen desde el cache en memoria, descargandola si falta.
 
-    Flujo:
-    1. Buscar en cache en memoria usando hash del path
-    2. Si existe y no expiró, servir desde caché
-    3. Si no existe, descargar desde Tapology
-    4. Guardar en cache para futuras requests
-    5. Limpiar cache viejo periódicamente
-
-    ¿Cuándo usar esta estrategia?
-    - Desarrollo local (no necesitas AWS)
-    - Testing (cache temporal, se limpia al reiniciar)
-    - Ambientes efímeros (preview deploys, etc)
-
-    Args:
-        clean_path: Path sin query params (para generar cache key consistente)
-        tapology_url: URL completa de Tapology
-        path: Path original (puede tener query params)
-
-    Returns:
-        FastAPI Response con la imagen y headers de cache
+    Es la estrategia para local y testing, donde no hay AWS. El cache se
+    pierde al reiniciar.
     """
     # Generar key de cache usando hash MD5 del path
     cache_key = hashlib.md5(clean_path.encode()).hexdigest()
@@ -241,40 +193,11 @@ async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Re
 
 # S3 strategy
 async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Response:
-    """
-    Obtiene imagen usando estrategia de almacenamiento en S3
+    """Sirve la imagen desde S3 redirigiendo a CloudFront.
 
-    Flujo según IMAGE_SOURCE_MODE:
-
-    Modo "s3" (lectura + escritura):
-    1. Verificar si existe en S3
-    2. Si existe, redirigir a CloudFront
-    3. Si no existe:
-       a. Descargar desde Tapology
-       b. Subir a S3
-       c. Redirigir a CloudFront (MISS)
-
-    Modo "cache" (solo lectura):
-    1. Verificar si existe en S3
-    2. Si existe, redirigir a CloudFront
-    3. Si no existe, devolver error 404
-
-    ¿Por qué redirigir a CloudFront en lugar de servir directo?
-    - CloudFront tiene edge locations globales (menor latencia)
-    - S3 bucket es privado, CloudFront lo expone públicamente
-    - Menores costos de transferencia
-    - Browser/CDN pueden cachear desde CloudFront
-
-    Args:
-        clean_path: Path sin query params
-        tapology_url: URL completa de Tapology
-        path: Path original
-
-    Returns:
-        Response con redirect a CloudFront o imagen directa
-
-    Raises:
-        HTTPException: Si S3 no está configurado o hay errores
+    Con IMAGE_SOURCE_MODE="s3" descarga y sube lo que falte; con "cache" solo
+    lee y devuelve 404 si no esta. Se redirige en vez de servir directo porque
+    el bucket es privado y CloudFront tiene edge locations.
     """
     s3_service = get_s3_service()
 
@@ -369,40 +292,11 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
 
 @router.get("/tapology/{path:path}")
 async def proxy_tapology_image(path: str):
-    """
-    Endpoint de proxy para imágenes de Tapology CDN
+    """Proxy de imagenes de Tapology.
 
-    Este endpoint actúa como intermediario entre el frontend y Tapology,
-    implementando caché inteligente según la configuración.
-
-    Path format:
-    - Input: /proxy/tapology/poster_images/135755/profile/xxx.jpg
-    - Proxies to: https://images.tapology.com/poster_images/135755/profile/xxx.jpg
-
-    Estrategias de cache (IMAGE_CACHE_STRATEGY):
-    - MEMORY: Cache en memoria (7 días, 200 imágenes máx)
-    - S3: AWS S3 + CloudFront CDN (persistente, ilimitado)
-
-    Modos S3 (IMAGE_SOURCE_MODE):
-    - s3: Lee de S3, descarga y sube si no existe (lectura + escritura)
-    - cache: Solo lee de S3, nunca descarga ni sube (solo lectura)
-
-    Capas de cache cuando se usa S3 + CloudFront:
-    1. Browser cache - 7 días
-    2. Vercel Edge cache - 7 días
-    3. CloudFront CDN - configurado en AWS
-    4. S3 storage - persistente
-
-    Args:
-        path: Path relativo de la imagen en Tapology
-              Puede incluir query params (ej: ?timestamp=123)
-
-    Returns:
-        - Si usa CloudFront: HTTP 302 redirect a CloudFront URL
-        - Si no usa CloudFront: imagen directa con headers de cache
-
-    Raises:
-        HTTPException: 404 si no existe, 500/502/504 en errores de red/config
+    `/proxy/tapology/<path>` va a `https://images.tapology.com/<path>`.
+    IMAGE_CACHE_STRATEGY elige entre memoria y S3+CloudFront; con S3 devuelve
+    un 302 al CDN en vez de la imagen.
     """
     # Limpiar query params del path para generar cache key consistente
     # Tapology agrega timestamps que cambian pero la imagen es la misma
