@@ -1,6 +1,9 @@
 """Helpers compartidos por los routers de admin."""
 
 import logging
+from typing import Any
+
+from fastapi import HTTPException, status
 
 from app.modules.missions.application.orchestration import (
     MissionTriggerService,
@@ -45,3 +48,25 @@ async def _run_mission_triggers(
         "monthly_updates": outcome.monthly_updates,
         "errors": list(outcome.errors),
     }
+
+
+async def get_bout_or_404(db, bout_id: int) -> dict[str, Any]:
+    """Documento crudo de la pelea. Admin trabaja sobre el documento entero."""
+    bout = await db["bouts"].find_one({"id": bout_id})
+    if not bout:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bout {bout_id} no encontrado",
+        )
+    return bout
+
+
+async def get_event_or_404(db, event_id: int) -> dict[str, Any]:
+    """Documento crudo del evento."""
+    event = await db["events"].find_one({"id": event_id})
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evento {event_id} no encontrado",
+        )
+    return event

@@ -2,8 +2,9 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 
+from app.controllers.admin.shared import get_bout_or_404, get_event_or_404
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 
@@ -24,12 +25,7 @@ async def lock_event_picks(
     Lockear picks para un evento completo.
     Solo administradores.
     """
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    await get_event_or_404(db, event_id)
 
     # Update event picks_locked flag
     await db["events"].update_one(
@@ -69,12 +65,7 @@ async def unlock_event_picks(
     Unlockear picks para un evento completo.
     Solo administradores.
     """
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    await get_event_or_404(db, event_id)
 
     # Update event picks_locked flag
     await db["events"].update_one(
@@ -131,12 +122,7 @@ async def complete_event(
     Marca un evento como completado manualmente.
     Solo administradores.
     """
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    await get_event_or_404(db, event_id)
 
     await db["events"].update_one(
         {"id": event_id},
@@ -163,12 +149,7 @@ async def lock_bout_picks(
     Lockear picks para una pelea individual.
     Solo administradores.
     """
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    await get_bout_or_404(db, bout_id)
 
     # Update bout picks_locked flag
     await db["bouts"].update_one(
@@ -208,12 +189,7 @@ async def unlock_bout_picks(
     Unlockear picks para una pelea individual.
     Solo administradores.
     """
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    await get_bout_or_404(db, bout_id)
 
     # Update bout picks_locked flag
     await db["bouts"].update_one(

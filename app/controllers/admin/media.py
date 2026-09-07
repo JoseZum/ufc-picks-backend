@@ -5,6 +5,7 @@ import os
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
+from app.controllers.admin.shared import get_event_or_404
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 from app.services.s3_service import S3ServiceError, S3WriteNotAllowedError, get_s3_service
@@ -25,12 +26,7 @@ async def upload_event_art(
 ):
     """Sube una imagen personalizada para un evento."""
     # Verificar que el evento existe
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    await get_event_or_404(db, event_id)
 
     # Validar que sea una imagen soportada
     valid_extensions = ['.avif', '.png', '.jpg', '.jpeg', '.webp']
@@ -89,12 +85,7 @@ async def delete_event_art(
 ):
     """Elimina la imagen personalizada de un evento."""
     # Verificar que el evento existe
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    await get_event_or_404(db, event_id)
 
     # Eliminar imagen de MongoDB
     await db["events"].update_one(

@@ -7,7 +7,10 @@ from fastapi import APIRouter, HTTPException, Request, status
 from app.controllers.admin.schemas import (
     UpdateBoutResultRequest,
 )
-from app.controllers.admin.shared import _run_mission_triggers
+from app.controllers.admin.shared import (
+    _run_mission_triggers,
+    get_bout_or_404,
+)
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 from app.modules.missions.application.orchestration import (
@@ -95,12 +98,7 @@ async def update_bout_result(
     4. Actualiza leaderboards automáticamente
     """
     # Verificar que el bout existe
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    bout = await get_bout_or_404(db, bout_id)
 
     # Validar winner
     if body.winner not in ["red", "blue", "draw", "nc"]:
@@ -198,12 +196,7 @@ async def delete_bout_result(
     Solo administradores.
     """
     # Verificar que el bout existe
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    bout = await get_bout_or_404(db, bout_id)
 
     # Verificar que tiene resultado
     if "result" not in bout or bout["result"] is None:

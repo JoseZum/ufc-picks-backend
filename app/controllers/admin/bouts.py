@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from app.controllers.admin.schemas import (
     UpdateBoutDetailsRequest,
 )
+from app.controllers.admin.shared import get_bout_or_404
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 from app.services.admin_card_commands import (
@@ -43,12 +44,7 @@ async def cancel_bout(
     Solo administradores.
     """
     # Verify bout exists
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    bout = await get_bout_or_404(db, bout_id)
 
     # Get affected users before deleting picks
     picks_cursor = db["picks"].find({"bout_id": bout_id})
@@ -148,12 +144,7 @@ async def delete_bout(
     Solo administradores.
     """
     # Verificar que el bout existe
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    bout = await get_bout_or_404(db, bout_id)
 
     event_id = bout.get("event_id")
 
@@ -216,12 +207,7 @@ async def update_bout_details(
     Solo administradores.
     """
     # Verificar que el bout existe
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    bout = await get_bout_or_404(db, bout_id)
 
     # Separar campos del bout y del card_slot
     bout_update = {}

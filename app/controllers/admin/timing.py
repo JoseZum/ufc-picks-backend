@@ -10,6 +10,7 @@ from app.controllers.admin.schemas import (
     UpdateBoutTimingRequest,
     UpdateEventTimingRequest,
 )
+from app.controllers.admin.shared import get_bout_or_404, get_event_or_404
 from app.core.dependencies import CurrentAdmin, Database
 from app.core.rate_limit import limiter
 
@@ -136,13 +137,7 @@ async def update_event_timing(
     Actualizar fecha/hora de evento y lock de picks.
     Solo administradores.
     """
-    # Verificar que el evento existe
-    event = await db["events"].find_one({"id": event_id})
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} no encontrado"
-        )
+    event = await get_event_or_404(db, event_id)
 
     card_start = body.card_start_time_utc or body.event_date
     picks_lock = body.picks_lock_time_utc or body.picks_lock_date
@@ -206,12 +201,7 @@ async def update_bout_timing(
     Solo administradores.
     """
     # Verificar que el bout existe
-    bout = await db["bouts"].find_one({"id": bout_id})
-    if not bout:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Bout {bout_id} no encontrado"
-        )
+    await get_bout_or_404(db, bout_id)
 
     # Construir update
     update_data = {}
