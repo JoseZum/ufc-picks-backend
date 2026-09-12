@@ -90,9 +90,15 @@ jobs:
         run: ruff check app/ tests/ scripts/ --output-format=github
 
       - name: Type checking (MyPy)
-        # Informativo mientras quedan errores de tipos por resolver.
-        run: mypy app/ --ignore-missing-imports || true
+        # Informativo mientras quedan errores de tipos por resolver. El paso se
+        # marca como fallido-ignorado a proposito: en verde no se leeria nunca.
+        run: mypy app/ --ignore-missing-imports
         continue-on-error: true
+
+      - name: Seguridad del codigo (Bandit)
+        # Bloquea de verdad a partir de severidad media. Los hallazgos low son
+        # ruido conocido (asserts en tests, binds de desarrollo).
+        run: bandit -r app/ -q -ll
 
       - name: Ejecutar todos los tests con cobertura
         env:
@@ -140,55 +146,11 @@ jobs:
           echo "Resumen de cobertura:"
           coverage report --show-missing || echo "Reporte de cobertura no disponible"
 
-  # Job 3: escaneo de seguridad
-  security-scan:
-    name: Escaneo de Seguridad
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout codigo
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: requirements.test.lock.txt
-
-      - name: Instalar dependencias
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.test.lock.txt
-
-      - name: Safety check (vulnerabilidades en dependencias)
-        run: |
-          echo "Buscando vulnerabilidades de seguridad conocidas..."
-          python -m safety check --json --output safety-report.json || true
-        continue-on-error: true
-
-      - name: Bandit scan (problemas de seguridad en codigo)
-        run: |
-          echo "Ejecutando escaneo de seguridad Bandit..."
-          python -m bandit -r app/ -f json -o bandit-report.json || true
-        continue-on-error: true
-
-      - name: Subir resultados de seguridad
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-reports-${{ github.run_id }}
-          path: |
-            safety-report.json
-            bandit-report.json
-          retention-days: 30
-        continue-on-error: true
-
   # Job 4: resumen del pipeline
   test-summary:
     name: Resumen del Pipeline CI
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test]
     if: always()
 
     steps:
@@ -197,7 +159,6 @@ jobs:
           echo "Resumen del pipeline CI/CD"
           echo ""
           echo "Tests:             ${{ needs.test.result }}"
-          echo "Escaneo Seguridad: ${{ needs.security-scan.result }}"
 
       - name: Fallar si los tests fallaron
         if: needs.test.result == 'failure'
