@@ -97,12 +97,3 @@ class BoutRepository:
         count = await self.collection.count_documents({"id": bout_id}, limit=1)
         return count > 0
 
-    async def get_recent_completed(self, limit: int = 10) -> list[Bout]:
-        """Obtiene las peleas completadas más recientes"""
-        cursor = self.collection.find(
-            {"status": "completed"}
-        ).sort("last_updated", -1).limit(limit)
-
-        docs = await cursor.to_list(length=limit)
-        return [Bout(**doc) for doc in docs]
-

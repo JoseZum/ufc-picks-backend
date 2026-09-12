@@ -14,13 +14,6 @@ from app.services.event_service import EventNotFoundError, EventService
 router = APIRouter(prefix="/events", tags=["events"])
 
 
-class LocationResponse(BaseModel):
-    """Ubicación de una pelea."""
-    venue: str | None = None
-    city: str | None = None
-    country: str | None = None
-
-
 class EventResponse(BaseModel):
     """Datos básicos del evento."""
     id: int

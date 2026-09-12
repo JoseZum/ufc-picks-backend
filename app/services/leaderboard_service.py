@@ -16,11 +16,6 @@ class LeaderboardServiceError(Exception):
     pass
 
 
-class LeaderboardNotFoundError(LeaderboardServiceError):
-    """Se lanza cuando no se encuentran datos de clasificación."""
-    pass
-
-
 class LeaderboardService:
     def __init__(self, db: AsyncDatabase):
         self.db = db

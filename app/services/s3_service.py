@@ -161,20 +161,6 @@ class S3Service:
 
         return None
 
-    def is_cloudfront_configured(self) -> bool:
-        """False si falta el dominio o si quedó el de ejemplo del .env."""
-        if not self.settings.aws_cloudfront_domain:
-            return False
-
-        example_domains = [
-            "d111111abcdef8.cloudfront.net",
-            "dXXXXXXXXXXXXX.cloudfront.net",
-            "example.cloudfront.net",
-        ]
-
-        domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
-        return domain not in example_domains
-
 
 _s3_service_instance: S3Service | None = None
 

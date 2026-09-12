@@ -5,7 +5,7 @@ from datetime import datetime
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.models.event import Event, EventCardSlot
+from app.models.event import Event
 
 
 class EventRepository:
@@ -70,15 +70,6 @@ class EventRepository:
         docs = await cursor.to_list(length=limit)
 
         return [Event(**self._normalize_document(doc)) for doc in docs]
-
-    async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:
-        """Obtiene la estructura de cartelera en orden."""
-        cursor = self.card_slots.find({
-            "event_id": event_id
-        }).sort("order_overall", 1)
-
-        docs = await cursor.to_list(length=None)
-        return [EventCardSlot(**doc) for doc in docs]
 
     # Update
 

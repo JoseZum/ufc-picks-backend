@@ -2,7 +2,7 @@
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.models.bout import Bout
-from app.models.event import Event, EventCardSlot
+from app.models.event import Event
 from app.repositories.bout_repository import BoutRepository
 from app.repositories.event_repository import EventRepository
 
@@ -25,14 +25,6 @@ class EventService:
         if not event:
             raise EventNotFoundError(f"Event {event_id} not found")
         return event
-
-    async def get_upcoming_events(self, limit: int = 5) -> list[Event]:
-        """Obtiene eventos programados próximos."""
-        return await self.event_repo.get_upcoming(limit)
-
-    async def get_recent_completed(self, limit: int = 5) -> list[Event]:
-        """Obtiene eventos completados recientemente."""
-        return await self.event_repo.get_recent_completed(limit)
 
     async def get_events_by_status(
         self,
@@ -57,11 +49,3 @@ class EventService:
             raise EventNotFoundError(f"Event {event_id} not found")
 
         return await self.bout_repo.get_by_event(event_id)
-
-    async def get_event_card_structure(self, event_id: int) -> list[EventCardSlot]:
-        """Obtiene la estructura de cartelera (orden de peleas) de un evento."""
-        event = await self.event_repo.get_by_id(event_id)
-        if not event:
-            raise EventNotFoundError(f"Event {event_id} not found")
-
-        return await self.event_repo.get_card_structure(event_id)
