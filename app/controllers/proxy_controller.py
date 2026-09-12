@@ -153,7 +153,7 @@ async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Re
     pierde al reiniciar.
     """
     # Generar key de cache usando hash MD5 del path
-    cache_key = hashlib.md5(clean_path.encode()).hexdigest()
+    cache_key = hashlib.md5(clean_path.encode(), usedforsecurity=False).hexdigest()
 
     # Verificar si está en cache y no expiró
     if cache_key in _image_cache:
@@ -174,7 +174,7 @@ async def _get_image_memory(clean_path: str, tapology_url: str, path: str) -> Re
         content, content_type = await _fetch_from_tapology(tapology_url, path)
 
         # Generar ETag desde hash del contenido
-        etag = hashlib.md5(content).hexdigest()[:16]
+        etag = hashlib.md5(content, usedforsecurity=False).hexdigest()[:16]
 
         # Guardar en cache para próximas requests
         _image_cache[cache_key] = (content, content_type, etag, time.time())
@@ -225,7 +225,7 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
             else:
                 # CloudFront no configurado - servir directo desde S3
                 content, content_type = await s3_service.get_image(s3_key)
-                etag = hashlib.md5(content).hexdigest()[:16]
+                etag = hashlib.md5(content, usedforsecurity=False).hexdigest()[:16]
                 return Response(
                     content=content,
                     media_type=content_type,
@@ -270,7 +270,7 @@ async def _get_image_s3(clean_path: str, tapology_url: str, path: str) -> Respon
                 )
             else:
                 # CloudFront no configurado - servir directo
-                etag = hashlib.md5(content).hexdigest()[:16]
+                etag = hashlib.md5(content, usedforsecurity=False).hexdigest()[:16]
                 return Response(
                     content=content,
                     media_type=content_type,

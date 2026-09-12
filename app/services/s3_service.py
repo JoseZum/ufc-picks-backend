@@ -86,7 +86,7 @@ class S3Service:
         """Key para el cache del proxy. El path va hasheado para evitar
         colisiones entre imágenes de Tapology que no son de evento ni peleador."""
         file_ext = tapology_path.split(".")[-1] if "." in tapology_path else "jpg"
-        cache_key = hashlib.md5(tapology_path.encode()).hexdigest()
+        cache_key = hashlib.md5(tapology_path.encode(), usedforsecurity=False).hexdigest()
         return f"tapology-images/{cache_key}.{file_ext}"
 
     async def image_exists(self, s3_key: str) -> bool:
@@ -174,6 +174,7 @@ class S3Service:
 
         domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
         return domain not in example_domains
+
 
 _s3_service_instance: S3Service | None = None
 
