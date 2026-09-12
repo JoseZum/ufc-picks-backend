@@ -192,4 +192,6 @@ scripts/*
 !scripts/repair_paris_result_methods.py
 # La CI levanta el Mongo de test con estos dos.
 !scripts/ensure_test_mongo.py
+# Tiene test propio en tests/unit/test_mission_index_cli.py.
+!scripts/mission_indexes.py
 mission-planning/

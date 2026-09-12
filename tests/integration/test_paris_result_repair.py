@@ -9,11 +9,17 @@ from app.modules.missions.application.bout_evaluation import (
 )
 from app.modules.missions.catalog import load_card_catalog
 from app.modules.missions.indexes import apply_mission_indexes
-from scripts import repair_paris_result_methods as repair
 from tests.integration.test_bout_mission_evaluation import (
     assignment,
     canonical_bout,
     canonical_slot,
+)
+
+# El script añade el repo hermano `ufc-picks-scraper` a sys.path y lo importa.
+# Donde no está clonado al lado (la CI) no hay nada que reparar: se salta.
+repair = pytest.importorskip(
+    "scripts.repair_paris_result_methods",
+    reason="requiere el repo ufc-picks-scraper clonado junto a este",
 )
 
 
