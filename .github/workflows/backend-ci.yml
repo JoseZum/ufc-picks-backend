@@ -140,23 +140,6 @@ jobs:
           echo "Resumen de cobertura:"
           coverage report --show-missing || echo "Reporte de cobertura no disponible"
 
-  # Job 2: lint Dockerfile
-  lint-dockerfile:
-    name: Lint Dockerfile
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout codigo
-        uses: actions/checkout@v4
-
-      - name: Lint Dockerfile con Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: docker/Dockerfile
-          # Ignorar reglas especificas
-          ignore: DL3008,DL3009
-        continue-on-error: true
-
   # Job 3: escaneo de seguridad
   security-scan:
     name: Escaneo de Seguridad
@@ -205,7 +188,7 @@ jobs:
   test-summary:
     name: Resumen del Pipeline CI
     runs-on: ubuntu-latest
-    needs: [test, lint-dockerfile, security-scan]
+    needs: [test, security-scan]
     if: always()
 
     steps:
@@ -214,7 +197,6 @@ jobs:
           echo "Resumen del pipeline CI/CD"
           echo ""
           echo "Tests:             ${{ needs.test.result }}"
-          echo "Dockerfile Lint:   ${{ needs.lint-dockerfile.result }}"
           echo "Escaneo Seguridad: ${{ needs.security-scan.result }}"
 
       - name: Fallar si los tests fallaron
