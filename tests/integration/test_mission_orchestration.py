@@ -294,6 +294,78 @@ async def test_finalization_folds_the_event_into_an_active_month(test_db, card):
     assert summary["resolved_bouts"] == 6
 
 
+async def test_september_oracle_recovers_a_pre_activation_card_once(test_db, card):
+    """A replay credits the winner alone even if September opened after the card."""
+    event_date = datetime(2026, 9, 5, 18, tzinfo=UTC)
+    activation_date = event_date + timedelta(hours=5, minutes=23)
+    await test_db["events"].update_one(
+        {"id": EVENT_ID},
+        {"$set": {"date": event_date, "card_data_v1.official_date": event_date}},
+    )
+    catalog = load_monthly_catalog()
+    config = MonthlyConfigService(
+        test_db, catalog=catalog, clock=lambda: event_date - timedelta(days=1)
+    )
+    await config.create_draft(month_key="2026-09", mission_id="MONTH-V2-006")
+    await test_db["picks"].insert_many([
+        {
+            "user_id": user_id,
+            "event_id": EVENT_ID,
+            "bout_id": 88100,
+            "picked_fighter_id": f"fighter-88100-{corner}",
+            # The actual result is red, KO/TKO, round 1.
+            "picked_method": "SUB",
+            "picked_round": 2,
+        }
+        for user_id, corner in ((USER, "red"), ("wrong-headliner-user", "blue"))
+    ])
+    for index in range(6):
+        await resolve(test_db, index)
+    trigger = MissionTriggerService(test_db, clock=lambda: activation_date)
+    initial = await trigger.on_bout_result(
+        event_id=EVENT_ID, bout_id=88100, result_revision=1
+    )
+    assert initial.errors == ()
+    assert initial.card_finalized is True
+    assert initial.monthly_updates == 0
+
+    await MonthlyConfigService(
+        test_db, catalog=catalog, clock=lambda: activation_date
+    ).activate(month_key="2026-09")
+
+    for _ in range(2):
+        outcome = await trigger.on_bout_result(
+            event_id=EVENT_ID, bout_id=88100, result_revision=1
+        )
+        assert outcome.errors == ()
+        assert outcome.monthly_updates == 2
+
+    progress = await test_db["mission_monthly_progress"].find_one(
+        {"user_id": USER, "month_key": "2026-09"}
+    )
+    assert progress["observed_value"] == 1
+    assert progress["progress_percent"] == 33
+    assert len(progress["event_summaries"]) == 1
+    summary = progress["event_summaries"][str(EVENT_ID)]
+    assert summary["main_event_correct"] is True
+    assert summary["pick_points"] == 1
+    assert summary["perfect_picks"] == 0
+    reader = MissionReadService(
+        test_db, offer_secret=OFFER_SECRET, clock=lambda: activation_date
+    )
+    monthly = await reader._monthly_for_month(USER, "2026-09")
+    assert monthly.progress_text == "1 / 3 headliners"
+    assert monthly.progress_percent == 33
+    other = await reader._monthly_for_month("wrong-headliner-user", "2026-09")
+    assert other.progress_text == "0 / 3 headliners"
+    assert await test_db["mission_card_finalization_runs"].count_documents(
+        {"event_id": EVENT_ID}
+    ) == 1
+    assert await test_db["mission_xp_ledger"].count_documents(
+        {"source_type": "MONTHLY_MISSION"}
+    ) == 0
+
+
 async def test_a_month_that_is_not_active_absorbs_nothing(test_db, card):
     await pick_everything(test_db)
     await select_auto_mission(test_db)

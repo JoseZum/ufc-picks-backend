@@ -171,16 +171,16 @@ class MonthlyProgressService:
     ) -> MonthlyProgressResult | None:
         """Pliega un evento terminado en el mes del usuario y lo re-resuelve.
 
-        ``None`` si el mes no tiene configuración ACTIVE: una card fuera del
-        programa simplemente no aporta nada.
+        ``None`` si el mes no está configurado, sigue DRAFT o la fecha del
+        evento pertenece a otro mes. ACTIVE y CLOSED admiten resúmenes de
+        todo su mes calendario, incluso de antes de activar la misión.
         """
         config = await self.config_service.get(summary.month_key)
         if config is None or config.state == MonthlyConfigState.DRAFT:
             return None
 
-        # Un mes activado a medias solo cuenta lo de después de abrir; si no,
-        # una activación tardía plegaría retroactivamente cards de antes.
-        if not await self._is_within_activation(config, summary.event_id):
+        # La activación publica la misión; no recorta el mes que cubre.
+        if not await self._is_within_month(config, summary.event_id):
             return None
 
         definition = self._definition(config)
@@ -213,19 +213,19 @@ class MonthlyProgressService:
             replayed=False,
         )
 
-    async def _is_within_activation(self, config, event_id: int) -> bool:
-        """Si este evento ocurrió ya con el mes abierto.
+    async def _is_within_month(
+        self, config: MonthlyMissionConfig, event_id: int
+    ) -> bool:
+        """Si el evento pertenece al mes calendario de la misión.
 
         Un evento sin fecha resoluble se cuenta en vez de descartarse: perder
         el mes de un usuario por metadata faltante es el peor de los males.
+        En ese caso se conserva el mes declarado en el resumen.
         """
-        activated_at = getattr(config, "activated_at", None)
-        if activated_at is None:
-            return True
         moment = await self.event_moment(event_id)
         if moment is None:
             return True
-        return cast("bool", moment >= activated_at)
+        return month_key_for(moment) == config.month_key
 
     async def close_month(
         self,

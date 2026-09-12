@@ -281,15 +281,10 @@ async def test_two_users_progress_independently(active_month, test_db):
 # --------------------------------------------- activating a month part-way
 
 
-async def test_a_card_that_ran_before_activation_does_not_count(
+async def test_a_card_that_ran_before_activation_counts_for_its_calendar_month(
     active_month, test_db
 ):
-    """Activating August on the 14th must not retroactively score the 2nd.
-
-    Jose's case exactly: the month was opened late, and the cards that already
-    ran that month were played by people who had never been told the month
-    existed. Counting them would hand out progress nobody competed for.
-    """
+    """Activating August on the 14th still includes the August 2nd card."""
     _, progress = active_month(INSIDE)
     early_event = 70801
     await test_db["events"].delete_many({"id": early_event})
@@ -304,8 +299,11 @@ async def test_a_card_that_ran_before_activation_does_not_count(
         user_id=USER, summary=summary(early_event, 4)
     )
 
-    assert result is None, "an event from before activation contributes nothing"
-    assert await progress.get(user_id=USER, month_key="2026-08") is None
+    assert result is not None
+    assert result.status == MonthlyProgressStatus.COMPLETED
+    assert result.xp_delta == 15
+    stored = await progress.get(user_id=USER, month_key="2026-08")
+    assert str(early_event) in stored["event_summaries"]
 
 
 async def test_a_card_after_activation_counts_normally(active_month, test_db):
@@ -328,16 +326,10 @@ async def test_a_card_after_activation_counts_normally(active_month, test_db):
     assert str(late_event) in stored["event_summaries"]
 
 
-async def test_correcting_an_old_result_cannot_smuggle_the_card_back_in(
+async def test_correcting_a_pre_activation_event_replaces_its_monthly_summary(
     active_month, test_db
 ):
-    """The failure this really guards against.
-
-    A card from before activation is ignored today because it settled while the
-    month was still DRAFT. But an Admin correcting one of its results months
-    later re-fires the trigger with the month now ACTIVE, without an explicit
-    rule, that stale card would fold in at that moment.
-    """
+    """A pre-activation card counts once, including after a result correction."""
     _, progress = active_month(INSIDE)
     old_event = 70803
     await test_db["events"].delete_many({"id": old_event})
@@ -354,8 +346,68 @@ async def test_correcting_an_old_result_cannot_smuggle_the_card_back_in(
         user_id=USER, summary=summary(old_event, 5, revision=2)
     )
 
-    assert first is None
-    assert corrected is None, "a correction must not open a door the card lost"
+    replay = await progress.record_event_summary(
+        user_id=USER, summary=summary(old_event, 5, revision=2)
+    )
+
+    assert first.resolution.observation.value == 2
+    assert corrected.resolution.observation.value == 5
+    assert corrected.xp_delta == 15
+    assert replay.replayed is True
+    assert replay.xp_delta == 0
+    stored = await progress.get(user_id=USER, month_key="2026-08")
+    assert len(stored["event_summaries"]) == 1
+    assert await test_db["mission_xp_ledger"].count_documents(
+        {"user_id": USER, "source_type": "MONTHLY_MISSION"}
+    ) == 1
+
+
+@pytest.mark.parametrize(
+    ("event_date", "counts"),
+    [
+        (datetime(2026, 7, 31, 23, 59, 59, 999999, tzinfo=UTC), False),
+        (datetime(2026, 8, 1, tzinfo=UTC), True),
+        (datetime(2026, 8, 31, 23, 59, 59, 999999, tzinfo=UTC), True),
+        (datetime(2026, 9, 1, tzinfo=UTC), False),
+    ],
+)
+async def test_only_events_inside_the_calendar_month_count(
+    active_month, test_db, event_date, counts
+):
+    _, progress = active_month(INSIDE)
+    await test_db["events"].insert_one({"id": 70805, "date": event_date})
+
+    result = await progress.record_event_summary(
+        user_id=USER, summary=summary(70805, 2)
+    )
+
+    assert (result is not None) is counts
+    stored = await progress.get(user_id=USER, month_key="2026-08")
+    assert (stored is not None) is counts
+
+
+@pytest.mark.parametrize(
+    ("official_date", "legacy_date", "counts"),
+    [
+        ("2026-08-01T00:00:00Z", datetime(2026, 7, 31, tzinfo=UTC), True),
+        ("2026-09-01T00:00:00Z", datetime(2026, 8, 31, tzinfo=UTC), False),
+    ],
+)
+async def test_calendar_inclusion_prefers_the_official_card_date(
+    active_month, test_db, official_date, legacy_date, counts
+):
+    _, progress = active_month(INSIDE)
+    await test_db["events"].insert_one({
+        "id": 70806,
+        "date": legacy_date,
+        "card_data_v1": {"official_date": official_date},
+    })
+
+    result = await progress.record_event_summary(
+        user_id=USER, summary=summary(70806, 2)
+    )
+
+    assert (result is not None) is counts
 
 
 async def test_an_event_with_no_resolvable_date_still_counts(
