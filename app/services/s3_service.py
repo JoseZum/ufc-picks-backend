@@ -175,15 +175,6 @@ class S3Service:
         domain = self.settings.aws_cloudfront_domain.replace("https://", "").replace("http://", "")
         return domain not in example_domains
 
-    def get_event_poster_cloudfront_url(self, event_id: int) -> str | None:
-        """URL del poster subido a mano bajo `ufc-posters/`. No comprueba que
-        exista: devuelve None solo si falta CloudFront."""
-        if not self.is_cloudfront_configured():
-            return None
-
-        return self.get_cloudfront_url(f"ufc-posters/ufc{event_id}.jpeg")
-
-
 _s3_service_instance: S3Service | None = None
 
 
