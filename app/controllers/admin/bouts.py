@@ -108,68 +108,6 @@ async def cancel_bout(
     }
 
 
-# Fighter photo upload endpoint
-
-@router.delete("/bouts/{bout_id}")
-@limiter.limit("30/minute")
-async def delete_bout(
-    request: Request,
-    bout_id: int,
-    admin: CurrentAdmin,
-    db: Database
-):
-    """Borra la pelea de verdad, no la cancela: se van también sus picks, su
-    slot y su cuenta en el evento, y se recalculan las stats afectadas.
-
-    Solo administradores.
-    """
-    bout = await get_bout_or_404(db, bout_id)
-
-    event_id = bout.get("event_id")
-
-    # Recopilar usuarios afectados antes de eliminar picks
-    picks_cursor = db["picks"].find({"bout_id": bout_id})
-    picks = await picks_cursor.to_list(length=None)
-    users_affected = {pick["user_id"] for pick in picks}
-    picks_count = len(picks)
-
-    # Si tenía resultado, revertir puntos primero
-    if bout.get("result"):
-        points_service = PointsService(db)
-        await points_service.revert_points(bout_id)
-
-    # Eliminar todos los picks de esta pelea
-    await db["picks"].delete_many({"bout_id": bout_id})
-
-    # Eliminar el event_card_slot
-    await db["event_card_slots"].delete_one({"bout_id": bout_id})
-
-    # Eliminar el bout
-    await db["bouts"].delete_one({"id": bout_id})
-
-    # Actualizar total_bouts del evento
-    if event_id:
-        remaining_bouts = await db["bouts"].count_documents({"event_id": event_id})
-        await db["events"].update_one(
-            {"id": event_id},
-            {"$set": {"total_bouts": remaining_bouts}}
-        )
-
-    # Recalcular stats de usuarios afectados
-    points_service = PointsService(db)
-    for user_id in users_affected:
-        await points_service._update_user_stats(user_id)
-
-    return {
-        "success": True,
-        "message": f"Bout {bout_id} eliminado completamente",
-        "bout_id": bout_id,
-        "event_id": event_id,
-        "picks_deleted": picks_count,
-        "users_affected": len(users_affected)
-    }
-
-
 # Bout details endpoint
 
 @router.put("/bouts/{bout_id}/details")
