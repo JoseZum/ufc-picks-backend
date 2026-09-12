@@ -137,20 +137,6 @@ class PickRepository:
             return ""
         return " ".join(name.lower().strip().split())
 
-    def _methods_match(self, picked: str, actual: str) -> bool:
-        """Check if picked method matches actual result method."""
-        if not actual:
-            return picked == "DEC"
-
-        actual_upper = actual.upper()
-
-        if "KO" in actual_upper or "TKO" in actual_upper:
-            return picked == "KO/TKO"
-        elif "SUB" in actual_upper:
-            return picked == "SUB"
-        else:
-            return picked == "DEC"
-
     # Delete
 
     async def delete(self, pick_id: str) -> bool:

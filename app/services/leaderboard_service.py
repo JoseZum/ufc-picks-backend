@@ -11,11 +11,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.models.leaderboard import LeaderboardEntry
 
 
-class LeaderboardServiceError(Exception):
-    """Excepción base para errores del servicio de clasificación."""
-    pass
-
-
 class LeaderboardService:
     def __init__(self, db: AsyncDatabase):
         self.db = db
