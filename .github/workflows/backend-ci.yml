@@ -22,17 +22,10 @@ on:
       - 'pyproject.toml'
       - 'compose.test.yml'
       - '.github/workflows/backend-ci.yml'
+  # Sin filtro de paths: un check obligatorio que no llega a ejecutarse deja el
+  # PR bloqueado para siempre esperando un resultado que nunca aparece.
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'app/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'requirements.txt'
-      - 'requirements.test.lock.txt'
-      - 'pyproject.toml'
-      - 'compose.test.yml'
-      - '.github/workflows/backend-ci.yml'
   workflow_dispatch:
 
 # Cancelar ejecuciones previas en la misma rama
