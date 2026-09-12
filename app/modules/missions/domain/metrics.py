@@ -254,29 +254,6 @@ def _int_parameter(
     return value
 
 
-def _float_parameter(
-    request: MetricRequest,
-    name: str,
-    *,
-    default: float | None = None,
-    minimum: float = 0,
-    maximum: float = 1,
-) -> float:
-    value = request.parameters.get(name, default)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise MetricRegistryError(
-            MetricRegistryErrorCode.INVALID_PARAMETERS,
-            f"Metric {request.metric} requires numeric parameter {name}",
-        )
-    number = float(value)
-    if not minimum <= number <= maximum:
-        raise MetricRegistryError(
-            MetricRegistryErrorCode.INVALID_PARAMETERS,
-            f"Metric {request.metric} parameter {name} is outside its range",
-        )
-    return number
-
-
 def _bool_parameter(request: MetricRequest, name: str, *, default: bool = False) -> bool:
     value = request.parameters.get(name, default)
     if not isinstance(value, bool):
