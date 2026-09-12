@@ -246,32 +246,6 @@ def _merge_detail_fighters(detail_fighters: dict, bout_fighters: dict) -> dict:
     return merged
 
 
-class FighterResponse(BaseModel):
-    """Datos del peleador en el momento de la pelea."""
-    fighter_name: str
-    corner: str
-    nationality: str
-    record_at_fight: dict
-    ranking: dict | None = None
-    age_at_fight_years: int
-    height_cm: int | None = None
-    reach_cm: int | None = None
-    fighting_out_of: str | None = None
-    tapology_id: str | None = None
-    tapology_url: str | None = None
-    espn_id: str | None = None
-    espn_url: str | None = None
-    profile_image_url: str | None = None
-
-
-class BoutResultResponse(BaseModel):
-    """Resultado de la pelea."""
-    winner: str
-    method: str
-    round: int | None = None
-    time: str | None = None
-
-
 class BoutResponse(BaseModel):
     """Datos de la pelea devueltos por la API."""
     id: int

@@ -197,11 +197,6 @@ class SelectMissionRequest(MissionTransport):
     pick_patches: list[dict[str, Any]] = Field(default_factory=list, max_length=6)
 
 
-class MissionErrorResponse(MissionTransport):
-    code: str
-    message: str
-
-
 class MonthlyTemplateView(MissionTransport):
     """Una de las 18 plantillas revisadas, con los límites que Admin puede elegir."""
 
