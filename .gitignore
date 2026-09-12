@@ -188,7 +188,8 @@ nginx/
 docker/
 
 # Dev / test only — no van a producción
-compose.test.yml
 scripts/*
 !scripts/repair_paris_result_methods.py
+# La CI levanta el Mongo de test con estos dos.
+!scripts/ensure_test_mongo.py
 mission-planning/

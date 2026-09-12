@@ -1,0 +1,22 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    # Docker Desktop reclaims this container between runs on Windows; without a
+    # restart policy the suite fails with "Local MongoDB is unavailable".
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    # A named volume instead of tmpfs: the RAM-backed store grew under repeated
+    # suites and the replica-set config was lost on every restart.
+    volumes:
+      - mongo-test-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+volumes:
+  mongo-test-data:

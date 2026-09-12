@@ -42,18 +42,6 @@ jobs:
     name: Test Backend
     runs-on: ubuntu-latest
 
-    # Servicio de MongoDB para tests de integracion
-    services:
-      mongodb:
-        image: mongo:7.0
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout codigo
         uses: actions/checkout@v4
@@ -74,6 +62,14 @@ jobs:
           # Test and quality tools are pinned in the test lock. Do not
           # reinstall unpinned versions after this step.
 
+      # Las misiones usan transacciones, asi que Mongo tiene que ser replica
+      # set y no una instancia suelta. `services:` no deja pasar `--replSet` al
+      # proceso, y el compose de test ya monta exactamente esa topologia.
+      - name: Levantar MongoDB de test
+        run: |
+          docker compose -f compose.test.yml up -d --wait
+          python scripts/ensure_test_mongo.py
+
       - name: Linting (Ruff)
         run: ruff check app/ tests/ scripts/ --output-format=github
 
@@ -91,7 +87,8 @@ jobs:
       - name: Ejecutar todos los tests con cobertura
         env:
           # Variables de entorno para tests
-          MONGODB_URI: mongodb://localhost:27017
+          # 127.0.0.1 y no localhost: el compose publica solo en IPv4.
+          MONGODB_URI: mongodb://127.0.0.1:27017
           MONGODB_DB_NAME: ufc_picks_test
           JWT_SECRET: test-secret-key-for-ci-pipeline-only-min-32-chars
           JWT_ALGORITHM: HS256
