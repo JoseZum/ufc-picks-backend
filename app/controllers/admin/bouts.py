@@ -193,11 +193,6 @@ async def update_bout_details(
     slot_update: dict[str, Any] = {}
 
     if body.rounds_scheduled is not None:
-        if body.rounds_scheduled not in [3, 5]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="rounds_scheduled debe ser 3 o 5"
-            )
         bout_update["rounds_scheduled"] = body.rounds_scheduled
 
     if body.weight_class is not None:
@@ -210,11 +205,6 @@ async def update_bout_details(
         bout_update["is_bmf_title_fight"] = body.is_bmf_title_fight
 
     if body.card_section is not None:
-        if body.card_section not in ["main", "prelim", "early_prelim"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="card_section debe ser 'main', 'prelim' o 'early_prelim'"
-            )
         slot_update["card_section"] = body.card_section
 
     if body.order_overall is not None:
