@@ -1,7 +1,6 @@
 """Acceso a datos para la colección de picks."""
 
 from datetime import datetime
-from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -56,12 +55,6 @@ class PickRepository:
             "event_id": event_id
         }).sort("created_at", 1)
 
-        docs = await cursor.to_list(length=None)
-        return [Pick(**doc) for doc in docs]
-
-    async def get_picks_for_bout(self, bout_id: int) -> list[Pick]:
-        """Get all picks for a bout (community stats)."""
-        cursor = self.collection.find({"bout_id": bout_id})
         docs = await cursor.to_list(length=None)
         return [Pick(**doc) for doc in docs]
 
@@ -138,57 +131,6 @@ class PickRepository:
         )
         return result.modified_count
 
-    async def update_picks_for_bout(
-        self,
-        bout_id: int,
-        winner_name: str,
-        result_method: str,
-        result_round: int | None
-    ) -> int:
-        """
-        Batch update all picks for a bout after result.
-
-        Calculates scores based on scoring rules:
-        - Wrong fighter: 0 points
-        - Correct fighter only: 1 point
-        - Correct fighter + method: 2 points
-        - Correct fighter + method + round (non-DEC): 3 points
-
-        IMPORTANTE: La comparación se hace por NOMBRE del peleador normalizado.
-        """
-        updated = 0
-        winner_normalized = self._normalize_name(winner_name)
-
-        cursor = self.collection.find({"bout_id": bout_id})
-        async for doc in cursor:
-            pick = Pick(**doc)
-
-            picked_normalized = self._normalize_name(pick.picked_fighter_name)
-            is_correct = picked_normalized == winner_normalized
-
-            if not is_correct:
-                points = 0
-            else:
-                method_match = self._methods_match(pick.picked_method, result_method)
-
-                if pick.picked_method == "DEC":
-                    points = 2 if method_match else 1
-                else:
-                    if method_match and pick.picked_round == result_round:
-                        points = 3
-                    elif method_match:
-                        points = 2
-                    else:
-                        points = 1
-
-            await self.collection.update_one(
-                {"_id": pick.id},
-                {"$set": {"is_correct": is_correct, "points_awarded": points}}
-            )
-            updated += 1
-
-        return updated
-
     def _normalize_name(self, name: str) -> str:
         """Normalize name for comparison."""
         if not name:
@@ -220,77 +162,6 @@ class PickRepository:
         return result.deleted_count > 0
 
     # Stats
-
-    async def get_user_stats(self, user_id: str) -> dict:
-        """Get user statistics."""
-        pipeline: list[dict[str, Any]] = [
-            {"$match": {"user_id": user_id, "is_correct": {"$ne": None}}},
-            {
-                "$group": {
-                    "_id": None,
-                    "total_picks": {"$sum": 1},
-                    "correct_picks": {
-                        "$sum": {"$cond": ["$is_correct", 1, 0]}
-                    },
-                    "total_points": {"$sum": "$points_awarded"}
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "total_picks": 1,
-                    "correct_picks": 1,
-                    "total_points": 1,
-                    "accuracy": {
-                        "$cond": [
-                            {"$eq": ["$total_picks", 0]},
-                            0,
-                            {"$divide": ["$correct_picks", "$total_picks"]}
-                        ]
-                    }
-                }
-            }
-        ]
-
-        cursor = await self.collection.aggregate(pipeline)
-        results = await cursor.to_list(length=1)
-
-        if not results:
-            return {
-                "total_picks": 0,
-                "correct_picks": 0,
-                "accuracy": 0.0,
-                "total_points": 0
-            }
-
-        stats: dict[str, Any] = results[0]
-        return stats
-
-    async def get_bout_distribution(self, bout_id: int) -> dict:
-        """Get pick distribution for a bout by fighter name."""
-        pipeline: list[dict[str, Any]] = [
-            {"$match": {"bout_id": bout_id}},
-            {
-                "$group": {
-                    "_id": "$picked_fighter_name",
-                    "count": {"$sum": 1}
-                }
-            }
-        ]
-
-        cursor = await self.collection.aggregate(pipeline)
-        results = await cursor.to_list(length=None)
-
-        distribution: dict[str, Any] = {"total": 0, "fighters": {}}
-
-        for item in results:
-            fighter_name = item["_id"]
-            count = item["count"]
-            if fighter_name:
-                distribution["fighters"][fighter_name] = count
-            distribution["total"] += count
-
-        return distribution
 
     async def exists(self, user_id: str, bout_id: int) -> bool:
         """Check if user has a pick for a bout."""

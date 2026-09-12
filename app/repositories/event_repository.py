@@ -1,6 +1,6 @@
 """Acceso a datos para eventos y slots de cartelera."""
 
-from datetime import date, datetime
+from datetime import datetime
 
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
@@ -38,16 +38,6 @@ class EventRepository:
         except DuplicateKeyError:
             raise ValueError(f"Event with id {event.id} already exists") from None
 
-    async def create_card_slot(self, slot: EventCardSlot) -> EventCardSlot:
-        """Asigna una pelea a un slot de la cartelera"""
-        slot_dict = slot.model_dump(by_alias=True)
-
-        try:
-            await self.card_slots.insert_one(slot_dict)
-            return slot
-        except DuplicateKeyError:
-            raise ValueError(f"Card slot {slot.id} already exists") from None
-
     # Read
 
     async def get_by_id(self, event_id: int) -> Event | None:
@@ -81,42 +71,11 @@ class EventRepository:
 
         return [Event(**self._normalize_document(doc)) for doc in docs]
 
-    async def get_by_date_range(
-        self,
-        start_date: date,
-        end_date: date
-    ) -> list[Event]:
-        """Obtiene eventos en un rango de fechas"""
-        # MongoDB necesita datetime, no date
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-
-        cursor = self.collection.find({
-            "date": {
-                "$gte": start_dt,
-                "$lte": end_dt
-            }
-        }).sort("date", 1)
-
-        docs = await cursor.to_list(length=None)
-
-        return [Event(**self._normalize_document(doc)) for doc in docs]
-
     async def get_card_structure(self, event_id: int) -> list[EventCardSlot]:
         """Obtiene la estructura de cartelera en orden."""
         cursor = self.card_slots.find({
             "event_id": event_id
         }).sort("order_overall", 1)
-
-        docs = await cursor.to_list(length=None)
-        return [EventCardSlot(**doc) for doc in docs]
-
-    async def get_main_card_bouts(self, event_id: int) -> list[EventCardSlot]:
-        """Obtiene solo las peleas del main card"""
-        cursor = self.card_slots.find({
-            "event_id": event_id,
-            "card_section": "main"
-        }).sort("order_section", 1)
 
         docs = await cursor.to_list(length=None)
         return [EventCardSlot(**doc) for doc in docs]
@@ -135,14 +94,6 @@ class EventRepository:
 
         return Event(**result) if result else None
 
-    async def update_status(self, event_id: int, status: str) -> Event | None:
-        """Cambia el estado de un evento"""
-        return await self.update(event_id, {"status": status})
-
-    async def update_bout_count(self, event_id: int, total_bouts: int) -> Event | None:
-        """Actualiza el conteo de peleas"""
-        return await self.update(event_id, {"total_bouts": total_bouts})
-
     # Delete
 
     async def delete(self, event_id: int) -> bool:
@@ -150,23 +101,10 @@ class EventRepository:
         result = await self.collection.delete_one({"id": event_id})
         return result.deleted_count > 0
 
-    async def delete_card_slots(self, event_id: int) -> int:
-        """Elimina todos los slots de cartelera de un evento"""
-        result = await self.card_slots.delete_many({"event_id": event_id})
-        return result.deleted_count
-
     # Utility
 
     async def exists(self, event_id: int) -> bool:
         """Verifica si existe un evento"""
         count = await self.collection.count_documents({"id": event_id}, limit=1)
         return count > 0
-
-    async def count_upcoming(self) -> int:
-        """Cuenta eventos programados próximos"""
-        today = datetime.combine(date.today(), datetime.min.time())
-        return await self.collection.count_documents({
-            "status": "scheduled",
-            "date": {"$gte": today}
-        })
 
