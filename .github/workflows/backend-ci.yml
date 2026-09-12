@@ -39,14 +39,8 @@ permissions:
 jobs:
   # Job 1: tests y linting
   test:
-    name: Test Backend (Python ${{ matrix.python-version }})
+    name: Test Backend
     runs-on: ubuntu-latest
-
-    strategy:
-      # Match runtime.txt and the locally verified test baseline.
-      matrix:
-        python-version: ['3.11']
-      fail-fast: false
 
     # Servicio de MongoDB para tests de integracion
     services:
@@ -64,10 +58,11 @@ jobs:
       - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Configurar Python ${{ matrix.python-version }}
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          # Igual que runtime.txt, que es lo que corre en produccion.
+          python-version: '3.11'
           # Cache de pip para builds mas rapidos
           cache: 'pip'
           cache-dependency-path: requirements.test.lock.txt
@@ -112,30 +107,6 @@ jobs:
           AWS_S3_BUCKET: fake-bucket-for-testing
           AWS_REGION: us-east-1
           AWS_CLOUDFRONT_DOMAIN: fake.cloudfront.net
-        run: |
-          echo "Ejecutando todos los tests con cobertura..."
-          # -v: verbose
-          # --cov: cobertura de la carpeta app/
-          # --cov-report: generar reportes en XML y terminal
-          # -n auto: ejecutar tests en paralelo (usa todos los cores)
-          python -m pytest tests/ -v \
-            --cov=app \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            -n auto
-
-      - name: Subir cobertura a Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: coverage.xml
-          flags: backend
-          name: backend-coverage-py${{ matrix.python-version }}
-          fail_ci_if_error: false
-        continue-on-error: true
-
-      - name: Mostrar resumen de cobertura
-        if: always()
-        run: |
-          echo "Resumen de cobertura:"
-          coverage report --show-missing || echo "Reporte de cobertura no disponible"
+        # -n auto reparte los tests entre todos los cores del runner.
+        run: python -m pytest tests/ --cov=app --cov-report=term-missing -n auto
 
