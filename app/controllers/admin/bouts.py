@@ -66,10 +66,6 @@ async def cancel_bout(
         {"id": bout_id, "card_data_v1": {"$exists": True}},
         {"$set": {"card_data_v1.status": "cancelled"}}
     )
-    await db["event_card_slots"].update_one(
-        {"bout_id": bout_id},
-        {"$set": {"is_current": False}}
-    )
     # B-011: sin comando, la siguiente pasada de ESPN vuelve a listar el bout y
     # el `status` canonico se recalcula como programado.
     actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
@@ -151,12 +147,6 @@ async def update_bout_details(
     if body.order_section is not None:
         slot_update["order_section"] = body.order_section
 
-    if body.is_main_event is not None:
-        slot_update["is_main_event"] = body.is_main_event
-
-    if body.is_co_main is not None:
-        slot_update["is_co_main"] = body.is_co_main
-
     if not bout_update and not slot_update:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,20 +195,19 @@ async def update_bout_details(
 
     # Actualizar campos del card_slot
     if slot_update:
-        result = await db["event_card_slots"].update_one(
-            {"bout_id": bout_id},
-            {"$set": slot_update}
+        actor_id = str(getattr(admin, "id", "") or getattr(admin, "google_id", ""))
+        command_values = structure_values(**slot_update)
+        await record_admin_command(
+            db,
+            kind="bout_structure",
+            event_id=int(bout["event_id"]),
+            bout_id=bout_id,
+            actor_id=actor_id,
+            reason="Admin card structure decision",
+            values=command_values,
         )
-        if result.modified_count > 0:
-            updated_fields.extend(list(slot_update.keys()))
+        updated_fields.extend(list(command_values.keys()))
 
-        # B-011 queda abierto a propósito para la estructura de la card. Este
-        # `$set` lo pisa el reconciler, dueño de `event_card_slots`. Emitir un
-        # comando `bout_structure` no lo arregla: ESPN manda `card_section`
-        # como hecho (no advisory como el título), así el override contradice
-        # cada pasada y el plan sale con `safe_to_apply=false` sin converger.
-        # Cambiaría un fallo silencioso por uno que bloquea la card entera:
-        # antes hay que decidir cómo convergen Admin y ESPN en la frontera.
 
     return {
         "success": True,

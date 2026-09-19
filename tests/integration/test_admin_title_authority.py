@@ -243,32 +243,56 @@ async def test_an_unsupported_command_kind_is_a_programming_error(test_db):
 # ------------------------------ B-011: the other canonical writes, made durable
 
 
-async def test_a_structure_edit_deliberately_records_no_command_yet(
+async def test_a_structure_edit_records_a_command_without_touching_the_slot(
     client, admin_headers, test_db, bout
 ):
-    """B-011 stays open for card structure, on purpose.
-
-    ESPN emits `card_section` as a fact rather than an advisory signal, so an
-    Admin override contradicts it every pass: the plan comes back
-    `safe_to_apply=false` with quarantines and never converges. Emitting the
-    command here would turn a silent revert into a blocked card.
-    """
     await test_db["admin_card_commands"].delete_many({})
     await test_db["event_card_slots"].delete_many({"bout_id": BOUT_ID})
     await test_db["event_card_slots"].insert_one(
         {"_id": f"{EVENT_ID}:{BOUT_ID}", "event_id": EVENT_ID, "bout_id": BOUT_ID,
-         "card_section": "prelim", "order_overall": 5, "is_current": True}
+         "card_section": "prelim", "order_overall": 5, "order_section": 2,
+         "is_main_event": False, "is_co_main": True, "is_current": True,
+         "reconciliation_fingerprint": "sha256:old"}
     )
 
     response = await client.put(
         f"/admin/bouts/{BOUT_ID}/details",
         headers=admin_headers,
-        json={"card_section": "main", "order_overall": 1},
+        json={
+            "card_section": "main",
+            "order_overall": 1,
+            "order_section": 1,
+            "is_main_event": True,
+            "is_co_main": False,
+        },
     )
 
     assert response.status_code == 200, response.text
     slot = await test_db["event_card_slots"].find_one({"bout_id": BOUT_ID})
-    assert slot["card_section"] == "main", "the immediate edit still applies"
+    assert slot["card_section"] == "prelim"
+    assert slot["order_overall"] == 5
+    assert slot["reconciliation_fingerprint"] == "sha256:old"
+    command = await test_db["admin_card_commands"].find_one({"kind": "bout_structure"})
+    assert command["values"] == {
+        "card_section": "main",
+        "order_overall": 1,
+        "order_section": 1,
+    }
+
+
+async def test_derived_structure_flags_alone_are_not_reported_as_updated(
+    client, admin_headers, test_db, bout
+):
+    await test_db["admin_card_commands"].delete_many({})
+
+    response = await client.put(
+        f"/admin/bouts/{BOUT_ID}/details",
+        headers=admin_headers,
+        json={"is_main_event": True, "is_co_main": False},
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "Debes proporcionar al menos un campo para actualizar"
     assert await test_db["admin_card_commands"].count_documents(
         {"kind": "bout_structure"}
     ) == 0

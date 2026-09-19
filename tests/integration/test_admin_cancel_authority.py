@@ -101,7 +101,7 @@ async def legacy_bout(test_db):
     )
 
 
-async def test_cancelling_removes_the_bout_from_the_canonical_card(
+async def test_cancelling_marks_the_bout_without_touching_the_slot(
     client, admin_headers, test_db, canonical_bout
 ):
     response = await client.post(
@@ -115,7 +115,7 @@ async def test_cancelling_removes_the_bout_from_the_canonical_card(
     assert bout["card_data_v1"]["status"] == "cancelled"
 
     slot = await test_db["event_card_slots"].find_one({"bout_id": BOUT_ID})
-    assert slot["is_current"] is False
+    assert slot["is_current"] is True
 
 
 async def test_cancelling_records_both_commands_so_the_scraper_cannot_revive_it(

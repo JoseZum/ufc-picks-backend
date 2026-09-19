@@ -41,8 +41,6 @@ class UpdateBoutDetailsRequest(BaseModel):
     card_section: Literal["main", "prelim", "early_prelim"] | None = None
     order_overall: int | None = None
     order_section: int | None = None
-    is_main_event: bool | None = None
-    is_co_main: bool | None = None
 
 
 # Event art endpoints

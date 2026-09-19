@@ -131,6 +131,7 @@ def structure_values(
     *,
     card_section: str | None = None,
     order_overall: int | None = None,
+    order_section: int | None = None,
     is_current: bool | None = None,
 ) -> dict:
     """The `bout_structure` payload: slot section, order and currency.
@@ -144,6 +145,8 @@ def structure_values(
         values["card_section"] = card_section
     if isinstance(order_overall, int) and order_overall > 0:
         values["order_overall"] = order_overall
+    if isinstance(order_section, int) and order_section > 0:
+        values["order_section"] = order_section
     if isinstance(is_current, bool):
         values["is_current"] = is_current
     return values
